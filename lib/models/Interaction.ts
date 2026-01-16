@@ -46,6 +46,14 @@ Interaction.init(
     resultsSummary: {
       type: DataTypes.STRING(240),
       allowNull: false
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: false
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      allowNull: false
     }
   },
   {
