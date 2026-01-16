@@ -60,7 +60,7 @@ export async function POST(request: Request) {
       temperature: 0.6
     });
 
-    console.log("OpenAI response:", completion);
+    console.log("OpenAI response:", JSON.stringify(completion, null, 2));
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
