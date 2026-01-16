@@ -13,7 +13,7 @@ let initialization: Promise<void> | null = null;
 
 export const initializeDatabase = async () => {
   if (!initialization) {
-    initialization = sequelize.sync();
+    initialization = sequelize.sync().then(() => undefined);
   }
   await initialization;
 };
