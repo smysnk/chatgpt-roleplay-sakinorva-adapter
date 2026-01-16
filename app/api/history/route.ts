@@ -8,15 +8,31 @@ export async function GET() {
   await initializeDatabase();
   const interactions = await Interaction.findAll({
     order: [["createdAt", "DESC"]],
-    attributes: ["id", "character", "context", "resultsSummary", "createdAt"]
+    attributes: [
+      "id",
+      "slug",
+      "character",
+      "context",
+      "grantType",
+      "secondType",
+      "thirdType",
+      "axisType",
+      "myersType",
+      "createdAt"
+    ]
   });
 
   return NextResponse.json({
     items: interactions.map((interaction) => ({
-      id: interaction.id,
+      id: interaction.id.toString(),
+      slug: interaction.slug,
       character: interaction.character,
       context: interaction.context,
-      resultsSummary: interaction.resultsSummary,
+      grantType: interaction.grantType,
+      secondType: interaction.secondType,
+      thirdType: interaction.thirdType,
+      axisType: interaction.axisType,
+      myersType: interaction.myersType,
       createdAt: interaction.createdAt
     }))
   });

@@ -3,18 +3,19 @@ import { initializeDatabase } from "@/lib/db";
 import { initializeInteractionModel, Interaction } from "@/lib/models/Interaction";
 import { SAKINORVA_RESULTS_CSS } from "@/lib/sakinorvaStyles";
 
-type RouteContext = {
-  params: {
-    id: string;
-  };
-};
-
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(
+  _request: Request,
+  { params }: { params: { slug: string } }
+) {
   initializeInteractionModel();
   await initializeDatabase();
-  const interaction = await Interaction.findByPk(context.params.id);
+
+  const interaction = await Interaction.findOne({
+    where: { slug: params.slug }
+  });
+
   if (!interaction) {
-    return NextResponse.json({ error: "Interaction not found." }, { status: 404 });
+    return NextResponse.json({ error: "Run not found." }, { status: 404 });
   }
 
   return NextResponse.json({

@@ -24,6 +24,14 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
+const slugify = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "")
+    .slice(0, 60);
+
 const extractSummary = (htmlFragment: string) => {
   const $ = cheerio.load(htmlFragment);
   const summary = $.text().replace(/\s+/g, " ").trim();
@@ -31,6 +39,63 @@ const extractSummary = (htmlFragment: string) => {
     return "Summary unavailable.";
   }
   return summary.length > 220 ? `${summary.slice(0, 217)}...` : summary;
+};
+
+const parseScore = (value: string) => {
+  const match = value.match(/-?\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : null;
+};
+
+const extractResultMetadata = (htmlFragment: string) => {
+  const $ = cheerio.load(htmlFragment);
+  const metadata: {
+    grantType: string | null;
+    secondType: string | null;
+    thirdType: string | null;
+    axisType: string | null;
+    myersType: string | null;
+    functionScores: Record<string, number>;
+  } = {
+    grantType: null,
+    secondType: null,
+    thirdType: null,
+    axisType: null,
+    myersType: null,
+    functionScores: {}
+  };
+
+  $(".row").each((_, row) => {
+    const spans = $(row).find("span");
+    if (spans.length < 2) {
+      return;
+    }
+    const label = $(spans[0]).text().trim();
+    const valueText = $(spans[spans.length - 1]).text().trim();
+    const labelLower = label.toLowerCase();
+
+    if (!metadata.grantType && labelLower.includes("grant")) {
+      metadata.grantType = valueText || null;
+    } else if (!metadata.secondType && /(2nd|second)/i.test(labelLower)) {
+      metadata.secondType = valueText || null;
+    } else if (!metadata.thirdType && /(3rd|third)/i.test(labelLower)) {
+      metadata.thirdType = valueText || null;
+    } else if (!metadata.axisType && labelLower.includes("axis")) {
+      metadata.axisType = valueText || null;
+    } else if (!metadata.myersType && labelLower.includes("myers")) {
+      metadata.myersType = valueText || null;
+    }
+
+    const functionMatch = label.match(/^(Te|Ti|Fe|Fi|Ne|Ni|Se|Si)$/i);
+    if (functionMatch) {
+      const score = parseScore(valueText);
+      if (score !== null) {
+        const normalizedKey = `${functionMatch[0][0].toUpperCase()}${functionMatch[0][1].toLowerCase()}`;
+        metadata.functionScores[normalizedKey] = score;
+      }
+    }
+  });
+
+  return metadata;
 };
 
 export async function POST(request: Request) {
@@ -109,20 +174,39 @@ export async function POST(request: Request) {
 
     const resultsHtmlFragment = $.html(results);
     const resultsSummary = extractSummary(resultsHtmlFragment);
+    const metadata = extractResultMetadata(resultsHtmlFragment);
+    const slugBase = slugify(payload.character);
+    const slug = `${slugBase || "run"}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
     initializeInteractionModel();
     await initializeDatabase();
     const interaction = await Interaction.create({
+      slug,
       character: payload.character,
       context: payload.context || null,
       answers,
       explanations,
       resultsHtmlFragment,
-      resultsSummary
+      resultsSummary,
+      grantType: metadata.grantType,
+      secondType: metadata.secondType,
+      thirdType: metadata.thirdType,
+      axisType: metadata.axisType,
+      myersType: metadata.myersType,
+      functionScores: Object.keys(metadata.functionScores).length ? metadata.functionScores : null
     });
 
     return NextResponse.json({
       historyId: interaction.id,
+      slug: interaction.slug,
+      character: interaction.character,
+      context: interaction.context,
+      grantType: interaction.grantType,
+      secondType: interaction.secondType,
+      thirdType: interaction.thirdType,
+      axisType: interaction.axisType,
+      myersType: interaction.myersType,
+      createdAt: interaction.createdAt,
       answers,
       explanations,
       formBody: params.toString(),

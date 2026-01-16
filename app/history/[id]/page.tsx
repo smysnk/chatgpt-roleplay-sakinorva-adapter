@@ -68,7 +68,7 @@ export default function HistoryDetailPage() {
         const response = await fetch(`/api/history/${params.id}`);
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
-          throw new Error(payload?.error ?? "Failed to load saved results.");
+          throw new Error(payload?.error ?? "Failed to load run details.");
         }
         const payload = (await response.json()) as HistoryDetail;
         if (active) {
@@ -103,7 +103,7 @@ export default function HistoryDetailPage() {
     <main>
       <div className="grid two">
         <div className="app-card">
-          <h2>Saved Results</h2>
+          <h2>Run</h2>
           {data ? (
             <p className="helper">
               Generated for <strong>{data.character}</strong>
@@ -111,7 +111,7 @@ export default function HistoryDetailPage() {
             </p>
           ) : null}
           {loading ? (
-            <p style={{ marginTop: "20px" }}>Loading saved results…</p>
+            <p style={{ marginTop: "20px" }}>Loading run…</p>
           ) : error ? (
             <div className="error">{error}</div>
           ) : data ? (

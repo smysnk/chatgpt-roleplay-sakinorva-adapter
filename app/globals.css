@@ -6,6 +6,18 @@
   --muted: #9aa3b2;
   --accent: #d6b25a;
   --accent-soft: rgba(214, 178, 90, 0.15);
+  --func-fe: #e45b6f;
+  --func-fi: #a05cff;
+  --func-te: #4b8bff;
+  --func-ti: #3cc7ff;
+  --func-ne: #41d89d;
+  --func-ni: #2fb36f;
+  --func-se: #f1b44b;
+  --func-si: #d98b3a;
+  --letter-f: linear-gradient(135deg, #e45b6f, #a05cff);
+  --letter-t: linear-gradient(135deg, #4b8bff, #3cc7ff);
+  --letter-n: linear-gradient(135deg, #41d89d, #2fb36f);
+  --letter-s: linear-gradient(135deg, #f1b44b, #d98b3a);
 }
 
 * {
@@ -104,9 +116,22 @@ a {
   gap: 20px;
 }
 
+.stack {
+  display: grid;
+  gap: 24px;
+}
+
+.form-grid {
+  display: grid;
+  gap: 20px;
+}
+
 @media (min-width: 900px) {
   .grid.two {
     grid-template-columns: 1.1fr 1fr;
+  }
+  .form-grid {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   }
 }
 
@@ -254,11 +279,189 @@ a {
 }
 
 .data-table tbody tr {
-  cursor: pointer;
   transition: background 0.15s ease;
 }
 
-.data-table tbody tr:hover,
-.data-table tbody tr:focus {
+.data-table tbody tr.is-clickable {
+  cursor: pointer;
+}
+
+.data-table tbody tr.is-clickable:hover,
+.data-table tbody tr.is-clickable:focus {
   background: rgba(214, 178, 90, 0.1);
+}
+
+.data-table tbody tr.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(214, 178, 90, 0.6);
+  background: rgba(214, 178, 90, 0.15);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #f5f7fb;
+}
+
+.badge.muted {
+  border-color: rgba(154, 163, 178, 0.4);
+  background: rgba(154, 163, 178, 0.15);
+  color: var(--muted);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(15, 17, 21, 0.7);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #f5f7fb;
+}
+
+.status-pill.running {
+  border-color: rgba(214, 178, 90, 0.6);
+  background: rgba(214, 178, 90, 0.15);
+  color: var(--accent);
+}
+
+.status-pill.error {
+  border-color: rgba(231, 76, 60, 0.6);
+  background: rgba(231, 76, 60, 0.2);
+  color: #ffb3a8;
+}
+
+.type-badges {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.type-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: #0b0d12;
+}
+
+.type-letter.f {
+  background: var(--letter-f);
+}
+
+.type-letter.t {
+  background: var(--letter-t);
+}
+
+.type-letter.n {
+  background: var(--letter-n);
+}
+
+.type-letter.s {
+  background: var(--letter-s);
+}
+
+.type-letter.e,
+.type-letter.i,
+.type-letter.j,
+.type-letter.p {
+  background: #2b3242;
+  color: #f5f7fb;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 8, 12, 0.85);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 24px;
+  overflow-y: auto;
+  z-index: 20;
+}
+
+.modal-card {
+  width: min(1200px, 95vw);
+  background: #0f131c;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  padding: 24px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.modal-body {
+  margin-top: 16px;
+}
+
+.function-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.function-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #0b0d12;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.function-te {
+  background: var(--func-te);
+}
+
+.function-ti {
+  background: var(--func-ti);
+}
+
+.function-fe {
+  background: var(--func-fe);
+}
+
+.function-fi {
+  background: var(--func-fi);
+}
+
+.function-ne {
+  background: var(--func-ne);
+}
+
+.function-ni {
+  background: var(--func-ni);
+}
+
+.function-se {
+  background: var(--func-se);
+}
+
+.function-si {
+  background: var(--func-si);
 }

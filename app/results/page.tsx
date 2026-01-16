@@ -42,6 +42,7 @@ const sanitizeHtml = (input: string) => {
 
 type ResultsPayload = {
   historyId: number;
+  slug: string;
   answers: number[];
   explanations: string[];
   formBody: string;
@@ -149,9 +150,9 @@ function Page() {
             <button className="button secondary" type="button" onClick={handleCopy} disabled={!data}>
               Copy form body
             </button>
-            {data?.historyId ? (
-              <Link className="button secondary" href={`/history/${data.historyId}`}>
-                View saved results
+            {data?.slug ? (
+              <Link className="button secondary" href={`/sakinorva/${data.slug}`}>
+                View run
               </Link>
             ) : null}
             <Link className="button secondary" href="/">
