@@ -7,7 +7,11 @@ type HistoryItem = {
   id: number;
   character: string;
   context: string | null;
-  resultsSummary: string;
+  gft: string | null;
+  second: string | null;
+  third: string | null;
+  axis: string | null;
+  myers: string | null;
   createdAt: string;
 };
 
@@ -81,7 +85,7 @@ export default function HomePage() {
 
   return (
     <main>
-      <div className="grid two">
+      <div className="grid">
         <div className="app-card">
           <h1>Run the Sakinorva test as a character</h1>
           <p className="helper">
@@ -89,31 +93,33 @@ export default function HomePage() {
             figure, submit it to the official test, and review the results.
           </p>
           <form onSubmit={handleSubmit} className="grid" style={{ marginTop: "24px" }}>
-            <div>
-              <label className="label" htmlFor="character">
-                Character
-              </label>
-              <input
-                id="character"
-                className="input"
-                value={character}
-                onChange={(event) => setCharacter(event.target.value)}
-                placeholder="Sherlock Holmes"
-                maxLength={MAX_LENGTH}
-                required
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="context">
-                Context / portrayal notes (optional)
-              </label>
-              <textarea
-                id="context"
-                className="textarea"
-                value={context}
-                onChange={(event) => setContext(event.target.value)}
-                placeholder="BBC Sherlock S2–S3, Original Trilogy only, etc."
-              />
+            <div className="grid form-grid">
+              <div>
+                <label className="label" htmlFor="character">
+                  Character
+                </label>
+                <input
+                  id="character"
+                  className="input"
+                  value={character}
+                  onChange={(event) => setCharacter(event.target.value)}
+                  placeholder="Sherlock Holmes"
+                  maxLength={MAX_LENGTH}
+                  required
+                />
+              </div>
+              <div>
+                <label className="label" htmlFor="context">
+                  Context / portrayal notes (optional)
+                </label>
+                <textarea
+                  id="context"
+                  className="textarea"
+                  value={context}
+                  onChange={(event) => setContext(event.target.value)}
+                  placeholder="BBC Sherlock S2–S3, Original Trilogy only, etc."
+                />
+              </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
               <button type="submit" className="button" disabled={submitting}>
@@ -140,7 +146,11 @@ export default function HomePage() {
                   <tr>
                     <th>Character</th>
                     <th>Context</th>
-                    <th>Summary</th>
+                    <th>GFT</th>
+                    <th>2nd</th>
+                    <th>3rd</th>
+                    <th>Axis</th>
+                    <th>Myers</th>
                     <th>Ran</th>
                   </tr>
                 </thead>
@@ -159,8 +169,19 @@ export default function HomePage() {
                       }}
                     >
                       <td>{item.character}</td>
-                      <td>{item.context || "—"}</td>
-                      <td>{item.resultsSummary}</td>
+                      <td>
+                        <span
+                          className={`context-badge ${item.context ? "" : "muted"}`}
+                          title={item.context || "No context provided."}
+                        >
+                          Context
+                        </span>
+                      </td>
+                      <td>{item.gft || "—"}</td>
+                      <td>{item.second || "—"}</td>
+                      <td>{item.third || "—"}</td>
+                      <td>{item.axis || "—"}</td>
+                      <td>{item.myers || "—"}</td>
                       <td>{formatDate(item.createdAt)}</td>
                     </tr>
                   ))}

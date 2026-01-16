@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { initializeDatabase } from "@/lib/db";
 import { initializeInteractionModel, Interaction } from "@/lib/models/Interaction";
 import { SAKINORVA_RESULTS_CSS } from "@/lib/sakinorvaStyles";
+import { decorateResultsHtml } from "@/lib/sakinorva";
 
 type RouteContext = {
   params: {
@@ -23,7 +24,7 @@ export async function GET(_request: Request, context: RouteContext) {
     context: interaction.context,
     answers: interaction.answers,
     explanations: interaction.explanations,
-    resultsHtmlFragment: interaction.resultsHtmlFragment,
+    resultsHtmlFragment: decorateResultsHtml(interaction.resultsHtmlFragment),
     resultsCss: SAKINORVA_RESULTS_CSS,
     createdAt: interaction.createdAt
   });

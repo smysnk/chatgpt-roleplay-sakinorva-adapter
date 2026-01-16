@@ -6,6 +6,7 @@ import { QUESTIONS } from "@/lib/questions";
 import { SAKINORVA_RESULTS_CSS } from "@/lib/sakinorvaStyles";
 import { initializeDatabase } from "@/lib/db";
 import { initializeInteractionModel, Interaction } from "@/lib/models/Interaction";
+import { decorateResultsHtml, extractSummary } from "@/lib/sakinorva";
 
 const ANSWER_SCHEMA = z.object({
   answers: z.array(z.number().int().min(1).max(5)).length(96),
@@ -23,15 +24,6 @@ const userAgent =
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
-
-const extractSummary = (htmlFragment: string) => {
-  const $ = cheerio.load(htmlFragment);
-  const summary = $.text().replace(/\s+/g, " ").trim();
-  if (!summary) {
-    return "Summary unavailable.";
-  }
-  return summary.length > 220 ? `${summary.slice(0, 217)}...` : summary;
-};
 
 export async function POST(request: Request) {
   try {
@@ -107,7 +99,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Could not find results block in response." }, { status: 502 });
     }
 
-    const resultsHtmlFragment = $.html(results);
+    const resultsHtmlFragment = decorateResultsHtml($.html(results));
     const resultsSummary = extractSummary(resultsHtmlFragment);
 
     initializeInteractionModel();
