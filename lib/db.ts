@@ -3,19 +3,28 @@ import { Sequelize } from "sequelize";
 
 const storagePath = process.env.SQLITE_STORAGE ?? path.join(process.cwd(), "data.sqlite");
 
-const sequelize = new Sequelize({
-  dialect: "sqlite",
-  storage: storagePath,
-  logging: false
-});
+let sequelize: Sequelize | null = null;
 
 let initialization: Promise<void> | null = null;
 
+export const getSequelize = () => {
+  if (!sequelize) {
+    sequelize = new Sequelize({
+      dialect: "sqlite",
+      storage: storagePath,
+      logging: false
+    });
+  }
+  return sequelize;
+};
+
 export const initializeDatabase = async () => {
   if (!initialization) {
-    initialization = sequelize.sync().then(() => undefined);
+    initialization = getSequelize()
+      .sync()
+      .then(() => undefined);
   }
   await initialization;
 };
 
-export default sequelize;
+export default getSequelize;

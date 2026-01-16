@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { initializeDatabase } from "@/lib/db";
-import { Interaction } from "@/lib/models/Interaction";
+import { initializeInteractionModel, Interaction } from "@/lib/models/Interaction";
 import { SAKINORVA_RESULTS_CSS } from "@/lib/sakinorvaStyles";
 
 type RouteContext = {
@@ -10,6 +10,7 @@ type RouteContext = {
 };
 
 export async function GET(_request: Request, context: RouteContext) {
+  initializeInteractionModel();
   await initializeDatabase();
   const interaction = await Interaction.findByPk(context.params.id);
   if (!interaction) {

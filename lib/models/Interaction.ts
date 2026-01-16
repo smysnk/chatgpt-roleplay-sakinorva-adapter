@@ -1,5 +1,5 @@
 import { CreationOptional, DataTypes, InferAttributes, InferCreationAttributes, Model } from "sequelize";
-import sequelize from "@/lib/db";
+import { getSequelize } from "@/lib/db";
 
 export class Interaction extends Model<
   InferAttributes<Interaction>,
@@ -16,48 +16,56 @@ export class Interaction extends Model<
   declare updatedAt: CreationOptional<Date>;
 }
 
-Interaction.init(
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true
-    },
-    character: {
-      type: DataTypes.STRING(80),
-      allowNull: false
-    },
-    context: {
-      type: DataTypes.STRING(500),
-      allowNull: true
-    },
-    answers: {
-      type: DataTypes.JSON,
-      allowNull: false
-    },
-    explanations: {
-      type: DataTypes.JSON,
-      allowNull: false
-    },
-    resultsHtmlFragment: {
-      type: DataTypes.TEXT,
-      allowNull: false
-    },
-    resultsSummary: {
-      type: DataTypes.STRING(240),
-      allowNull: false
-    },
-    createdAt: {
-      type: DataTypes.DATE,
-      allowNull: false
-    },
-    updatedAt: {
-      type: DataTypes.DATE,
-      allowNull: false
-    }
-  },
-  {
-    sequelize,
-    tableName: "interactions"
+let initialized = false;
+
+export const initializeInteractionModel = () => {
+  if (initialized) {
+    return;
   }
-);
+  Interaction.init(
+    {
+      id: {
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true
+      },
+      character: {
+        type: DataTypes.STRING(80),
+        allowNull: false
+      },
+      context: {
+        type: DataTypes.STRING(500),
+        allowNull: true
+      },
+      answers: {
+        type: DataTypes.JSON,
+        allowNull: false
+      },
+      explanations: {
+        type: DataTypes.JSON,
+        allowNull: false
+      },
+      resultsHtmlFragment: {
+        type: DataTypes.TEXT,
+        allowNull: false
+      },
+      resultsSummary: {
+        type: DataTypes.STRING(240),
+        allowNull: false
+      },
+      createdAt: {
+        type: DataTypes.DATE,
+        allowNull: false
+      },
+      updatedAt: {
+        type: DataTypes.DATE,
+        allowNull: false
+      }
+    },
+    {
+      sequelize: getSequelize(),
+      tableName: "interactions"
+    }
+  );
+  initialized = true;
+};

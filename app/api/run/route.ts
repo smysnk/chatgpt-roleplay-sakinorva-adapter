@@ -5,7 +5,7 @@ import * as cheerio from "cheerio";
 import { QUESTIONS } from "@/lib/questions";
 import { SAKINORVA_RESULTS_CSS } from "@/lib/sakinorvaStyles";
 import { initializeDatabase } from "@/lib/db";
-import { Interaction } from "@/lib/models/Interaction";
+import { initializeInteractionModel, Interaction } from "@/lib/models/Interaction";
 
 const ANSWER_SCHEMA = z.object({
   answers: z.array(z.number().int().min(1).max(5)).length(96),
@@ -108,6 +108,7 @@ export async function POST(request: Request) {
     const resultsHtmlFragment = $.html(results);
     const resultsSummary = extractSummary(resultsHtmlFragment);
 
+    initializeInteractionModel();
     await initializeDatabase();
     const interaction = await Interaction.create({
       character: payload.character,

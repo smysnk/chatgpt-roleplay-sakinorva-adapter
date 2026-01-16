@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { initializeDatabase } from "@/lib/db";
-import { Interaction } from "@/lib/models/Interaction";
+import { initializeInteractionModel, Interaction } from "@/lib/models/Interaction";
 
 export async function GET() {
+  initializeInteractionModel();
   await initializeDatabase();
   const interactions = await Interaction.findAll({
     order: [["createdAt", "DESC"]],
