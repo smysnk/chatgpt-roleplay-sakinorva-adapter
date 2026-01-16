@@ -1,19 +1,19 @@
-import { DataTypes, InferAttributes, InferCreationAttributes, Model } from "sequelize";
+import { CreationOptional, DataTypes, InferAttributes, InferCreationAttributes, Model } from "sequelize";
 import sequelize from "@/lib/db";
 
 export class Interaction extends Model<
   InferAttributes<Interaction>,
   InferCreationAttributes<Interaction>
 > {
-  declare id: number;
+  declare id: CreationOptional<number>;
   declare character: string;
-  declare context: string | null;
+  declare context: CreationOptional<string | null>;
   declare answers: number[];
   declare explanations: string[];
   declare resultsHtmlFragment: string;
   declare resultsSummary: string;
-  declare createdAt: Date;
-  declare updatedAt: Date;
+  declare createdAt: CreationOptional<Date>;
+  declare updatedAt: CreationOptional<Date>;
 }
 
 Interaction.init(
