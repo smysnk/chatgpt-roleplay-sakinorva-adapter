@@ -4,41 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { QUESTIONS } from "@/lib/questions";
-
-
-const sanitizeHtml = (input: string) => {
-  if (typeof window === "undefined") {
-    return "";
-  }
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(input, "text/html");
-  const allowedTags = new Set(["DIV", "SPAN", "STYLE"]);
-  const allowedAttrs = new Set(["class", "id"]);
-
-  const walk = (node: Element) => {
-    Array.from(node.children).forEach((child) => {
-      if (!allowedTags.has(child.tagName)) {
-        child.remove();
-        return;
-      }
-      Array.from(child.attributes).forEach((attr) => {
-        if (!allowedAttrs.has(attr.name)) {
-          child.removeAttribute(attr.name);
-        }
-        if (attr.name.startsWith("on")) {
-          child.removeAttribute(attr.name);
-        }
-      });
-      walk(child);
-    });
-  };
-
-  if (doc.body) {
-    walk(doc.body);
-  }
-
-  return doc.body?.innerHTML ?? "";
-};
+import { prepareSakinorvaResults } from "@/lib/sakinorvaResults";
 
 type ResultsPayload = {
   historyId: number;
@@ -116,7 +82,7 @@ function Page() {
     if (!data?.resultsHtmlFragment) {
       return "";
     }
-    return sanitizeHtml(data.resultsHtmlFragment);
+    return prepareSakinorvaResults(data.resultsHtmlFragment);
   }, [data?.resultsHtmlFragment]);
 
   const handleCopy = async () => {
