@@ -16,6 +16,20 @@ const normalizeType = (value: string) => {
   return trimmed;
 };
 
+const extractTypeList = (value: string) => {
+  const matches = value.match(/[IE][NS][FT][JP]/gi) ?? [];
+  const seen = new Set<string>();
+  const types: string[] = [];
+  matches.forEach((match) => {
+    const normalized = match.toUpperCase();
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      types.push(normalized);
+    }
+  });
+  return types;
+};
+
 export const extractSummary = (htmlFragment: string) => {
   const $ = cheerio.load(htmlFragment);
   const summary = $.text().replace(/\s+/g, " ").trim();
@@ -32,10 +46,13 @@ export const extractTypeSummary = (htmlFragment: string) => {
     return normalizeType(value);
   };
 
-  const grantList = $(".row.grant_itirann span:last-child")
-    .map((_index, element) => normalizeType($(element).text()))
-    .get()
-    .filter(Boolean);
+  const grantRow = $(".row.grant_itirann");
+  const grantList = grantRow.length
+    ? extractTypeList(grantRow.text())
+    : $(".row.grant_itirann span:last-child")
+      .map((_index, element) => normalizeType($(element).text()))
+      .get()
+      .filter(Boolean);
 
   const grant = getRowValue(".row.grant");
   const axis = getRowValue(".row.axis");
@@ -108,13 +125,20 @@ export const decorateResultsHtml = (htmlFragment: string) => {
   const typeSelectors = [
     ".row.grant span:last-child",
     ".row.myers span:last-child",
-    ".row.axis span:last-child",
-    ".myers_letter_type span"
+    ".row.axis span:last-child"
   ];
   typeSelectors.forEach((selector) => {
     $(selector).each((_index, element) => {
       $(element).addClass(`type-badge score-${overallBucket}`);
     });
+  });
+
+  $(".myers_letter_type span").each((_index, element) => {
+    const letter = $(element).text().trim().toLowerCase();
+    if (!letter) {
+      return;
+    }
+    $(element).addClass(`type-letter type-letter-${letter}`);
   });
 
   const results = $(".kekka").first();

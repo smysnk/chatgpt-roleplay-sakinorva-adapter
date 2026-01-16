@@ -15,6 +15,13 @@ type HistoryItem = {
   createdAt: string;
 };
 
+type HistoryRow = Omit<HistoryItem, "id"> & {
+  id?: number;
+  status: "ready" | "pending" | "error";
+  rowId: string;
+  errorMessage?: string;
+};
+
 const MIN_LENGTH = 2;
 const MAX_LENGTH = 80;
 
@@ -24,9 +31,35 @@ export default function HomePage() {
   const [context, setContext] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [history, setHistory] = useState<HistoryRow[]>([]);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  const mapHistoryItems = (items: HistoryItem[]): HistoryRow[] =>
+    items.map((item) => ({
+      ...item,
+      status: "ready",
+      rowId: `history-${item.id}`
+    }));
+
+  const renderType = (value: string | null) => {
+    if (!value) {
+      return "—";
+    }
+    const letters = value.toUpperCase().split("");
+    return (
+      <span className="type-stack" aria-label={value}>
+        {letters.map((letter, index) => (
+          <span
+            key={`${value}-${index}`}
+            className={`type-letter type-letter-${letter.toLowerCase()}`}
+          >
+            {letter}
+          </span>
+        ))}
+      </span>
+    );
+  };
 
   useEffect(() => {
     let active = true;
@@ -39,7 +72,7 @@ export default function HomePage() {
         }
         const payload = (await response.json()) as { items: HistoryItem[] };
         if (active) {
-          setHistory(payload.items ?? []);
+          setHistory(mapHistoryItems(payload.items ?? []));
         }
       } catch (err) {
         if (active) {
@@ -67,7 +100,7 @@ export default function HomePage() {
     return parsed.toLocaleString();
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmed = character.trim();
     if (trimmed.length < MIN_LENGTH || trimmed.length > MAX_LENGTH) {
@@ -76,11 +109,58 @@ export default function HomePage() {
     }
     setError(null);
     setSubmitting(true);
-    const params = new URLSearchParams({ character: trimmed });
-    if (context.trim()) {
-      params.set("context", context.trim());
+    const rowId = `pending-${Date.now()}`;
+    const pendingRow: HistoryRow = {
+      rowId,
+      status: "pending",
+      character: trimmed,
+      context: context.trim() || null,
+      gft: null,
+      second: null,
+      third: null,
+      axis: null,
+      myers: null,
+      createdAt: new Date().toISOString()
+    };
+    setHistory((prev) => [pendingRow, ...prev]);
+
+    try {
+      const response = await fetch("/api/run", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ character: trimmed, context: context.trim() })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error ?? "Failed to run the test.");
+      }
+      const payload = (await response.json()) as { historyId: number };
+      const resolvedRow: HistoryRow = {
+        ...pendingRow,
+        status: "ready",
+        id: payload.historyId
+      };
+      setHistory((prev) =>
+        prev.map((row) => (row.rowId === rowId ? resolvedRow : row))
+      );
+
+      const historyResponse = await fetch("/api/history");
+      if (historyResponse.ok) {
+        const historyPayload = (await historyResponse.json()) as { items: HistoryItem[] };
+        setHistory(mapHistoryItems(historyPayload.items ?? []));
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unexpected error.";
+      setHistory((prev) =>
+        prev.map((row) =>
+          row.rowId === rowId ? { ...row, status: "error", errorMessage: message } : row
+        )
+      );
+    } finally {
+      setSubmitting(false);
     }
-    router.push(`/results?${params.toString()}`);
   };
 
   return (
@@ -155,36 +235,59 @@ export default function HomePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {history.map((item) => (
-                    <tr
-                      key={item.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => router.push(`/history/${item.id}`)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          router.push(`/history/${item.id}`);
-                        }
-                      }}
-                    >
-                      <td>{item.character}</td>
-                      <td>
-                        <span
-                          className={`context-badge ${item.context ? "" : "muted"}`}
-                          title={item.context || "No context provided."}
-                        >
-                          Context
+                  {history.map((item) => {
+                    const isReady = item.status === "ready" && item.id;
+                    const ranCell =
+                      item.status === "pending" ? (
+                        <span className="status-badge pending">Running…</span>
+                      ) : item.status === "error" ? (
+                        <span className="status-badge error" title={item.errorMessage || "Error"}>
+                          Error
                         </span>
-                      </td>
-                      <td>{item.gft || "—"}</td>
-                      <td>{item.second || "—"}</td>
-                      <td>{item.third || "—"}</td>
-                      <td>{item.axis || "—"}</td>
-                      <td>{item.myers || "—"}</td>
-                      <td>{formatDate(item.createdAt)}</td>
-                    </tr>
-                  ))}
+                      ) : (
+                        formatDate(item.createdAt)
+                      );
+
+                    return (
+                      <tr
+                        key={item.rowId}
+                        role={isReady ? "button" : undefined}
+                        tabIndex={isReady ? 0 : -1}
+                        className={isReady ? "" : "row-disabled"}
+                        onClick={() => {
+                          if (!isReady) {
+                            return;
+                          }
+                          router.push(`/history/${item.id}`);
+                        }}
+                        onKeyDown={(event) => {
+                          if (!isReady) {
+                            return;
+                          }
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            router.push(`/history/${item.id}`);
+                          }
+                        }}
+                      >
+                        <td>{item.character}</td>
+                        <td>
+                          <span
+                            className={`context-badge ${item.context ? "" : "muted"}`}
+                            title={item.context || "No context provided."}
+                          >
+                            Context
+                          </span>
+                        </td>
+                        <td>{renderType(item.gft)}</td>
+                        <td>{renderType(item.second)}</td>
+                        <td>{renderType(item.third)}</td>
+                        <td>{renderType(item.axis)}</td>
+                        <td>{renderType(item.myers)}</td>
+                        <td>{ranCell}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
