@@ -4,40 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { QUESTIONS } from "@/lib/questions";
-
-const sanitizeHtml = (input: string) => {
-  if (typeof window === "undefined") {
-    return "";
-  }
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(input, "text/html");
-  const allowedTags = new Set(["DIV", "SPAN", "STYLE"]);
-  const allowedAttrs = new Set(["class", "id"]);
-
-  const walk = (node: Element) => {
-    Array.from(node.children).forEach((child) => {
-      if (!allowedTags.has(child.tagName)) {
-        child.remove();
-        return;
-      }
-      Array.from(child.attributes).forEach((attr) => {
-        if (!allowedAttrs.has(attr.name)) {
-          child.removeAttribute(attr.name);
-        }
-        if (attr.name.startsWith("on")) {
-          child.removeAttribute(attr.name);
-        }
-      });
-      walk(child);
-    });
-  };
-
-  if (doc.body) {
-    walk(doc.body);
-  }
-
-  return doc.body?.innerHTML ?? "";
-};
+import { sanitizeHtml } from "@/lib/sanitize";
 
 type HistoryDetail = {
   id: number;
@@ -68,7 +35,7 @@ export default function HistoryDetailPage() {
         const response = await fetch(`/api/history/${params.id}`);
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
-          throw new Error(payload?.error ?? "Failed to load saved results.");
+          throw new Error(payload?.error ?? "Failed to load run details.");
         }
         const payload = (await response.json()) as HistoryDetail;
         if (active) {
@@ -103,7 +70,7 @@ export default function HistoryDetailPage() {
     <main>
       <div className="grid two">
         <div className="app-card">
-          <h2>Saved Results</h2>
+          <h2>Run</h2>
           {data ? (
             <p className="helper">
               Generated for <strong>{data.character}</strong>
@@ -111,7 +78,7 @@ export default function HistoryDetailPage() {
             </p>
           ) : null}
           {loading ? (
-            <p style={{ marginTop: "20px" }}>Loading saved results…</p>
+            <p style={{ marginTop: "20px" }}>Loading run…</p>
           ) : error ? (
             <div className="error">{error}</div>
           ) : data ? (

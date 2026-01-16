@@ -6,6 +6,8 @@ import { QUESTIONS } from "@/lib/questions";
 import { SAKINORVA_RESULTS_CSS } from "@/lib/sakinorvaStyles";
 import { initializeDatabase } from "@/lib/db";
 import { initializeInteractionModel, Interaction } from "@/lib/models/Interaction";
+import { createRunSlug } from "@/lib/slug";
+import { decorateResultsHtml, parseSakinorvaResults } from "@/lib/sakinorvaParser";
 
 const ANSWER_SCHEMA = z.object({
   answers: z.array(z.number().int().min(1).max(5)).length(96),
@@ -107,8 +109,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Could not find results block in response." }, { status: 502 });
     }
 
-    const resultsHtmlFragment = $.html(results);
+    const resultsHtmlFragment = decorateResultsHtml($.html(results));
     const resultsSummary = extractSummary(resultsHtmlFragment);
+    const { typeSummary, functionScores } = parseSakinorvaResults(resultsHtmlFragment);
 
     initializeInteractionModel();
     await initializeDatabase();
@@ -123,11 +126,15 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       historyId: interaction.id,
+      slug: createRunSlug(payload.character, interaction.id),
+      createdAt: interaction.createdAt,
       answers,
       explanations,
       formBody: params.toString(),
       resultsHtmlFragment,
-      resultsCss: SAKINORVA_RESULTS_CSS
+      resultsCss: SAKINORVA_RESULTS_CSS,
+      typeSummary,
+      functionScores
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error.";
