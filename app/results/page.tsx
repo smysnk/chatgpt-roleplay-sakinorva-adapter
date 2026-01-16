@@ -52,7 +52,7 @@ type ResultsPayload = {
 export default function ResultsPage() {
   return (
     <Suspense fallback={<div>Loading results…</div>}>
-      <ResultsPage />
+      <Page />
     </Suspense>
   );
 }

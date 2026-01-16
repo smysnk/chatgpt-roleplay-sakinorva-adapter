@@ -1,7 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  serverExternalPackages: ["sequelize", "sqlite3"]
+  experimental: {
+    serverComponentsExternalPackages: ['sequelize'],
+  },
 };
 
 module.exports = nextConfig;

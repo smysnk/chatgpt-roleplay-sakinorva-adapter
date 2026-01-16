@@ -60,6 +60,8 @@ export async function POST(request: Request) {
       temperature: 0.6
     });
 
+    console.log("OpenAI response:", completion);
+
     const content = completion.choices[0]?.message?.content;
     if (!content) {
       return NextResponse.json({ error: "OpenAI response was empty." }, { status: 502 });
