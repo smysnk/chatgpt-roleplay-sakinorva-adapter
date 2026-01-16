@@ -1,0 +1,1 @@
+# chatgpt-roleplay-sakinorva-adapter
