@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { initializeDatabase } from "@/lib/db";
 import { initializeInteractionModel, Interaction } from "@/lib/models/Interaction";
 import { SAKINORVA_RESULTS_CSS } from "@/lib/sakinorvaStyles";
+import { createRunSlug } from "@/lib/slug";
+import { parseSakinorvaResults } from "@/lib/sakinorvaParser";
 
 type RouteContext = {
   params: {
@@ -25,6 +27,8 @@ export async function GET(_request: Request, context: RouteContext) {
     explanations: interaction.explanations,
     resultsHtmlFragment: interaction.resultsHtmlFragment,
     resultsCss: SAKINORVA_RESULTS_CSS,
-    createdAt: interaction.createdAt
+    createdAt: interaction.createdAt,
+    slug: createRunSlug(interaction.character, interaction.id),
+    ...parseSakinorvaResults(interaction.resultsHtmlFragment)
   });
 }
