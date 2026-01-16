@@ -32,10 +32,11 @@ export const extractTypeSummary = (htmlFragment: string) => {
     return normalizeType(value);
   };
 
-  const grantList = $(".row.grant_itirann span:last-child")
-    .map((_index, element) => normalizeType($(element).text()))
-    .get()
-    .filter(Boolean);
+  const grantList = (() => {
+    const text = $(".row.grant_itirann").text();
+    const matches = text.match(/[IE][NS][FT][JP]/gi) ?? [];
+    return matches.map((value) => normalizeType(value)).filter(Boolean);
+  })();
 
   const grant = getRowValue(".row.grant");
   const axis = getRowValue(".row.axis");
