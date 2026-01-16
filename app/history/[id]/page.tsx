@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { QUESTIONS } from "@/lib/questions";
 
@@ -39,44 +39,38 @@ const sanitizeHtml = (input: string) => {
   return doc.body?.innerHTML ?? "";
 };
 
-type ResultsPayload = {
-  historyId: number;
+type HistoryDetail = {
+  id: number;
+  character: string;
+  context: string | null;
   answers: number[];
   explanations: string[];
-  formBody: string;
   resultsHtmlFragment: string;
   resultsCss: string;
+  createdAt: string;
 };
 
-export default function ResultsPage() {
-  const searchParams = useSearchParams();
-  const character = searchParams.get("character") ?? "";
-  const context = searchParams.get("context") ?? "";
-  const [data, setData] = useState<ResultsPayload | null>(null);
+export default function HistoryDetailPage() {
+  const params = useParams<{ id: string }>();
+  const [data, setData] = useState<HistoryDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!character) {
-      setError("Missing character in the query string.");
+    if (!params?.id) {
+      setError("Missing history entry.");
       return;
     }
     let active = true;
-    const run = async () => {
+    const load = async () => {
       setLoading(true);
       try {
-        const response = await fetch("/api/run", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ character, context })
-        });
+        const response = await fetch(`/api/history/${params.id}`);
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
-          throw new Error(payload?.error ?? "Failed to run the test.");
+          throw new Error(payload?.error ?? "Failed to load saved results.");
         }
-        const payload = (await response.json()) as ResultsPayload;
+        const payload = (await response.json()) as HistoryDetail;
         if (active) {
           setData(payload);
         }
@@ -91,12 +85,12 @@ export default function ResultsPage() {
       }
     };
 
-    run();
+    load();
 
     return () => {
       active = false;
     };
-  }, [character, context]);
+  }, [params?.id]);
 
   const sanitizedResults = useMemo(() => {
     if (!data?.resultsHtmlFragment) {
@@ -105,24 +99,19 @@ export default function ResultsPage() {
     return sanitizeHtml(data.resultsHtmlFragment);
   }, [data?.resultsHtmlFragment]);
 
-  const handleCopy = async () => {
-    if (!data?.formBody) {
-      return;
-    }
-    await navigator.clipboard.writeText(data.formBody);
-  };
-
   return (
     <main>
       <div className="grid two">
         <div className="app-card">
-          <h2>Results</h2>
-          <p className="helper">
-            Generated for <strong>{character}</strong>
-            {context ? ` — ${context}` : ""}
-          </p>
+          <h2>Saved Results</h2>
+          {data ? (
+            <p className="helper">
+              Generated for <strong>{data.character}</strong>
+              {data.context ? ` — ${data.context}` : ""}
+            </p>
+          ) : null}
           {loading ? (
-            <p style={{ marginTop: "20px" }}>Running the test…</p>
+            <p style={{ marginTop: "20px" }}>Loading saved results…</p>
           ) : error ? (
             <div className="error">{error}</div>
           ) : data ? (
@@ -132,16 +121,8 @@ export default function ResultsPage() {
             </div>
           ) : null}
           <div style={{ display: "flex", gap: "12px", marginTop: "24px", flexWrap: "wrap" }}>
-            <button className="button secondary" type="button" onClick={handleCopy} disabled={!data}>
-              Copy form body
-            </button>
-            {data?.historyId ? (
-              <Link className="button secondary" href={`/history/${data.historyId}`}>
-                View saved results
-              </Link>
-            ) : null}
             <Link className="button secondary" href="/">
-              Run another character
+              Back to home
             </Link>
           </div>
         </div>
@@ -149,7 +130,7 @@ export default function ResultsPage() {
           <h2>Answers</h2>
           <p className="helper">A 1–5 scale, where 1 is “No” and 5 is “Yes.”</p>
           {loading ? (
-            <p style={{ marginTop: "20px" }}>Generating answers…</p>
+            <p style={{ marginTop: "20px" }}>Loading answers…</p>
           ) : error ? (
             <div className="error">{error}</div>
           ) : data ? (

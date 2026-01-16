@@ -4,6 +4,8 @@ import { z } from "zod";
 import * as cheerio from "cheerio";
 import { QUESTIONS } from "@/lib/questions";
 import { SAKINORVA_RESULTS_CSS } from "@/lib/sakinorvaStyles";
+import { initializeDatabase } from "@/lib/db";
+import { Interaction } from "@/lib/models/Interaction";
 
 const ANSWER_SCHEMA = z.object({
   answers: z.array(z.number().int().min(1).max(5)).length(96),
@@ -21,6 +23,15 @@ const userAgent =
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
+
+const extractSummary = (htmlFragment: string) => {
+  const $ = cheerio.load(htmlFragment);
+  const summary = $.text().replace(/\s+/g, " ").trim();
+  if (!summary) {
+    return "Summary unavailable.";
+  }
+  return summary.length > 220 ? `${summary.slice(0, 217)}...` : summary;
+};
 
 export async function POST(request: Request) {
   try {
@@ -95,8 +106,20 @@ export async function POST(request: Request) {
     }
 
     const resultsHtmlFragment = $.html(results);
+    const resultsSummary = extractSummary(resultsHtmlFragment);
+
+    await initializeDatabase();
+    const interaction = await Interaction.create({
+      character: payload.character,
+      context: payload.context || null,
+      answers,
+      explanations,
+      resultsHtmlFragment,
+      resultsSummary
+    });
 
     return NextResponse.json({
+      historyId: interaction.id,
       answers,
       explanations,
       formBody: params.toString(),
