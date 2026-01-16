@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     const userMessage = `Character: ${payload.character}\nContext: ${payload.context || "(none)"}\n\nAnswer all 96 questions on a 1-5 scale (1=no, 5=yes). Provide a one-sentence explanation for each answer.\nReturn JSON only, no markdown, no commentary.\n\nQuestions:\n${questionBlock}\n\nJSON schema:\n{\n  \"answers\": [96 integers 1..5],\n  \"explanations\": [96 strings, one sentence each]\n}`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o-2024-08-06",
       messages: [
         { role: "system", content: systemMessage },
         { role: "user", content: userMessage }

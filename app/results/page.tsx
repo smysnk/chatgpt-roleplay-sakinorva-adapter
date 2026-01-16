@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { QUESTIONS } from "@/lib/questions";
 
 
@@ -64,12 +64,17 @@ function Page() {
   const [data, setData] = useState<ResultsPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const hasRunRef = useRef(false);
 
   useEffect(() => {
+    if (hasRunRef.current) {
+      return;
+    }
     if (!character) {
       setError("Missing character in the query string.");
       return;
     }
+    hasRunRef.current = true;
     let active = true;
     const run = async () => {
       setLoading(true);
