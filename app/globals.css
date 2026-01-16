@@ -268,6 +268,16 @@ a {
   background: rgba(214, 178, 90, 0.1);
 }
 
+.data-table tbody tr.is-disabled {
+  cursor: default;
+  color: var(--muted);
+}
+
+.data-table tbody tr.is-disabled:hover,
+.data-table tbody tr.is-disabled:focus {
+  background: transparent;
+}
+
 .context-badge {
   display: inline-flex;
   align-items: center;
@@ -287,4 +297,48 @@ a {
   border-color: var(--border);
   background: rgba(154, 163, 178, 0.15);
   color: var(--muted);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.status-badge.running {
+  border-color: rgba(214, 178, 90, 0.6);
+  background: rgba(214, 178, 90, 0.18);
+  color: #f5f7fb;
+}
+
+.status-badge.running::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #f0c96a;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.status-badge.error {
+  border-color: rgba(231, 76, 60, 0.6);
+  background: rgba(231, 76, 60, 0.2);
+  color: #ffd6d0;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }

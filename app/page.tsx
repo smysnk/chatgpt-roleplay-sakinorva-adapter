@@ -15,6 +15,12 @@ type HistoryItem = {
   createdAt: string;
 };
 
+type HistoryRow = HistoryItem & {
+  id: number | string;
+  status: "ready" | "running" | "error";
+  errorMessage?: string | null;
+};
+
 const MIN_LENGTH = 2;
 const MAX_LENGTH = 80;
 
@@ -24,7 +30,7 @@ export default function HomePage() {
   const [context, setContext] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [history, setHistory] = useState<HistoryRow[]>([]);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -39,7 +45,7 @@ export default function HomePage() {
         }
         const payload = (await response.json()) as { items: HistoryItem[] };
         if (active) {
-          setHistory(payload.items ?? []);
+          setHistory((payload.items ?? []).map((item) => ({ ...item, status: "ready" })));
         }
       } catch (err) {
         if (active) {
@@ -59,6 +65,20 @@ export default function HomePage() {
     };
   }, []);
 
+  const createPendingRow = (name: string, notes: string) => ({
+    id: `pending-${Date.now()}`,
+    character: name,
+    context: notes || null,
+    gft: null,
+    second: null,
+    third: null,
+    axis: null,
+    myers: null,
+    createdAt: new Date().toISOString(),
+    status: "running" as const,
+    errorMessage: null
+  });
+
   const formatDate = (value: string) => {
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) {
@@ -67,7 +87,7 @@ export default function HomePage() {
     return parsed.toLocaleString();
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmed = character.trim();
     if (trimmed.length < MIN_LENGTH || trimmed.length > MAX_LENGTH) {
@@ -76,11 +96,55 @@ export default function HomePage() {
     }
     setError(null);
     setSubmitting(true);
-    const params = new URLSearchParams({ character: trimmed });
-    if (context.trim()) {
-      params.set("context", context.trim());
+    const trimmedContext = context.trim();
+    const pendingRow = createPendingRow(trimmed, trimmedContext);
+    setHistory((prev) => [pendingRow, ...prev]);
+    try {
+      const response = await fetch("/api/run", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ character: trimmed, context: trimmedContext })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error ?? "Failed to run the test.");
+      }
+      const payload = (await response.json()) as { historyId?: number };
+      const historyResponse = await fetch("/api/history");
+      if (historyResponse.ok) {
+        const historyPayload = (await historyResponse.json()) as { items: HistoryItem[] };
+        setHistory((historyPayload.items ?? []).map((item) => ({ ...item, status: "ready" })));
+      } else {
+        setHistory((prev) =>
+          prev.map((item) =>
+            item.id === pendingRow.id
+              ? {
+                  ...item,
+                  id: payload.historyId ?? item.id,
+                  status: "ready"
+                }
+              : item
+          )
+        );
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unexpected error.";
+      setHistory((prev) =>
+        prev.map((item) =>
+          item.id === pendingRow.id
+            ? {
+                ...item,
+                status: "error",
+                errorMessage: message
+              }
+            : item
+        )
+      );
+    } finally {
+      setSubmitting(false);
     }
-    router.push(`/results?${params.toString()}`);
   };
 
   return (
@@ -155,13 +219,25 @@ export default function HomePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {history.map((item) => (
+                  {history.map((item) => {
+                    const isReady = item.status === "ready";
+                    const isErrored = item.status === "error";
+                    return (
                     <tr
                       key={item.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => router.push(`/history/${item.id}`)}
+                      role={isReady ? "button" : undefined}
+                      tabIndex={isReady ? 0 : -1}
+                      aria-disabled={!isReady}
+                      className={isReady ? "" : "is-disabled"}
+                      onClick={() => {
+                        if (isReady) {
+                          router.push(`/history/${item.id}`);
+                        }
+                      }}
                       onKeyDown={(event) => {
+                        if (!isReady) {
+                          return;
+                        }
                         if (event.key === "Enter" || event.key === " ") {
                           event.preventDefault();
                           router.push(`/history/${item.id}`);
@@ -182,9 +258,20 @@ export default function HomePage() {
                       <td>{item.third || "—"}</td>
                       <td>{item.axis || "—"}</td>
                       <td>{item.myers || "—"}</td>
-                      <td>{formatDate(item.createdAt)}</td>
+                      <td>
+                        {isReady ? (
+                          formatDate(item.createdAt)
+                        ) : isErrored ? (
+                          <span className="status-badge error" title={item.errorMessage ?? "Run failed."}>
+                            Error
+                          </span>
+                        ) : (
+                          <span className="status-badge running">Running…</span>
+                        )}
+                      </td>
                     </tr>
-                  ))}
+                  );
+                  })}
                 </tbody>
               </table>
             </div>

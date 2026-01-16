@@ -16,6 +16,9 @@ const normalizeType = (value: string) => {
   return trimmed;
 };
 
+const extractTypesFromText = (value: string) =>
+  (value.toUpperCase().match(/[IE][NS][FT][JP]/g) ?? []).map((type) => type.toUpperCase());
+
 export const extractSummary = (htmlFragment: string) => {
   const $ = cheerio.load(htmlFragment);
   const summary = $.text().replace(/\s+/g, " ").trim();
@@ -32,10 +35,7 @@ export const extractTypeSummary = (htmlFragment: string) => {
     return normalizeType(value);
   };
 
-  const grantList = $(".row.grant_itirann span:last-child")
-    .map((_index, element) => normalizeType($(element).text()))
-    .get()
-    .filter(Boolean);
+  const grantList = extractTypesFromText($(".row.grant_itirann").text());
 
   const grant = getRowValue(".row.grant");
   const axis = getRowValue(".row.axis");
@@ -115,6 +115,13 @@ export const decorateResultsHtml = (htmlFragment: string) => {
     $(selector).each((_index, element) => {
       $(element).addClass(`type-badge score-${overallBucket}`);
     });
+  });
+
+  $(".myers_letter_type span").each((_index, element) => {
+    const letter = $(element).text().trim().toLowerCase();
+    if (["n", "s", "t", "f"].includes(letter)) {
+      $(element).addClass(`type-letter-${letter}`);
+    }
   });
 
   const results = $(".kekka").first();
