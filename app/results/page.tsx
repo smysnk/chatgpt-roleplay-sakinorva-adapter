@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { QUESTIONS } from "@/lib/questions";
+
 
 const sanitizeHtml = (input: string) => {
   if (typeof window === "undefined") {
@@ -49,6 +50,14 @@ type ResultsPayload = {
 };
 
 export default function ResultsPage() {
+  return (
+    <Suspense fallback={<div>Loading results…</div>}>
+      <ResultsPage />
+    </Suspense>
+  );
+}
+
+function Page() {
   const searchParams = useSearchParams();
   const character = searchParams.get("character") ?? "";
   const context = searchParams.get("context") ?? "";
