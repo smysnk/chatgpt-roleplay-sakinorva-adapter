@@ -108,6 +108,11 @@ a {
   .grid.two {
     grid-template-columns: 1.1fr 1fr;
   }
+
+  .grid.form-grid {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
 }
 
 .answers-list {
@@ -261,4 +266,25 @@ a {
 .data-table tbody tr:hover,
 .data-table tbody tr:focus {
   background: rgba(214, 178, 90, 0.1);
+}
+
+.context-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(214, 178, 90, 0.6);
+  background: rgba(214, 178, 90, 0.2);
+  color: #f5f7fb;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.context-badge.muted {
+  border-color: var(--border);
+  background: rgba(154, 163, 178, 0.15);
+  color: var(--muted);
 }
