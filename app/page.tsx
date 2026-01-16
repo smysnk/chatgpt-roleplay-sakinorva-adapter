@@ -11,6 +11,11 @@ type HistoryItem = {
   createdAt: string;
 };
 
+type HistoryRow = HistoryItem & {
+  status?: "running" | "error";
+  errorMessage?: string;
+};
+
 const MIN_LENGTH = 2;
 const MAX_LENGTH = 80;
 
@@ -20,7 +25,7 @@ export default function HomePage() {
   const [context, setContext] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [history, setHistory] = useState<HistoryRow[]>([]);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -35,7 +40,10 @@ export default function HomePage() {
         }
         const payload = (await response.json()) as { items: HistoryItem[] };
         if (active) {
-          setHistory(payload.items ?? []);
+          setHistory((prev) => {
+            const pending = prev.filter((item) => item.status);
+            return [...pending, ...(payload.items ?? [])];
+          });
         }
       } catch (err) {
         if (active) {
@@ -63,7 +71,7 @@ export default function HomePage() {
     return parsed.toLocaleString();
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmed = character.trim();
     if (trimmed.length < MIN_LENGTH || trimmed.length > MAX_LENGTH) {
@@ -72,11 +80,46 @@ export default function HomePage() {
     }
     setError(null);
     setSubmitting(true);
-    const params = new URLSearchParams({ character: trimmed });
-    if (context.trim()) {
-      params.set("context", context.trim());
+    const pendingId = Date.now();
+    const pendingRow: HistoryRow = {
+      id: pendingId,
+      character: trimmed,
+      context: context.trim() || null,
+      resultsSummary: "Generating results…",
+      createdAt: new Date().toISOString(),
+      status: "running"
+    };
+    setHistory((prev) => [pendingRow, ...prev]);
+    try {
+      const response = await fetch("/api/run", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ character: trimmed, context: context.trim() })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error ?? "Failed to run the test.");
+      }
+      const payload = (await response.json()) as HistoryItem;
+      setHistory((prev) => [
+        payload,
+        ...prev.filter((item) => item.id !== pendingId && item.id !== payload.id)
+      ]);
+      setCharacter("");
+      setContext("");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unexpected error.";
+      setError(message);
+      setHistory((prev) =>
+        prev.map((item) =>
+          item.id === pendingId ? { ...item, status: "error", errorMessage: message } : item
+        )
+      );
+    } finally {
+      setSubmitting(false);
     }
-    router.push(`/results?${params.toString()}`);
   };
 
   return (
@@ -145,25 +188,50 @@ export default function HomePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {history.map((item) => (
+                  {history.map((item) => {
+                    const isDisabled = item.status === "running" || item.status === "error";
+                    const isError = item.status === "error";
+                    return (
                     <tr
                       key={item.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => router.push(`/history/${item.id}`)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          router.push(`/history/${item.id}`);
-                        }
-                      }}
+                      role={isDisabled ? undefined : "button"}
+                      tabIndex={isDisabled ? -1 : 0}
+                      className={isDisabled ? "is-disabled" : undefined}
+                      onClick={
+                        isDisabled
+                          ? undefined
+                          : () => {
+                              router.push(`/history/${item.id}`);
+                            }
+                      }
+                      onKeyDown={
+                        isDisabled
+                          ? undefined
+                          : (event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                router.push(`/history/${item.id}`);
+                              }
+                            }
+                      }
                     >
                       <td>{item.character}</td>
                       <td>{item.context || "—"}</td>
                       <td>{item.resultsSummary}</td>
-                      <td>{formatDate(item.createdAt)}</td>
+                      <td>
+                        {item.status === "running" ? (
+                          <span className="status-pill loading">Running</span>
+                        ) : isError ? (
+                          <span className="status-pill error" title={item.errorMessage}>
+                            Error
+                          </span>
+                        ) : (
+                          formatDate(item.createdAt)
+                        )}
+                      </td>
                     </tr>
-                  ))}
+                  );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -123,6 +123,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       historyId: interaction.id,
+      id: interaction.id,
+      character: interaction.character,
+      context: interaction.context,
+      resultsSummary: interaction.resultsSummary,
+      createdAt: interaction.createdAt,
       answers,
       explanations,
       formBody: params.toString(),
