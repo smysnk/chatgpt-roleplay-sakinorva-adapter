@@ -24,6 +24,51 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
+const FUNCTION_LABELS = ["Fe", "Fi", "Te", "Ti", "Ne", "Ni", "Se", "Si"] as const;
+const isFunctionLabel = (value: string) =>
+  FUNCTION_LABELS.some((label) => label.toLowerCase() === value.toLowerCase());
+
+const getScoreIntensity = (score: number) => {
+  const normalized = Math.min(1, Math.max(0, Math.abs(score) / 40));
+  return Math.min(5, Math.max(1, Math.round(normalized * 4) + 1));
+};
+
+const decorateResultsHtml = (htmlFragment: string) => {
+  const $ = cheerio.load(htmlFragment);
+  const results = $("#my_results.kekka");
+
+  results.find(".zuhyou div").each((_, element) => {
+    const text = $(element).text().replace(/\s+/g, " ").trim();
+    const match = text.match(/(Fe|Fi|Te|Ti|Ne|Ni|Se|Si)\s*([-+]?\d+(?:\.\d+)?)/i);
+    if (!match) {
+      return;
+    }
+    const functionCode = match[1];
+    const scoreText = match[2];
+    const scoreValue = Number.parseFloat(scoreText);
+    const intensity = Number.isFinite(scoreValue) ? getScoreIntensity(scoreValue) : 3;
+
+    $(element).html(
+      `<span class="function-badge function-${functionCode.toLowerCase()} intensity-${intensity}">${functionCode}</span>` +
+      `<span class="function-score">${scoreText}</span>`
+    );
+  });
+
+  results.find("span").each((_, element) => {
+    const text = $(element).text().replace(/\s+/g, " ").trim();
+    if (!isFunctionLabel(text)) {
+      return;
+    }
+    if ($(element).hasClass("function-badge")) {
+      return;
+    }
+    const functionCode = text.slice(0, 2);
+    $(element).addClass(`function-badge function-${functionCode.toLowerCase()} intensity-3`);
+  });
+
+  return $.html(results);
+};
+
 const extractSummary = (htmlFragment: string) => {
   const $ = cheerio.load(htmlFragment);
   const summary = $.text().replace(/\s+/g, " ").trim();
@@ -107,7 +152,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Could not find results block in response." }, { status: 502 });
     }
 
-    const resultsHtmlFragment = $.html(results);
+    const resultsHtmlFragment = decorateResultsHtml($.html(results));
     const resultsSummary = extractSummary(resultsHtmlFragment);
 
     initializeInteractionModel();
@@ -123,6 +168,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       historyId: interaction.id,
+      createdAt: interaction.createdAt,
+      resultsSummary,
       answers,
       explanations,
       formBody: params.toString(),

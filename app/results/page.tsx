@@ -12,8 +12,28 @@ const sanitizeHtml = (input: string) => {
   }
   const parser = new DOMParser();
   const doc = parser.parseFromString(input, "text/html");
-  const allowedTags = new Set(["DIV", "SPAN", "STYLE"]);
-  const allowedAttrs = new Set(["class", "id"]);
+  const allowedTags = new Set([
+    "DIV",
+    "SPAN",
+    "STYLE",
+    "TABLE",
+    "TBODY",
+    "THEAD",
+    "TFOOT",
+    "TR",
+    "TD",
+    "TH",
+    "P",
+    "BR",
+    "B",
+    "STRONG",
+    "I",
+    "EM",
+    "UL",
+    "OL",
+    "LI"
+  ]);
+  const allowedAttrs = new Set(["class", "id", "colspan", "rowspan"]);
 
   const walk = (node: Element) => {
     Array.from(node.children).forEach((child) => {

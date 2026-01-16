@@ -11,6 +11,18 @@ type HistoryItem = {
   createdAt: string;
 };
 
+type HistoryRow =
+  | (HistoryItem & { status: "complete" })
+  | {
+    id: string;
+    character: string;
+    context: string | null;
+    resultsSummary: string;
+    createdAt: string;
+    status: "pending" | "error";
+    errorMessage?: string;
+  };
+
 const MIN_LENGTH = 2;
 const MAX_LENGTH = 80;
 
@@ -20,7 +32,7 @@ export default function HomePage() {
   const [context, setContext] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [history, setHistory] = useState<HistoryRow[]>([]);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -35,7 +47,11 @@ export default function HomePage() {
         }
         const payload = (await response.json()) as { items: HistoryItem[] };
         if (active) {
-          setHistory(payload.items ?? []);
+          const items = (payload.items ?? []).map((item) => ({
+            ...item,
+            status: "complete" as const
+          }));
+          setHistory(items);
         }
       } catch (err) {
         if (active) {
@@ -63,7 +79,7 @@ export default function HomePage() {
     return parsed.toLocaleString();
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmed = character.trim();
     if (trimmed.length < MIN_LENGTH || trimmed.length > MAX_LENGTH) {
@@ -72,11 +88,65 @@ export default function HomePage() {
     }
     setError(null);
     setSubmitting(true);
-    const params = new URLSearchParams({ character: trimmed });
-    if (context.trim()) {
-      params.set("context", context.trim());
+    const pendingId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const contextValue = context.trim() || null;
+    const pendingRow: HistoryRow = {
+      id: pendingId,
+      character: trimmed,
+      context: contextValue,
+      resultsSummary: "Running test…",
+      createdAt: new Date().toISOString(),
+      status: "pending"
+    };
+    setHistory((prev) => [pendingRow, ...prev]);
+    try {
+      const response = await fetch("/api/run", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ character: trimmed, context: contextValue ?? "" })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error ?? "Failed to run the test.");
+      }
+      const payload = (await response.json()) as {
+        historyId: number;
+        resultsSummary: string;
+        createdAt: string;
+      };
+      setHistory((prev) =>
+        prev.map((row) =>
+          row.id === pendingId
+            ? {
+              id: payload.historyId,
+              character: trimmed,
+              context: contextValue,
+              resultsSummary: payload.resultsSummary,
+              createdAt: payload.createdAt,
+              status: "complete"
+            }
+            : row
+        )
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unexpected error.";
+      setHistory((prev) =>
+        prev.map((row) =>
+          row.id === pendingId
+            ? {
+              ...row,
+              status: "error",
+              resultsSummary: "Error running test.",
+              errorMessage: message
+            }
+            : row
+        )
+      );
+    } finally {
+      setSubmitting(false);
     }
-    router.push(`/results?${params.toString()}`);
   };
 
   return (
@@ -145,25 +215,50 @@ export default function HomePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {history.map((item) => (
-                    <tr
-                      key={item.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => router.push(`/history/${item.id}`)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          router.push(`/history/${item.id}`);
+                  {history.map((item) => {
+                    const isClickable = item.status === "complete";
+                    const ranContent =
+                      item.status === "pending" ? (
+                        <span className="status-badge status-pending">Running…</span>
+                      ) : item.status === "error" ? (
+                        <span className="status-badge status-error" title={item.errorMessage ?? "Run failed."}>
+                          Error
+                        </span>
+                      ) : (
+                        formatDate(item.createdAt)
+                      );
+                    return (
+                      <tr
+                        key={item.id}
+                        className={isClickable ? "" : "is-disabled"}
+                        role={isClickable ? "button" : undefined}
+                        tabIndex={isClickable ? 0 : -1}
+                        aria-disabled={!isClickable}
+                        onClick={
+                          isClickable
+                            ? () => {
+                              router.push(`/history/${item.id}`);
+                            }
+                            : undefined
                         }
-                      }}
-                    >
-                      <td>{item.character}</td>
-                      <td>{item.context || "—"}</td>
-                      <td>{item.resultsSummary}</td>
-                      <td>{formatDate(item.createdAt)}</td>
-                    </tr>
-                  ))}
+                        onKeyDown={
+                          isClickable
+                            ? (event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                router.push(`/history/${item.id}`);
+                              }
+                            }
+                            : undefined
+                        }
+                      >
+                        <td>{item.character}</td>
+                        <td>{item.context || "—"}</td>
+                        <td>{item.resultsSummary}</td>
+                        <td>{ranContent}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
