@@ -51,6 +51,11 @@ const parseScore = (value: string) => {
   return match ? Number(match[0]) : null;
 };
 
+const toAbsoluteScores = (scores: Record<string, number> | null) =>
+  scores
+    ? Object.fromEntries(Object.entries(scores).map(([key, value]) => [key, Math.abs(value)]))
+    : null;
+
 const extractResultMetadata = (htmlFragment: string) => {
   const $ = cheerio.load(htmlFragment);
   const metadata: {
@@ -214,7 +219,7 @@ export async function POST(request: Request) {
       thirdType: interaction.thirdType,
       axisType: interaction.axisType,
       myersType: interaction.myersType,
-      functionScores: interaction.functionScores,
+      functionScores: toAbsoluteScores(interaction.functionScores),
       createdAt: interaction.createdAt,
       answers,
       explanations,

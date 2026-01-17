@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { useEffect, useRef } from "react";
 
 type StnfBarPair = {
@@ -11,6 +12,7 @@ type StnfMiniChartProps = {
   intuition: StnfBarPair;
   feeling: StnfBarPair;
   className?: string;
+  style?: CSSProperties;
 };
 
 const MAX_FUNCTION_SCORE = 40;
@@ -31,7 +33,8 @@ export default function StnfMiniChart({
   thinking,
   intuition,
   feeling,
-  className
+  className,
+  style
 }: StnfMiniChartProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -150,7 +153,7 @@ export default function StnfMiniChart({
   }, [sensing, thinking, intuition, feeling]);
 
   return (
-    <div className={`stnf-chart ${className ?? ""}`.trim()} ref={containerRef}>
+    <div className={`stnf-chart ${className ?? ""}`.trim()} ref={containerRef} style={style}>
       <canvas ref={canvasRef} role="img" aria-label="STNF chart" />
     </div>
   );
