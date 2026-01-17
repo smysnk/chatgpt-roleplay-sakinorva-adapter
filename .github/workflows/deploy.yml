@@ -29,6 +29,13 @@ jobs:
       - name: Save Docker image
         run: docker save "$IMAGE_NAME:latest" -o image.tar
 
+      - name: Fix permissions for scp container
+        run: |
+          ls -la image.tar docker-compose.yml
+          sudo chown $USER:$USER image.tar docker-compose.yml || true
+          chmod 644 image.tar docker-compose.yml
+          ls -la image.tar docker-compose.yml
+          
       - name: Copy image and compose file to remote host
         uses: appleboy/scp-action@v0.1.7
         with:
