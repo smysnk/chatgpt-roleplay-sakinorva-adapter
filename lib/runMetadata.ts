@@ -29,7 +29,8 @@ export const extractResultMetadata = (htmlFragment: string) => {
   };
 
   $(".row").each((_, row) => {
-    const spans = $(row).find("span");
+    const rowElement = $(row);
+    const spans = rowElement.find("span");
     if (spans.length < 2) {
       return;
     }
@@ -49,11 +50,15 @@ export const extractResultMetadata = (htmlFragment: string) => {
       metadata.myersType = valueText || null;
     }
 
-    const functionMatch = label.match(/^(Te|Ti|Fe|Fi|Ne|Ni|Se|Si)$/i);
-    if (functionMatch) {
+    const functionMatch = label.match(/\b(Te|Ti|Fe|Fi|Ne|Ni|Se|Si)\b/i);
+    const classMatch = rowElement
+      .attr("class")
+      ?.match(/\b(ne|ni|se|si|te|ti|fe|fi)\b/i);
+    const functionKey = functionMatch?.[1] ?? classMatch?.[1];
+    if (functionKey) {
       const score = parseScore(valueText);
       if (score !== null) {
-        const normalizedKey = `${functionMatch[0][0].toUpperCase()}${functionMatch[0][1].toLowerCase()}`;
+        const normalizedKey = `${functionKey[0].toUpperCase()}${functionKey[1].toLowerCase()}`;
         metadata.functionScores[normalizedKey] = score;
       }
     }
