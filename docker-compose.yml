@@ -7,5 +7,5 @@ services:
     volumes:
       - ./.env:/app/.env:ro
     ports:
-      - "3000:3000"
+      - "${HOST_PORT:-3000}:3000"
     restart: unless-stopped
