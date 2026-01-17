@@ -1,0 +1,7 @@
+services:
+  web:
+    image: nextjs-roleplay:latest
+    container_name: nextjs-roleplay
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
