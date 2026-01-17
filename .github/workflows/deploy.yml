@@ -49,6 +49,10 @@ jobs:
           script: |
             set -euo pipefail
             mkdir -p "${{ secrets.DEPLOY_PATH }}"
+            if [ -n "${{ secrets.DOTENV }}" ]; then
+              printf '%s' "${{ secrets.DOTENV }}" > "${{ secrets.DEPLOY_PATH }}/.env"
+              chmod 600 "${{ secrets.DEPLOY_PATH }}/.env"
+            fi
             docker load -i "${{ secrets.DEPLOY_PATH }}/image.tar"
             docker compose -f "${{ secrets.DEPLOY_PATH }}/docker-compose.yml" up -d --remove-orphans
             rm -f "${{ secrets.DEPLOY_PATH }}/image.tar"

@@ -28,10 +28,6 @@ const requestSchema = z.object({
 const userAgent =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
 const slugify = (value: string) =>
   value
     .trim()
@@ -63,6 +59,10 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
 
     const questionBlock = QUESTIONS.map((question, index) => `#${index + 1} ${question}`).join("\n");
 

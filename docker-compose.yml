@@ -2,6 +2,10 @@ services:
   web:
     image: nextjs-roleplay:latest
     container_name: nextjs-roleplay
+    env_file:
+      - .env
+    volumes:
+      - ./.env:/app/.env:ro
     ports:
       - "3000:3000"
     restart: unless-stopped
