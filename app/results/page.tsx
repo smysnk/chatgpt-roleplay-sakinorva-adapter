@@ -41,7 +41,7 @@ const sanitizeHtml = (input: string) => {
 };
 
 type ResultsPayload = {
-  historyId: number;
+  runId: number;
   slug: string;
   answers: number[];
   explanations: string[];
@@ -151,7 +151,7 @@ function Page() {
               Copy form body
             </button>
             {data?.slug ? (
-              <Link className="button secondary" href={`/sakinorva/${data.slug}`}>
+              <Link className="button secondary" href={`/run/${data.slug}`}>
                 View run
               </Link>
             ) : null}
@@ -173,7 +173,7 @@ function Page() {
                 const answer = data.answers[index];
                 const explanation = data.explanations[index];
                 return (
-                  <div className="answer-row" key={question}>
+                  <div className="answer-row" key={`${index}-${question}`}>
                     <div className="answer-meta">
                       <div className="answer-question">#{index + 1} {question}</div>
                       <div className="rating-bar" aria-label={`Answer ${answer}`}>

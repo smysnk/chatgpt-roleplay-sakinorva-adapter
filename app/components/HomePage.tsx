@@ -10,7 +10,7 @@ const MAX_LENGTH = 80;
 
 const FUNCTION_ORDER = ["Te", "Ti", "Fe", "Fi", "Ne", "Ni", "Se", "Si"] as const;
 
-type HistoryItem = {
+type RunItem = {
   id: string;
   slug: string | null;
   character: string;
@@ -26,7 +26,7 @@ type HistoryItem = {
   errorMessage?: string | null;
 };
 
-type HistoryApiItem = Omit<HistoryItem, "status" | "errorMessage">;
+type RunApiItem = Omit<RunItem, "status" | "errorMessage">;
 
 type RunDetail = {
   id: number;
@@ -42,7 +42,7 @@ type RunDetail = {
 };
 
 type ResultsPayload = {
-  historyId: number;
+  runId: number;
   slug: string;
   character: string;
   context: string | null;
@@ -165,9 +165,9 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
   const [context, setContext] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [historyError, setHistoryError] = useState<string | null>(null);
-  const [historyLoading, setHistoryLoading] = useState(false);
+  const [runs, setRuns] = useState<RunItem[]>([]);
+  const [runsError, setRunsError] = useState<string | null>(null);
+  const [runsLoading, setRunsLoading] = useState(false);
   const [activeSlug, setActiveSlug] = useState<string | null>(initialSlug ?? null);
   const [runDetail, setRunDetail] = useState<RunDetail | null>(null);
   const [runLoading, setRunLoading] = useState(false);
@@ -179,33 +179,33 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
 
   useEffect(() => {
     let active = true;
-    const loadHistory = async () => {
-      setHistoryLoading(true);
+    const loadRuns = async () => {
+      setRunsLoading(true);
       try {
-        const response = await fetch("/api/history");
+        const response = await fetch("/api/run");
         if (!response.ok) {
           throw new Error("Failed to load previous results.");
         }
-        const payload = (await response.json()) as { items: HistoryApiItem[] };
+        const payload = (await response.json()) as { items: RunApiItem[] };
         if (active) {
           const items = (payload.items ?? []).map((item) => ({
             ...item,
             status: "ready" as const
           }));
-          setHistory(items);
+          setRuns(items);
         }
       } catch (err) {
         if (active) {
-          setHistoryError(err instanceof Error ? err.message : "Unexpected error.");
+          setRunsError(err instanceof Error ? err.message : "Unexpected error.");
         }
       } finally {
         if (active) {
-          setHistoryLoading(false);
+          setRunsLoading(false);
         }
       }
     };
 
-    loadHistory();
+    loadRuns();
 
     return () => {
       active = false;
@@ -223,7 +223,7 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
       setRunLoading(true);
       setRunError(null);
       try {
-        const response = await fetch(`/api/history/slug/${activeSlug}`);
+        const response = await fetch(`/api/run/slug/${activeSlug}`);
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
           throw new Error(payload?.error ?? "Failed to load run details.");
@@ -259,12 +259,12 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
 
   const scoreIntensity = useMemo(() => normalizeScores(runDetail?.functionScores ?? null), [runDetail]);
 
-  const handleRowClick = (item: HistoryItem) => {
+  const handleRowClick = (item: RunItem) => {
     if (item.status !== "ready" || !item.slug) {
       return;
     }
     setActiveSlug(item.slug);
-    router.push(`/sakinorva/${item.slug}`);
+    router.push(`/run/${item.slug}`);
   };
 
   const handleModalClose = () => {
@@ -283,7 +283,7 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
     setSubmitting(true);
 
     const pendingId = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    const pendingItem: HistoryItem = {
+    const pendingItem: RunItem = {
       id: pendingId,
       slug: null,
       character: trimmed,
@@ -298,7 +298,7 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
       status: "running"
     };
 
-    setHistory((prev) => [pendingItem, ...prev]);
+    setRuns((prev) => [pendingItem, ...prev]);
 
     try {
       const response = await fetch("/api/run", {
@@ -316,12 +316,12 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
         throw new Error(payload?.error ?? "Failed to run the test.");
       }
       const payload = (await response.json()) as ResultsPayload;
-      setHistory((prev) =>
+      setRuns((prev) =>
         prev.map((item) =>
           item.id === pendingId
             ? {
                 ...item,
-                id: payload.historyId.toString(),
+                id: payload.runId.toString(),
                 slug: payload.slug,
                 grantType: payload.grantType,
                 secondType: payload.secondType,
@@ -339,7 +339,7 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
       setContext("");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error.";
-      setHistory((prev) =>
+      setRuns((prev) =>
         prev.map((item) =>
           item.id === pendingId
             ? {
@@ -406,11 +406,11 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
         <div className="app-card">
           <h2>Runs</h2>
           <p className="helper">Click a completed row to revisit the full answers and Sakinorva results.</p>
-          {historyLoading ? (
-            <p style={{ marginTop: "20px" }}>Loading history…</p>
-          ) : historyError ? (
-            <div className="error">{historyError}</div>
-          ) : history.length ? (
+          {runsLoading ? (
+            <p style={{ marginTop: "20px" }}>Loading runs…</p>
+          ) : runsError ? (
+            <div className="error">{runsError}</div>
+          ) : runs.length ? (
             <div className="table-wrapper" style={{ marginTop: "20px" }}>
               <table className="data-table">
                 <thead>
@@ -426,7 +426,7 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                   </tr>
                 </thead>
                 <tbody>
-                  {history.map((item) => {
+                  {runs.map((item) => {
                     const isClickable = item.status === "ready" && !!item.slug;
                     const stnfValues = getStnfValues(item.functionScores);
                     return (
@@ -558,7 +558,7 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                       const answer = runDetail.answers[index];
                       const explanation = runDetail.explanations[index];
                       return (
-                        <div className="answer-row" key={question}>
+                        <div className="answer-row" key={`${index}-${question}`}>
                           <div className="answer-meta">
                             <div className="answer-question">#{index + 1} {question}</div>
                             <div className="rating-bar" aria-label={`Answer ${answer}`}>

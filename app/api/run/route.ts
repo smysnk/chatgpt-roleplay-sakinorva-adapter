@@ -7,6 +7,8 @@ import { SAKINORVA_RESULTS_CSS } from "@/lib/sakinorvaStyles";
 import { initializeDatabase } from "@/lib/db";
 import { initializeInteractionModel, Interaction } from "@/lib/models/Interaction";
 
+export const dynamic = "force-dynamic";
+
 const ANSWER_SCHEMA = z.object({
   responses: z
     .array(
@@ -210,7 +212,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({
-      historyId: interaction.id,
+      runId: interaction.id,
       slug: interaction.slug,
       character: interaction.character,
       context: interaction.context,
@@ -231,4 +233,41 @@ export async function POST(request: Request) {
     const message = error instanceof Error ? error.message : "Unexpected error.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+export async function GET() {
+  initializeInteractionModel();
+  await initializeDatabase();
+  const interactions = await Interaction.findAll({
+    order: [["createdAt", "DESC"]],
+    attributes: [
+      "id",
+      "slug",
+      "character",
+      "context",
+      "grantType",
+      "secondType",
+      "thirdType",
+      "axisType",
+      "myersType",
+      "functionScores",
+      "createdAt"
+    ]
+  });
+
+  return NextResponse.json({
+    items: interactions.map((interaction) => ({
+      id: interaction.id.toString(),
+      slug: interaction.slug,
+      character: interaction.character,
+      context: interaction.context,
+      grantType: interaction.grantType,
+      secondType: interaction.secondType,
+      thirdType: interaction.thirdType,
+      axisType: interaction.axisType,
+      myersType: interaction.myersType,
+      functionScores: toAbsoluteScores(interaction.functionScores),
+      createdAt: interaction.createdAt
+    }))
+  });
 }
