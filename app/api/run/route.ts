@@ -8,10 +8,15 @@ import { initializeDatabase } from "@/lib/db";
 import { initializeInteractionModel, Interaction } from "@/lib/models/Interaction";
 
 const ANSWER_SCHEMA = z.object({
-  answers: z.array(z.number().int().min(1).max(5)).length(96),
-  explanations: z.array(z.string()).length(96)
+  responses: z
+    .array(
+      z.object({
+        answer: z.number().int().min(1).max(5),
+        explanation: z.string().min(1)
+      })
+    )
+    .length(96)
 });
-
 const requestSchema = z.object({
   character: z.string().min(2).max(80),
   context: z.string().max(500).optional().default("")
@@ -112,17 +117,17 @@ export async function POST(request: Request) {
 
     const systemMessage =
       "You are roleplaying as the specified character. Answer truthfully as that character would behave. Output must match the JSON schema exactly.";
-
-    const userMessage = `Character: ${payload.character}\nContext: ${payload.context || "(none)"}\n\nAnswer all 96 questions on a 1-5 scale (1=no, 5=yes). Provide a one-sentence explanation for each answer.\nReturn JSON only, no markdown, no commentary.\n\nQuestions:\n${questionBlock}\n\nJSON schema:\n{\n  \"answers\": [96 integers 1..5],\n  \"explanations\": [96 strings, one sentence each]\n}`;
+  
+    const userMessage = `Character: ${payload.character}\nContext: ${payload.context || "(none)"}\n\nAnswer all 96 questions on a 1-5 scale (1=no, 5=yes). Provide a one-sentence explanation for each answer.\nReturn JSON only, no markdown, no commentary.\n\nQuestions:\n${questionBlock}\n\nJSON schema:\n{\n \"responses\": [\n{ \"answer\": number (1..5), \"explanation\": string (one sentence) \n} \n// exactly 96 objects \n]\n}\n`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-2024-08-06",
+      model: "gpt-5-mini",
       messages: [
         { role: "system", content: systemMessage },
         { role: "user", content: userMessage }
       ],
       response_format: { type: "json_object" },
-      temperature: 0.6
+      temperature: 1
     });
 
     console.log("OpenAI response:", JSON.stringify(completion, null, 2));
@@ -137,11 +142,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "OpenAI response failed validation." }, { status: 502 });
     }
 
-    const { answers, explanations } = parsed.data;
+    const { responses } = parsed.data;
     const params = new URLSearchParams();
-    answers.forEach((answer, index) => {
-      params.set(`q${index + 1}`, answer.toString());
-    });
+    let { answers, explanations } = responses.reduce((acc, response, index) => {
+      acc.answers.push(response.answer);
+      acc.explanations.push(response.explanation);
+      params.set(`q${index + 1}`, response.answer.toString());
+      return acc;
+    }, { answers: [] as number[], explanations: [] as string[] });
     params.set("age", "");
     params.set("idmbti", "");
     params.set("enneagram", "");
