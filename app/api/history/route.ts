@@ -3,6 +3,12 @@ import { initializeDatabase } from "@/lib/db";
 import { initializeInteractionModel, Interaction } from "@/lib/models/Interaction";
 
 export const dynamic = "force-dynamic";
+
+const toAbsoluteScores = (scores: Record<string, number> | null) =>
+  scores
+    ? Object.fromEntries(Object.entries(scores).map(([key, value]) => [key, Math.abs(value)]))
+    : null;
+
 export async function GET() {
   initializeInteractionModel();
   await initializeDatabase();
@@ -34,7 +40,7 @@ export async function GET() {
       thirdType: interaction.thirdType,
       axisType: interaction.axisType,
       myersType: interaction.myersType,
-      functionScores: interaction.functionScores,
+      functionScores: toAbsoluteScores(interaction.functionScores),
       createdAt: interaction.createdAt
     }))
   });

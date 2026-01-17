@@ -150,7 +150,7 @@ const getStnfValues = (scores: Record<string, number> | null) => {
   if (!scores) {
     return null;
   }
-  const value = (key: string) => Math.abs(scores?.[key] ?? 0);
+  const value = (key: string) => scores?.[key] ?? 0;
   return {
     sensing: { extroverted: value("Se"), introverted: value("Si") },
     thinking: { extroverted: value("Te"), introverted: value("Ti") },
