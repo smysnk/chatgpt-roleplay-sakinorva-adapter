@@ -11,6 +11,11 @@ Generate Sakinorva cognitive function results for a fictional or historical char
 2. Create a `.env.local` file:
    ```bash
    OPENAI_API_KEY=your_api_key_here
+   # Database configuration (defaults to postgres)
+   DATABASE_URL=postgres://user:password@localhost:5432/sakinorva
+   # Optional: set to sqlite for local file storage
+   # DB_DIALECT=sqlite
+   # SQLITE_STORAGE=./data.sqlite
    ```
 3. Run the development server:
    ```bash
