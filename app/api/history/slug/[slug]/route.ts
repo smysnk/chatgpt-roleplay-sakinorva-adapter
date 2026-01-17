@@ -3,6 +3,8 @@ import { initializeDatabase } from "@/lib/db";
 import { initializeInteractionModel, Interaction } from "@/lib/models/Interaction";
 import { SAKINORVA_RESULTS_CSS } from "@/lib/sakinorvaStyles";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   _request: Request,
   { params }: { params: { slug: string } }
