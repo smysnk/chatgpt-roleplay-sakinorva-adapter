@@ -22,7 +22,10 @@ export const initializeDatabase = async () => {
   if (!initialization) {
     initialization = getSequelize()
       .sync()
-      .then(() => undefined);
+      .then(async () => {
+        const { runRunUpgrades } = await import("@/lib/runUpgrade");
+        await runRunUpgrades();
+      });
   }
   await initialization;
 };
