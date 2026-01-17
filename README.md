@@ -19,6 +19,14 @@ Generate Sakinorva cognitive function results for a fictional or historical char
 
 Visit `http://localhost:3000`.
 
+## Docker
+
+When using `docker-compose`, you can configure the host listening port by setting `HOST_PORT` in a `.env` file:
+
+```bash
+HOST_PORT=3000
+```
+
 ## Notes
 
 - OpenAI requests only run server-side in the `/api/run` route.
