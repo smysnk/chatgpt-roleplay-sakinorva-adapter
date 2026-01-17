@@ -11,6 +11,8 @@ type StnfMiniChartProps = {
   thinking: StnfBarPair;
   intuition: StnfBarPair;
   feeling: StnfBarPair;
+  minScore?: number;
+  maxScore?: number;
   className?: string;
   style?: CSSProperties;
 };
@@ -25,14 +27,23 @@ const getCssVar = (name: string, fallback: string) => {
   return value || fallback;
 };
 
-const clampHeight = (value: number, maxHeight: number) =>
-  Math.max(0, Math.min(maxHeight, Math.round((Math.abs(value) / MAX_FUNCTION_SCORE) * maxHeight)));
+const clampHeight = (value: number, maxHeight: number, minScore: number, maxScore: number) => {
+  const range = maxScore - minScore;
+  if (range <= 0) {
+    return Math.max(0, Math.min(maxHeight, Math.round((Math.abs(value) / MAX_FUNCTION_SCORE) * maxHeight)));
+  }
+  const normalized = (value - minScore) / range;
+  const height = Math.round(Math.max(0, Math.min(1, normalized)) * maxHeight);
+  return Math.max(0, Math.min(maxHeight, height));
+};
 
 export default function StnfMiniChart({
   sensing,
   thinking,
   intuition,
   feeling,
+  minScore,
+  maxScore,
   className,
   style
 }: StnfMiniChartProps) {
@@ -123,10 +134,15 @@ export default function StnfMiniChart({
         }
       ];
 
+      const fallbackMin = 0;
+      const fallbackMax = MAX_FUNCTION_SCORE;
+      const resolvedMin = minScore ?? fallbackMin;
+      const resolvedMax = maxScore ?? fallbackMax;
+
       bars.forEach((bar, index) => {
         const x = startX + index * (barWidth + gap);
-        const extroHeight = clampHeight(bar.extroverted, maxHeight);
-        const introHeight = clampHeight(bar.introverted, maxHeight);
+        const extroHeight = clampHeight(bar.extroverted, maxHeight, resolvedMin, resolvedMax);
+        const introHeight = clampHeight(bar.introverted, maxHeight, resolvedMin, resolvedMax);
 
         if (extroHeight > 0) {
           context.fillStyle = bar.extroColor;
@@ -150,7 +166,7 @@ export default function StnfMiniChart({
     return () => {
       observer.disconnect();
     };
-  }, [sensing, thinking, intuition, feeling]);
+  }, [sensing, thinking, intuition, feeling, minScore, maxScore]);
 
   return (
     <div className={`stnf-chart ${className ?? ""}`.trim()} ref={containerRef} style={style}>

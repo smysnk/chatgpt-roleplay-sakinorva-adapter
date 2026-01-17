@@ -159,6 +159,20 @@ const getStnfValues = (scores: Record<string, number> | null) => {
   };
 };
 
+const getScoreRange = (scores: Record<string, number> | null) => {
+  if (!scores) {
+    return null;
+  }
+  const values = Object.values(scores).filter((value) => Number.isFinite(value));
+  if (!values.length) {
+    return null;
+  }
+  return {
+    min: Math.min(...values),
+    max: Math.max(...values)
+  };
+};
+
 export default function HomePage({ initialSlug }: { initialSlug?: string | null }) {
   const router = useRouter();
   const [character, setCharacter] = useState("");
@@ -429,6 +443,7 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                   {runs.map((item) => {
                     const isClickable = item.status === "ready" && !!item.slug;
                     const stnfValues = getStnfValues(item.functionScores);
+                    const scoreRange = getScoreRange(item.functionScores);
                     return (
                       <tr
                         key={item.id}
@@ -469,6 +484,8 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                               thinking={stnfValues.thinking}
                               intuition={stnfValues.intuition}
                               feeling={stnfValues.feeling}
+                              minScore={scoreRange?.min}
+                              maxScore={scoreRange?.max}
                             />
                           ) : (
                             <span className="helper">—</span>
