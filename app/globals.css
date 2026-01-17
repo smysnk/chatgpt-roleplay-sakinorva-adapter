@@ -342,8 +342,8 @@ a {
 
 .type-badges {
   display: inline-flex;
-  gap: 4px;
-  flex-wrap: wrap;
+  gap: 0;
+  flex-wrap: nowrap;
 }
 
 .type-letter {
