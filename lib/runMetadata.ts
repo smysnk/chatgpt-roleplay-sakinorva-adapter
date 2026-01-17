@@ -1,8 +1,13 @@
 import * as cheerio from "cheerio";
 
 const parseScore = (value: string) => {
-  const match = value.match(/-?\d+(?:\.\d+)?/);
-  return match ? Number(match[0]) : null;
+  const normalized = value.replace(/,/g, "");
+  const match = normalized.match(/-?\d+(?:\.\d+)?/);
+  if (!match) {
+    return null;
+  }
+  const parsed = Number.parseFloat(match[0]);
+  return Number.isFinite(parsed) ? parsed : null;
 };
 
 export const extractResultMetadata = (htmlFragment: string) => {
