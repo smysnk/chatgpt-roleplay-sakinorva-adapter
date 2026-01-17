@@ -11,6 +11,8 @@ type StnfMiniChartProps = {
   thinking: StnfBarPair;
   intuition: StnfBarPair;
   feeling: StnfBarPair;
+  minScore?: number;
+  maxScore?: number;
   className?: string;
   style?: CSSProperties;
 };
@@ -25,14 +27,46 @@ const getCssVar = (name: string, fallback: string) => {
   return value || fallback;
 };
 
-const clampHeight = (value: number, maxHeight: number) =>
-  Math.max(0, Math.min(maxHeight, Math.round((Math.abs(value) / MAX_FUNCTION_SCORE) * maxHeight)));
+const clampHeight = (value: number, maxHeight: number, minScore: number, maxScore: number) => {
+  const range = maxScore - minScore;
+  if (range <= 0) {
+    return Math.max(0, Math.min(maxHeight, Math.round((Math.abs(value) / MAX_FUNCTION_SCORE) * maxHeight)));
+  }
+  const normalized = (value - minScore) / range;
+  const height = Math.round(Math.max(0, Math.min(1, normalized)) * maxHeight);
+  return Math.max(0, Math.min(maxHeight, height));
+};
+
+const brightenHexColor = (color: string, amount: number) => {
+  if (!color.startsWith("#")) {
+    return color;
+  }
+  const hex = color.replace("#", "");
+  const parsed = hex.length === 3
+    ? hex.split("").map((char) => char + char).join("")
+    : hex;
+  if (parsed.length !== 6) {
+    return color;
+  }
+  const toNumber = (value: string) => Number.parseInt(value, 16);
+  const r = toNumber(parsed.slice(0, 2));
+  const g = toNumber(parsed.slice(2, 4));
+  const b = toNumber(parsed.slice(4, 6));
+  if ([r, g, b].some((value) => Number.isNaN(value))) {
+    return color;
+  }
+  const brighten = (value: number) => Math.min(255, Math.round(value + (255 - value) * amount));
+  const toHex = (value: number) => value.toString(16).padStart(2, "0");
+  return `#${toHex(brighten(r))}${toHex(brighten(g))}${toHex(brighten(b))}`;
+};
 
 export default function StnfMiniChart({
   sensing,
   thinking,
   intuition,
   feeling,
+  minScore,
+  maxScore,
   className,
   style
 }: StnfMiniChartProps) {
@@ -123,10 +157,16 @@ export default function StnfMiniChart({
         }
       ];
 
+      const fallbackMin = 0;
+      const fallbackMax = MAX_FUNCTION_SCORE;
+      const resolvedMin = minScore ?? fallbackMin;
+      const resolvedMax = maxScore ?? fallbackMax;
+      const sumRangeMax = resolvedMax > resolvedMin ? resolvedMax - resolvedMin : MAX_FUNCTION_SCORE;
+
       bars.forEach((bar, index) => {
         const x = startX + index * (barWidth + gap);
-        const extroHeight = clampHeight(bar.extroverted, maxHeight);
-        const introHeight = clampHeight(bar.introverted, maxHeight);
+        const extroHeight = clampHeight(bar.extroverted, maxHeight, resolvedMin, resolvedMax);
+        const introHeight = clampHeight(bar.introverted, maxHeight, resolvedMin, resolvedMax);
 
         if (extroHeight > 0) {
           context.fillStyle = bar.extroColor;
@@ -136,6 +176,24 @@ export default function StnfMiniChart({
         if (introHeight > 0) {
           context.fillStyle = bar.introColor;
           context.fillRect(x, Math.floor(height / 2) + 1, barWidth, introHeight);
+        }
+
+        const sum = bar.extroverted - bar.introverted;
+        if (sum !== 0) {
+          const sumHeight = clampHeight(Math.abs(sum), maxHeight, 0, sumRangeMax);
+          if (sumHeight > 0) {
+            const brighterColor = sum > 0
+              ? brightenHexColor(bar.extroColor, 0.35)
+              : brightenHexColor(bar.introColor, 0.35);
+            const sumBarWidth = Math.max(2, Math.floor(barWidth * 0.5));
+            const sumX = x + Math.floor((barWidth - sumBarWidth) / 2);
+            context.fillStyle = brighterColor;
+            if (sum > 0) {
+              context.fillRect(sumX, Math.floor(height / 2) - sumHeight, sumBarWidth, sumHeight);
+            } else {
+              context.fillRect(sumX, Math.floor(height / 2) + 1, sumBarWidth, sumHeight);
+            }
+          }
         }
       });
     };
@@ -150,7 +208,7 @@ export default function StnfMiniChart({
     return () => {
       observer.disconnect();
     };
-  }, [sensing, thinking, intuition, feeling]);
+  }, [sensing, thinking, intuition, feeling, minScore, maxScore]);
 
   return (
     <div className={`stnf-chart ${className ?? ""}`.trim()} ref={containerRef} style={style}>
