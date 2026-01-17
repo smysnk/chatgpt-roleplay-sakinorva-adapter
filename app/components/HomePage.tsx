@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { QUESTIONS } from "@/lib/questions";
+import StnfMiniChart from "@/app/components/StnfMiniChart";
 
 const MIN_LENGTH = 2;
 const MAX_LENGTH = 80;
@@ -19,6 +20,7 @@ type HistoryItem = {
   thirdType: string | null;
   axisType: string | null;
   myersType: string | null;
+  functionScores: Record<string, number> | null;
   createdAt: string;
   status: "ready" | "running" | "error";
   errorMessage?: string | null;
@@ -49,6 +51,7 @@ type ResultsPayload = {
   thirdType: string | null;
   axisType: string | null;
   myersType: string | null;
+  functionScores: Record<string, number> | null;
   createdAt: string;
 };
 
@@ -141,6 +144,19 @@ const normalizeScores = (scores: Record<string, number> | null) => {
       return [key, Number.isFinite(intensity) ? intensity : 0.6];
     })
   );
+};
+
+const getStnfValues = (scores: Record<string, number> | null) => {
+  if (!scores) {
+    return null;
+  }
+  const value = (key: string) => Math.abs(scores?.[key] ?? 0);
+  return {
+    sensing: { extroverted: value("Se"), introverted: value("Si") },
+    thinking: { extroverted: value("Te"), introverted: value("Ti") },
+    intuition: { extroverted: value("Ne"), introverted: value("Ni") },
+    feeling: { extroverted: value("Fe"), introverted: value("Fi") }
+  };
 };
 
 export default function HomePage({ initialSlug }: { initialSlug?: string | null }) {
@@ -277,6 +293,7 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
       thirdType: null,
       axisType: null,
       myersType: null,
+      functionScores: null,
       createdAt: new Date().toISOString(),
       status: "running"
     };
@@ -311,6 +328,7 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                 thirdType: payload.thirdType,
                 axisType: payload.axisType,
                 myersType: payload.myersType,
+                functionScores: payload.functionScores,
                 createdAt: payload.createdAt,
                 status: "ready"
               }
@@ -401,7 +419,7 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                     <th>Context</th>
                     <th>GFT</th>
                     <th>2nd</th>
-                    <th>3rd</th>
+                    <th>STNF</th>
                     <th>Axis</th>
                     <th>Myers</th>
                     <th>Run</th>
@@ -410,6 +428,7 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                 <tbody>
                   {history.map((item) => {
                     const isClickable = item.status === "ready" && !!item.slug;
+                    const stnfValues = getStnfValues(item.functionScores);
                     return (
                       <tr
                         key={item.id}
@@ -444,7 +463,16 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                           {renderTypeCell(item.secondType)}
                         </td>
                         <td>
-                          {renderTypeCell(item.thirdType)}
+                          {stnfValues ? (
+                            <StnfMiniChart
+                              sensing={stnfValues.sensing}
+                              thinking={stnfValues.thinking}
+                              intuition={stnfValues.intuition}
+                              feeling={stnfValues.feeling}
+                            />
+                          ) : (
+                            <span className="helper">—</span>
+                          )}
                         </td>
                         <td>
                           {renderTypeCell(item.axisType)}

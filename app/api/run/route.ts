@@ -214,6 +214,7 @@ export async function POST(request: Request) {
       thirdType: interaction.thirdType,
       axisType: interaction.axisType,
       myersType: interaction.myersType,
+      functionScores: interaction.functionScores,
       createdAt: interaction.createdAt,
       answers,
       explanations,

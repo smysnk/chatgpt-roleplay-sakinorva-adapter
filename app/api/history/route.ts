@@ -18,6 +18,7 @@ export async function GET() {
       "thirdType",
       "axisType",
       "myersType",
+      "functionScores",
       "createdAt"
     ]
   });
@@ -33,6 +34,7 @@ export async function GET() {
       thirdType: interaction.thirdType,
       axisType: interaction.axisType,
       myersType: interaction.myersType,
+      functionScores: interaction.functionScores,
       createdAt: interaction.createdAt
     }))
   });
