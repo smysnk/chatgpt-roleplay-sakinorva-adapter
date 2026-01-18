@@ -35,24 +35,33 @@ const getScore = (scores: Record<string, number> | null, key: string) => {
     return 0;
   }
   const value = scores[key];
-  return Number.isFinite(value) ? Math.abs(value) : 0;
+  return Number.isFinite(value) ? value : 0;
 };
 
-const getMaxScore = (scores: Record<string, number> | null) => {
+const getScoreRange = (scores: Record<string, number> | null) => {
   if (!scores) {
-    return 40;
+    return { min: 0, max: 40 };
   }
-  const values = Object.values(scores)
-    .filter((value) => Number.isFinite(value))
-    .map((value) => Math.abs(value));
-  return values.length ? Math.max(...values) : 40;
+  const values = Object.values(scores).filter((value) => Number.isFinite(value));
+  if (!values.length) {
+    return { min: 0, max: 40 };
+  }
+  return {
+    min: Math.min(...values),
+    max: Math.max(...values)
+  };
 };
 
-const getHeightPercent = (value: number, max: number) => {
-  if (max <= 0) {
-    return 0;
+const getHeightPercent = (value: number, min: number, max: number, fallbackMax: number) => {
+  const range = max - min;
+  if (range <= 0) {
+    if (fallbackMax <= 0) {
+      return 0;
+    }
+    return Math.max(0, Math.min(100, (Math.abs(value) / fallbackMax) * 100));
   }
-  return Math.max(0, Math.min(100, (value / max) * 100));
+  const normalized = (value - min) / range;
+  return Math.max(0, Math.min(100, normalized * 100));
 };
 
 export default function StnfIndicator({
@@ -64,7 +73,8 @@ export default function StnfIndicator({
   className?: string;
   style?: CSSProperties;
 }) {
-  const maxScore = getMaxScore(functionScores);
+  const { min: minScore, max: maxScore } = getScoreRange(functionScores);
+  const rangeMax = maxScore > minScore ? maxScore - minScore : 40;
 
   return (
     <div className={`stnf-indicator ${className ?? ""}`.trim()} style={style}>
@@ -72,9 +82,9 @@ export default function StnfIndicator({
         const extroScore = getScore(functionScores, axis.extroverted.key);
         const introScore = getScore(functionScores, axis.introverted.key);
         const delta = extroScore - introScore;
-        const extroHeight = getHeightPercent(extroScore, maxScore);
-        const introHeight = getHeightPercent(introScore, maxScore);
-        const deltaHeight = getHeightPercent(Math.abs(delta), maxScore);
+        const extroHeight = getHeightPercent(extroScore, minScore, maxScore, 40);
+        const introHeight = getHeightPercent(introScore, minScore, maxScore, 40);
+        const deltaHeight = getHeightPercent(Math.abs(delta), 0, rangeMax, 40);
 
         return (
           <div className="stnf-column" key={axis.key}>
