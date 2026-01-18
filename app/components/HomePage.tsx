@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { QUESTIONS } from "@/lib/questions";
+import SakinorvaResults from "@/app/components/SakinorvaResults";
 import StnfMiniChart from "@/app/components/StnfMiniChart";
 
 const MIN_LENGTH = 2;
@@ -55,39 +56,6 @@ type ResultsPayload = {
   createdAt: string;
 };
 
-const sanitizeHtml = (input: string) => {
-  if (typeof window === "undefined") {
-    return "";
-  }
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(input, "text/html");
-  const allowedTags = new Set(["DIV", "SPAN", "STYLE"]);
-  const allowedAttrs = new Set(["class", "id"]);
-
-  const walk = (node: Element) => {
-    Array.from(node.children).forEach((child) => {
-      if (!allowedTags.has(child.tagName)) {
-        child.remove();
-        return;
-      }
-      Array.from(child.attributes).forEach((attr) => {
-        if (!allowedAttrs.has(attr.name)) {
-          child.removeAttribute(attr.name);
-        }
-        if (attr.name.startsWith("on")) {
-          child.removeAttribute(attr.name);
-        }
-      });
-      walk(child);
-    });
-  };
-
-  if (doc.body) {
-    walk(doc.body);
-  }
-
-  return doc.body?.innerHTML ?? "";
-};
 
 const formatDate = (value: string) => {
   const parsed = new Date(value);
@@ -263,13 +231,6 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
       active = false;
     };
   }, [activeSlug]);
-
-  const sanitizedResults = useMemo(() => {
-    if (!runDetail?.resultsHtmlFragment) {
-      return "";
-    }
-    return sanitizeHtml(runDetail.resultsHtmlFragment);
-  }, [runDetail?.resultsHtmlFragment]);
 
   const scoreIntensity = useMemo(() => normalizeScores(runDetail?.functionScores ?? null), [runDetail]);
 
@@ -563,8 +524,10 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                 <div className="app-card">
                   <h3>Results</h3>
                   <div style={{ marginTop: "20px" }}>
-                    <div className="sakinorva-results" dangerouslySetInnerHTML={{ __html: sanitizedResults }} />
-                    <style>{runDetail.resultsCss}</style>
+                    <SakinorvaResults
+                      htmlFragment={runDetail.resultsHtmlFragment}
+                      functionScores={runDetail.functionScores}
+                    />
                   </div>
                 </div>
                 <div className="app-card">

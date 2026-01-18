@@ -2,43 +2,10 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { QUESTIONS } from "@/lib/questions";
+import SakinorvaResults from "@/app/components/SakinorvaResults";
 
-
-const sanitizeHtml = (input: string) => {
-  if (typeof window === "undefined") {
-    return "";
-  }
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(input, "text/html");
-  const allowedTags = new Set(["DIV", "SPAN", "STYLE"]);
-  const allowedAttrs = new Set(["class", "id"]);
-
-  const walk = (node: Element) => {
-    Array.from(node.children).forEach((child) => {
-      if (!allowedTags.has(child.tagName)) {
-        child.remove();
-        return;
-      }
-      Array.from(child.attributes).forEach((attr) => {
-        if (!allowedAttrs.has(attr.name)) {
-          child.removeAttribute(attr.name);
-        }
-        if (attr.name.startsWith("on")) {
-          child.removeAttribute(attr.name);
-        }
-      });
-      walk(child);
-    });
-  };
-
-  if (doc.body) {
-    walk(doc.body);
-  }
-
-  return doc.body?.innerHTML ?? "";
-};
 
 type ResultsPayload = {
   runId: number;
@@ -48,6 +15,7 @@ type ResultsPayload = {
   formBody: string;
   resultsHtmlFragment: string;
   resultsCss: string;
+  functionScores: Record<string, number> | null;
 };
 
 export default function ResultsPage() {
@@ -113,13 +81,6 @@ function Page() {
     };
   }, [character, context]);
 
-  const sanitizedResults = useMemo(() => {
-    if (!data?.resultsHtmlFragment) {
-      return "";
-    }
-    return sanitizeHtml(data.resultsHtmlFragment);
-  }, [data?.resultsHtmlFragment]);
-
   const handleCopy = async () => {
     if (!data?.formBody) {
       return;
@@ -142,8 +103,10 @@ function Page() {
             <div className="error">{error}</div>
           ) : data ? (
             <div style={{ marginTop: "20px" }}>
-              <div className="sakinorva-results" dangerouslySetInnerHTML={{ __html: sanitizedResults }} />
-              <style>{data.resultsCss}</style>
+              <SakinorvaResults
+                htmlFragment={data.resultsHtmlFragment}
+                functionScores={data.functionScores}
+              />
             </div>
           ) : null}
           <div style={{ display: "flex", gap: "12px", marginTop: "24px", flexWrap: "wrap" }}>
