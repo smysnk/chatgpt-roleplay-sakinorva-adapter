@@ -35,6 +35,7 @@ type MbtiMapCanvasProps = {
 type Point = { x: number; y: number };
 
 const STACK_WEIGHTS = [0.46, 0.26, 0.18, 0.1];
+const STACK_AXIS_MAX = 40;
 
 const BORDER_STYLES: Record<LayerId, number[]> = {
   grant: [],
@@ -234,9 +235,9 @@ const buildBaseCenters = (layer: LayerId) => {
 
   MBTI_TYPES.forEach((type) => {
     if (layer === "grant") {
-      centers[type] = stackCenter(grantStack(type));
+      centers[type] = scalePoint(stackCenter(grantStack(type)), 1 / STACK_AXIS_MAX);
     } else if (layer === "myers") {
-      centers[type] = stackCenter(myersStack(type));
+      centers[type] = scalePoint(stackCenter(myersStack(type)), 1 / STACK_AXIS_MAX);
     } else {
       centers[type] = axisCenter(type);
     }
@@ -442,22 +443,6 @@ export default function MbtiMapCanvas({
           ])
         ) as Record<MbtiType, Point>;
         polygons = buildPolygons(centers);
-      } else {
-        const maxAbs = Math.max(
-          ...Object.values(polygons).flatMap((points) =>
-            points.map((point) => Math.max(Math.abs(point.x), Math.abs(point.y)))
-          )
-        );
-        if (Number.isFinite(maxAbs) && maxAbs > 0) {
-          const scale = 1 / maxAbs;
-          centers = Object.fromEntries(
-            Object.entries(baseCenters).map(([type, point]) => [
-              type,
-              { x: point.x * scale, y: point.y * scale }
-            ])
-          ) as Record<MbtiType, Point>;
-          polygons = buildPolygons(centers);
-        }
       }
       const polygonBounds = Object.fromEntries(
         MBTI_TYPES.map((type) => {
@@ -834,8 +819,11 @@ export default function MbtiMapCanvas({
           className={`mbti-map-toggle ${autoRotate ? "is-active" : ""}`}
           onClick={() => setAutoRotate((value) => !value)}
           aria-pressed={autoRotate}
+          aria-label={autoRotate ? "Pause auto-rotate" : "Play auto-rotate"}
         >
-          <span className="mbti-map-toggle-label">Auto-rotate</span>
+          <span className="mbti-map-toggle-label" aria-hidden="true">
+            {autoRotate ? "⏸" : "▶"}
+          </span>
           <span className="mbti-map-toggle-style" aria-hidden="true">
             <span className="mbti-map-line rotate" />
           </span>

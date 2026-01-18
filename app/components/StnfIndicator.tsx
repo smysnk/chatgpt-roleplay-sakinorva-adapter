@@ -75,10 +75,21 @@ export default function StnfIndicator({
 }) {
   const { min: minScore, max: maxScore } = getScoreRange(functionScores);
   const rangeMax = maxScore > minScore ? maxScore - minScore : 40;
+  const sortedAxes = [...AXES].sort((first, second) => {
+    const firstScore = Math.max(
+      getScore(functionScores, first.extroverted.key),
+      getScore(functionScores, first.introverted.key)
+    );
+    const secondScore = Math.max(
+      getScore(functionScores, second.extroverted.key),
+      getScore(functionScores, second.introverted.key)
+    );
+    return secondScore - firstScore;
+  });
 
   return (
     <div className={`stnf-indicator ${className ?? ""}`.trim()} style={style}>
-      {AXES.map((axis) => {
+      {sortedAxes.map((axis) => {
         const extroScore = getScore(functionScores, axis.extroverted.key);
         const introScore = getScore(functionScores, axis.introverted.key);
         const delta = extroScore - introScore;

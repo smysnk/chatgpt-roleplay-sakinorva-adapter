@@ -132,30 +132,38 @@ export default function StnfMiniChart({
 
       const bars = [
         {
+          key: "S",
           extroverted: sensing.extroverted,
           introverted: sensing.introverted,
           extroColor: colors.sensingExtro,
           introColor: colors.sensingIntro
         },
         {
+          key: "T",
           extroverted: thinking.extroverted,
           introverted: thinking.introverted,
           extroColor: colors.thinkingExtro,
           introColor: colors.thinkingIntro
         },
         {
+          key: "N",
           extroverted: intuition.extroverted,
           introverted: intuition.introverted,
           extroColor: colors.intuitionExtro,
           introColor: colors.intuitionIntro
         },
         {
+          key: "F",
           extroverted: feeling.extroverted,
           introverted: feeling.introverted,
           extroColor: colors.feelingExtro,
           introColor: colors.feelingIntro
         }
-      ];
+      ].sort((first, second) => {
+        const firstScore = Math.max(first.extroverted, first.introverted);
+        const secondScore = Math.max(second.extroverted, second.introverted);
+        return secondScore - firstScore;
+      });
 
       const fallbackMin = 0;
       const fallbackMax = MAX_FUNCTION_SCORE;
