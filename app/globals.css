@@ -429,57 +429,6 @@ a {
   margin-top: 16px;
 }
 
-.function-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.function-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 10px;
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 0.8rem;
-  color: #0b0d12;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.function-te {
-  background: var(--func-te);
-}
-
-.function-ti {
-  background: var(--func-ti);
-}
-
-.function-fe {
-  background: var(--func-fe);
-}
-
-.function-fi {
-  background: var(--func-fi);
-}
-
-.function-ne {
-  background: var(--func-ne);
-}
-
-.function-ni {
-  background: var(--func-ni);
-}
-
-.function-se {
-  background: var(--func-se);
-}
-
-.function-si {
-  background: var(--func-si);
-}
-
 .sakinorva-results.custom {
   display: grid;
   gap: 20px;
@@ -588,7 +537,7 @@ a {
 .stnf-bar-area {
   position: relative;
   display: flex;
-  align-items: flex-end;
+  align-items: stretch;
   justify-content: center;
   gap: 6px;
   border-radius: 8px;
@@ -596,20 +545,43 @@ a {
 }
 
 .stnf-bar-area--intro {
+  align-items: stretch;
+}
+
+.stnf-bar-stack {
+  position: relative;
+  width: 70%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.stnf-bar-stack--intro {
   align-items: flex-start;
 }
 
 .stnf-bar {
-  width: 70%;
+  width: 100%;
   border-radius: 8px;
   background: var(--stnf-bar-color, var(--accent));
   transition: height 0.2s ease;
 }
 
 .stnf-bar--delta {
+  position: absolute;
+  bottom: 0;
   width: 45%;
-  opacity: 0.65;
-  filter: saturate(0.7) brightness(1.15);
+  opacity: 0.5;
+  filter: saturate(0.6) brightness(1.2);
+  transform: translateX(-50%);
+  left: 50%;
+  z-index: 1;
+}
+
+.stnf-bar-stack--intro .stnf-bar--delta {
+  top: 0;
+  bottom: auto;
 }
 
 .stnf-zero-line {

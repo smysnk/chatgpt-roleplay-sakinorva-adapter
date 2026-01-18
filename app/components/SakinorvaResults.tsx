@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import StnfIndicator from "@/app/components/StnfIndicator";
 
 const STNF_TOOLTIP =
@@ -26,6 +26,8 @@ type ResultSection = {
   title: string;
   rows: ResultRow[];
 };
+
+const TYPE_CODE_PATTERN = /\b[EI][NS][TF][JP]\b/g;
 
 const parseResultsFragment = (htmlFragment: string): ResultSection[] => {
   if (typeof window === "undefined") {
@@ -123,6 +125,41 @@ export default function SakinorvaResults({
   functionScores: Record<string, number> | null;
 }) {
   const sections = useMemo(() => parseResultsFragment(htmlFragment), [htmlFragment]);
+  const renderTypeCode = (typeCode: string, key: string) => (
+    <span className="type-badges" key={key}>
+      {typeCode.split("").map((letter, index) => (
+        <span key={`${letter}-${index}`} className={`type-letter ${letter.toLowerCase()}`}>
+          {letter}
+        </span>
+      ))}
+    </span>
+  );
+
+  const renderValueWithBadges = (value: string) => {
+    const matches = Array.from(value.matchAll(TYPE_CODE_PATTERN));
+    if (!matches.length) {
+      return value;
+    }
+
+    const fragments: ReactNode[] = [];
+    let lastIndex = 0;
+
+    matches.forEach((match, index) => {
+      if (match.index === undefined) {
+        return;
+      }
+      if (match.index > lastIndex) {
+        fragments.push(value.slice(lastIndex, match.index));
+      }
+      fragments.push(renderTypeCode(match[0], `${match[0]}-${index}`));
+      lastIndex = match.index + match[0].length;
+      if (index === matches.length - 1 && lastIndex < value.length) {
+        fragments.push(value.slice(lastIndex));
+      }
+    });
+
+    return fragments;
+  };
 
   return (
     <div className="sakinorva-results custom">
@@ -161,6 +198,8 @@ export default function SakinorvaResults({
                         </span>
                       ))}
                     </span>
+                  ) : section.title.toLowerCase().includes("absolute") ? (
+                    renderValueWithBadges(row.value)
                   ) : (
                     row.value
                   )}

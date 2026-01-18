@@ -84,50 +84,54 @@ export default function StnfIndicator({
                 className="stnf-bar-area stnf-bar-area--extro"
                 title={`${axis.extroverted.key} (${axis.extroverted.label})`}
               >
-                <div
-                  className="stnf-bar stnf-bar--extro"
-                  style={{
-                    height: `${extroHeight}%`,
-                    ["--stnf-bar-color" as string]: `var(${axis.extroverted.colorVar})`
-                  }}
-                  title={`${axis.extroverted.key} (${axis.extroverted.label}): ${formatScore(extroScore)}`}
-                />
-                {delta > 0 ? (
+                <div className="stnf-bar-stack stnf-bar-stack--extro">
                   <div
-                    className="stnf-bar stnf-bar--delta"
+                    className="stnf-bar stnf-bar--extro"
                     style={{
-                      height: `${deltaHeight}%`,
+                      height: `${extroHeight}%`,
                       ["--stnf-bar-color" as string]: `var(${axis.extroverted.colorVar})`
                     }}
-                    title={`${axis.extroverted.key} − ${axis.introverted.key}: +${formatScore(delta)}`}
+                    title={`${axis.extroverted.key} (${axis.extroverted.label}): ${formatScore(extroScore)}`}
                   />
-                ) : null}
+                  {delta > 0 ? (
+                    <div
+                      className="stnf-bar stnf-bar--delta"
+                      style={{
+                        height: `${deltaHeight}%`,
+                        ["--stnf-bar-color" as string]: `var(${axis.extroverted.colorVar})`
+                      }}
+                      title={`${axis.extroverted.key} − ${axis.introverted.key}: +${formatScore(delta)}`}
+                    />
+                  ) : null}
+                </div>
               </div>
               <div className="stnf-zero-line" />
               <div
                 className="stnf-bar-area stnf-bar-area--intro"
                 title={`${axis.introverted.key} (${axis.introverted.label})`}
               >
-                <div
-                  className="stnf-bar stnf-bar--intro"
-                  style={{
-                    height: `${introHeight}%`,
-                    ["--stnf-bar-color" as string]: `var(${axis.introverted.colorVar})`
-                  }}
-                  title={`${axis.introverted.key} (${axis.introverted.label}): ${formatScore(introScore)}`}
-                />
-                {delta < 0 ? (
+                <div className="stnf-bar-stack stnf-bar-stack--intro">
                   <div
-                    className="stnf-bar stnf-bar--delta"
+                    className="stnf-bar stnf-bar--intro"
                     style={{
-                      height: `${deltaHeight}%`,
+                      height: `${introHeight}%`,
                       ["--stnf-bar-color" as string]: `var(${axis.introverted.colorVar})`
                     }}
-                    title={`${axis.introverted.key} − ${axis.extroverted.key}: +${formatScore(
-                      Math.abs(delta)
-                    )}`}
+                    title={`${axis.introverted.key} (${axis.introverted.label}): ${formatScore(introScore)}`}
                   />
-                ) : null}
+                  {delta < 0 ? (
+                    <div
+                      className="stnf-bar stnf-bar--delta"
+                      style={{
+                        height: `${deltaHeight}%`,
+                        ["--stnf-bar-color" as string]: `var(${axis.introverted.colorVar})`
+                      }}
+                      title={`${axis.introverted.key} − ${axis.extroverted.key}: +${formatScore(
+                        Math.abs(delta)
+                      )}`}
+                    />
+                  ) : null}
+                </div>
               </div>
             </div>
             <div className="stnf-axis-label">{axis.label}</div>

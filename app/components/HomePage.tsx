@@ -499,22 +499,6 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                 Close
               </button>
             </div>
-            <div className="function-row">
-              {FUNCTION_ORDER.map((func) => {
-                const score = runDetail?.functionScores?.[func];
-                const intensity = scoreIntensity?.[func] ?? 0.7;
-                return (
-                  <span
-                    key={func}
-                    className={`function-pill function-${func.toLowerCase()}`}
-                    style={{ opacity: intensity }}
-                    title={score !== undefined ? `${func}: ${score}` : `${func}: score unavailable`}
-                  >
-                    {func}
-                  </span>
-                );
-              })}
-            </div>
             {runLoading ? (
               <p style={{ marginTop: "20px" }}>Loading run…</p>
             ) : runError ? (
