@@ -466,7 +466,7 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                               Error
                             </span>
                           ) : (
-                            <span className="status-pill">{formatDate(item.createdAt)}</span>
+                            formatDate(item.createdAt)
                           )}
                         </td>
                       </tr>
