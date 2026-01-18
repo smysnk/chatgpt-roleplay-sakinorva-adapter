@@ -30,6 +30,7 @@ export async function GET(
     resultsHtmlFragment: interaction.resultsHtmlFragment,
     resultsCss: SAKINORVA_RESULTS_CSS,
     functionScores: interaction.functionScores,
+    myersType: interaction.myersType,
     createdAt: interaction.createdAt
   });
 }
