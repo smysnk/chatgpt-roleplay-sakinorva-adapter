@@ -3,7 +3,7 @@
 import { useMemo, type ReactNode } from "react";
 import StnfIndicator from "@/app/components/StnfIndicator";
 
-const STNF_TOOLTIP =
+export const STNF_TOOLTIP =
   "The STNF indicator visualizes cognitive function expression in a more Jungian interpretive lens where we possess the ability to express both introverted and extroverted functions based on situational context.";
 
 type ResultRow =
