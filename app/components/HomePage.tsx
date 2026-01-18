@@ -39,6 +39,9 @@ type RunDetail = {
   resultsHtmlFragment: string;
   resultsCss: string;
   functionScores: Record<string, number> | null;
+  grantType: string | null;
+  axisType: string | null;
+  myersType: string | null;
   createdAt: string;
 };
 
@@ -518,6 +521,11 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                     <SakinorvaResults
                       htmlFragment={runDetail.resultsHtmlFragment}
                       functionScores={runDetail.functionScores}
+                      mbtiMeta={{
+                        grantType: runDetail.grantType,
+                        axisType: runDetail.axisType,
+                        myersType: runDetail.myersType
+                      }}
                     />
                   </div>
                 </div>

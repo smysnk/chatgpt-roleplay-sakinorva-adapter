@@ -2,6 +2,7 @@
 
 import { useMemo, type ReactNode } from "react";
 import StnfIndicator from "@/app/components/StnfIndicator";
+import MbtiMapCanvas from "@/app/components/MbtiMapCanvas";
 
 export const STNF_TOOLTIP =
   "The STNF indicator visualizes cognitive function expression in a more Jungian interpretive lens where we possess the ability to express both introverted and extroverted functions based on situational context.";
@@ -139,10 +140,16 @@ const parseResultsFragment = (htmlFragment: string): ResultSection[] => {
 
 export default function SakinorvaResults({
   htmlFragment,
-  functionScores
+  functionScores,
+  mbtiMeta
 }: {
   htmlFragment: string;
   functionScores: Record<string, number> | null;
+  mbtiMeta?: {
+    grantType?: string | null;
+    axisType?: string | null;
+    myersType?: string | null;
+  } | null;
 }) {
   const sections = useMemo(() => parseResultsFragment(htmlFragment), [htmlFragment]);
   const renderTypeBadge = (letter: string, key: string) => (
@@ -318,6 +325,9 @@ export default function SakinorvaResults({
       myersLetters: { myersEI, myersSN, myersTF, myersJP }
     };
   }, [functionScores]);
+
+  const hasMbtiPanel = Boolean(mbtiMeta);
+  const isRelativeSection = (title: string) => title.toLowerCase().includes("relative");
 
   return (
     <div className="sakinorva-results custom">
@@ -545,36 +555,55 @@ export default function SakinorvaResults({
         </>
       ) : null}
       {sections.map((section, sectionIndex) => (
-        <div className="sakinorva-section" key={`${section.title}-${sectionIndex}`}>
-          <div className="sakinorva-section-title">{section.title}</div>
-          <div className="sakinorva-section-body">
-            {section.rows.map((row, rowIndex) => (
-              <div
-                className={`sakinorva-row ${row.isFunctionRow ? "is-function" : ""}`.trim()}
-                key={`${row.label}-${rowIndex}`}
-              >
-                <div className="sakinorva-row-label">{row.label}</div>
-                <div className="sakinorva-row-value">
-                  {row.kind === "letters" ? (
-                    <span className="type-badges">
-                      {row.letters.map((letter, index) => (
-                        <span
-                          key={`${letter}-${index}`}
-                          className={`type-letter ${letter.toLowerCase()}`}
-                        >
-                          {letter}
-                        </span>
-                      ))}
-                    </span>
-                  ) : shouldRenderBadges(row.value) ? (
-                    renderValueWithBadges(row.value)
-                  ) : (
-                    row.value
-                  )}
+        <div key={`${section.title}-${sectionIndex}`}>
+          <div className="sakinorva-section">
+            <div className="sakinorva-section-title">{section.title}</div>
+            <div className="sakinorva-section-body">
+              {section.rows.map((row, rowIndex) => (
+                <div
+                  className={`sakinorva-row ${row.isFunctionRow ? "is-function" : ""}`.trim()}
+                  key={`${row.label}-${rowIndex}`}
+                >
+                  <div className="sakinorva-row-label">{row.label}</div>
+                  <div className="sakinorva-row-value">
+                    {row.kind === "letters" ? (
+                      <span className="type-badges">
+                        {row.letters.map((letter, index) => (
+                          <span
+                            key={`${letter}-${index}`}
+                            className={`type-letter ${letter.toLowerCase()}`}
+                          >
+                            {letter}
+                          </span>
+                        ))}
+                      </span>
+                    ) : shouldRenderBadges(row.value) ? (
+                      renderValueWithBadges(row.value)
+                    ) : (
+                      row.value
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
+          {hasMbtiPanel && isRelativeSection(section.title) ? (
+            <div className="sakinorva-section">
+              <div className="sakinorva-section-title">MBTI axis map</div>
+              <div className="sakinorva-section-body">
+                <p className="helper">
+                  Toggle layers to compare Grant, Axis, and Myers polygons. Hover a region to
+                  emphasize the label.
+                </p>
+                <MbtiMapCanvas
+                  grantType={mbtiMeta?.grantType}
+                  axisType={mbtiMeta?.axisType}
+                  myersType={mbtiMeta?.myersType}
+                  functionScores={functionScores}
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
       ))}
     </div>
