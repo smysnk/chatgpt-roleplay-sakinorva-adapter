@@ -30,6 +30,8 @@ export async function GET(
     resultsHtmlFragment: interaction.resultsHtmlFragment,
     resultsCss: SAKINORVA_RESULTS_CSS,
     functionScores: interaction.functionScores,
+    grantType: interaction.grantType,
+    axisType: interaction.axisType,
     myersType: interaction.myersType,
     createdAt: interaction.createdAt
   });

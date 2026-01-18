@@ -444,6 +444,59 @@ a {
   background: #0b0d12;
 }
 
+.mbti-map-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.mbti-map-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.mbti-map-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f5f7fb;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.mbti-map-toggle.is-active {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.mbti-map-toggle-label {
+  font-size: 0.85rem;
+}
+
+.mbti-map-toggle-style {
+  display: inline-flex;
+  align-items: center;
+}
+
+.mbti-map-line {
+  width: 36px;
+  border-top: 2px solid rgba(255, 255, 255, 0.7);
+}
+
+.mbti-map-line.axis {
+  border-top-style: dashed;
+}
+
+.mbti-map-line.myers {
+  border-top-style: dotted;
+}
+
 .sakinorva-results.custom {
   display: grid;
   gap: 20px;

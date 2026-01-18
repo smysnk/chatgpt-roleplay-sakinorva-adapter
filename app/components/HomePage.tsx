@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { QUESTIONS } from "@/lib/questions";
 import SakinorvaResults, { STNF_TOOLTIP } from "@/app/components/SakinorvaResults";
 import StnfMiniChart from "@/app/components/StnfMiniChart";
-import MbtiMapCanvas from "@/app/components/MbtiMapCanvas";
 
 const MIN_LENGTH = 2;
 const MAX_LENGTH = 80;
@@ -40,6 +39,8 @@ type RunDetail = {
   resultsHtmlFragment: string;
   resultsCss: string;
   functionScores: Record<string, number> | null;
+  grantType: string | null;
+  axisType: string | null;
   myersType: string | null;
   createdAt: string;
 };
@@ -514,24 +515,18 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
               <div className="error">{runError}</div>
             ) : runDetail ? (
               <div className="modal-body grid two" style={{ marginTop: "20px" }}>
-                <div className="stack">
-                  <div className="app-card">
-                    <h3>Results</h3>
-                    <div style={{ marginTop: "20px" }}>
-                      <SakinorvaResults
-                        htmlFragment={runDetail.resultsHtmlFragment}
-                        functionScores={runDetail.functionScores}
-                      />
-                    </div>
-                  </div>
-                  <div className="app-card">
-                    <h3>MBTI axis map</h3>
-                    <p className="helper">
-                      All 16 types are shown at 50% opacity; the current run appears at full opacity.
-                    </p>
-                    <div style={{ marginTop: "16px" }}>
-                      <MbtiMapCanvas highlightType={runDetail.myersType} />
-                    </div>
+                <div className="app-card">
+                  <h3>Results</h3>
+                  <div style={{ marginTop: "20px" }}>
+                    <SakinorvaResults
+                      htmlFragment={runDetail.resultsHtmlFragment}
+                      functionScores={runDetail.functionScores}
+                      mbtiMeta={{
+                        grantType: runDetail.grantType,
+                        axisType: runDetail.axisType,
+                        myersType: runDetail.myersType
+                      }}
+                    />
                   </div>
                 </div>
                 <div className="app-card">

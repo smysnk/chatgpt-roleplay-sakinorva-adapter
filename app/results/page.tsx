@@ -16,6 +16,9 @@ type ResultsPayload = {
   resultsHtmlFragment: string;
   resultsCss: string;
   functionScores: Record<string, number> | null;
+  grantType: string | null;
+  axisType: string | null;
+  myersType: string | null;
 };
 
 export default function ResultsPage() {
@@ -106,6 +109,11 @@ function Page() {
               <SakinorvaResults
                 htmlFragment={data.resultsHtmlFragment}
                 functionScores={data.functionScores}
+                mbtiMeta={{
+                  grantType: data.grantType,
+                  axisType: data.axisType,
+                  myersType: data.myersType
+                }}
               />
             </div>
           ) : null}
