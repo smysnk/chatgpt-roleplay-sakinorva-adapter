@@ -42,6 +42,8 @@ const BORDER_STYLES: Record<LayerId, number[]> = {
   myers: [2, 4]
 };
 
+const AXIS_LAYER_SCALE = 0.5;
+
 const LAYER_LABELS: Record<LayerId, string> = {
   grant: "Grant",
   axis: "Axis",
@@ -227,7 +229,7 @@ const axisTypeFromFunctions = (scores: Record<string, number>) => {
   return `${eiLetter}${snLetter}${tfLetter}${jpLetter}`;
 };
 
-const buildCenters = (layer: LayerId) => {
+const buildBaseCenters = (layer: LayerId) => {
   const centers: Record<MbtiType, Point> = {} as Record<MbtiType, Point>;
 
   MBTI_TYPES.forEach((type) => {
@@ -404,8 +406,35 @@ export default function MbtiMapCanvas({
 
   const layers = useMemo(() => {
     const entries = (["grant", "axis", "myers"] as LayerId[]).map((layerId) => {
-      const centers = buildCenters(layerId);
-      const polygons = buildPolygons(centers);
+      const baseCenters = buildBaseCenters(layerId);
+      let centers = baseCenters;
+      let polygons = buildPolygons(centers);
+
+      if (layerId === "axis") {
+        centers = Object.fromEntries(
+          Object.entries(baseCenters).map(([type, point]) => [
+            type,
+            { x: point.x * AXIS_LAYER_SCALE, y: point.y * AXIS_LAYER_SCALE }
+          ])
+        ) as Record<MbtiType, Point>;
+        polygons = buildPolygons(centers);
+      } else {
+        const maxAbs = Math.max(
+          ...Object.values(polygons).flatMap((points) =>
+            points.map((point) => Math.max(Math.abs(point.x), Math.abs(point.y)))
+          )
+        );
+        if (Number.isFinite(maxAbs) && maxAbs > 0) {
+          const scale = 1 / maxAbs;
+          centers = Object.fromEntries(
+            Object.entries(baseCenters).map(([type, point]) => [
+              type,
+              { x: point.x * scale, y: point.y * scale }
+            ])
+          ) as Record<MbtiType, Point>;
+          polygons = buildPolygons(centers);
+        }
+      }
       const polygonBounds = Object.fromEntries(
         MBTI_TYPES.map((type) => {
           const points = polygons[type];
@@ -489,12 +518,12 @@ export default function MbtiMapCanvas({
       context.font = "600 16px ui-sans-serif, system-ui, -apple-system, sans-serif";
       context.fillStyle = "rgba(255, 255, 255, 0.8)";
       context.textAlign = "center";
-      context.fillText("Extraverted", centerX, centerY - axisLength - 18);
-      context.fillText("Introverted", centerX, centerY + axisLength + 26);
+      context.fillText("Extraverted", centerX, centerY - axisLength - 20);
+      context.fillText("Introverted", centerX, centerY + axisLength + 28);
       context.textAlign = "left";
-      context.fillText("N", centerX + axisLength + 10, centerY + 6);
+      context.fillText("Intuition", centerX + axisLength + 12, centerY + 6);
       context.textAlign = "right";
-      context.fillText("S", centerX - axisLength - 10, centerY + 6);
+      context.fillText("Sensing", centerX - axisLength - 12, centerY + 6);
 
       const imageData = context.createImageData(width, height);
       const data = imageData.data;
