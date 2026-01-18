@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { QUESTIONS } from "@/lib/questions";
-import SakinorvaResults from "@/app/components/SakinorvaResults";
+import SakinorvaResults, { STNF_TOOLTIP } from "@/app/components/SakinorvaResults";
 import StnfMiniChart from "@/app/components/StnfMiniChart";
 
 const MIN_LENGTH = 2;
@@ -394,7 +394,14 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                     <th>Context</th>
                     <th>GFT</th>
                     <th>2nd</th>
-                    <th>STNF</th>
+                    <th>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                        STNF
+                        <span className="stnf-help" title={STNF_TOOLTIP} aria-label={STNF_TOOLTIP}>
+                          ?
+                        </span>
+                      </span>
+                    </th>
                     <th>Axis</th>
                     <th>Myers</th>
                     <th>Run</th>
