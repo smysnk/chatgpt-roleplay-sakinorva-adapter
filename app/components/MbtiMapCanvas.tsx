@@ -337,6 +337,32 @@ const pointInPolygon = (point: Point, polygon: Point[]) => {
   return true;
 };
 
+const polygonCentroid = (polygon: Point[]) => {
+  if (!polygon.length) {
+    return { x: 0, y: 0 };
+  }
+  let area = 0;
+  let cx = 0;
+  let cy = 0;
+  for (let i = 0; i < polygon.length; i += 1) {
+    const current = polygon[i];
+    const next = polygon[(i + 1) % polygon.length];
+    const cross = current.x * next.y - next.x * current.y;
+    area += cross;
+    cx += (current.x + next.x) * cross;
+    cy += (current.y + next.y) * cross;
+  }
+  area *= 0.5;
+  if (Math.abs(area) < 1e-6) {
+    const avg = polygon.reduce(
+      (acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }),
+      { x: 0, y: 0 }
+    );
+    return { x: avg.x / polygon.length, y: avg.y / polygon.length };
+  }
+  return { x: cx / (6 * area), y: cy / (6 * area) };
+};
+
 const hashValue = (value: number) => {
   const sin = Math.sin(value) * 43758.5453123;
   return sin - Math.floor(sin);
@@ -455,7 +481,11 @@ export default function MbtiMapCanvas({
         })
       ) as Record<MbtiType, { minX: number; maxX: number; minY: number; maxY: number } | null>;
 
-      return { id: layerId, centers, polygons, polygonBounds };
+      const polygonCenters = Object.fromEntries(
+        MBTI_TYPES.map((type) => [type, polygonCentroid(polygons[type])])
+      ) as Record<MbtiType, Point>;
+
+      return { id: layerId, centers, polygons, polygonBounds, polygonCenters };
     });
     return entries;
   }, []);
@@ -634,7 +664,7 @@ export default function MbtiMapCanvas({
       context.font = "600 13px ui-sans-serif, system-ui, -apple-system, sans-serif";
       activeLayers.forEach((layer) => {
         MBTI_TYPES.forEach((type) => {
-          const center = layer.centers[type];
+          const center = layer.polygonCenters[type];
           const x = centerX + center.x * axisLength;
           const y = centerY - center.y * axisLength;
           const isHighlight = highlights[layer.id] === type;
