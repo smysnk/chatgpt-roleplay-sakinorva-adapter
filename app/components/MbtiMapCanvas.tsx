@@ -693,7 +693,7 @@ export default function MbtiMapCanvas({
       if (highlights.myers && enabledLayers.myers) {
         drawMarker("myers", highlights.myers);
       }
-      if (highlights.axis && enabledLayers.axis) {
+      if (highlights.axis) {
         drawMarker("axis", highlights.axis);
       }
 
