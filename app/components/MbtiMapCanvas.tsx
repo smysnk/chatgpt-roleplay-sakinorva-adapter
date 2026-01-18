@@ -36,6 +36,7 @@ type Point = { x: number; y: number };
 
 const STACK_WEIGHTS = [0.46, 0.26, 0.18, 0.1];
 const STACK_AXIS_MAX = 40;
+const STACK_LAYER_SCALE = 2.1;
 
 const BORDER_STYLES: Record<LayerId, number[]> = {
   grant: [],
@@ -235,9 +236,15 @@ const buildBaseCenters = (layer: LayerId) => {
 
   MBTI_TYPES.forEach((type) => {
     if (layer === "grant") {
-      centers[type] = scalePoint(stackCenter(grantStack(type)), 1 / STACK_AXIS_MAX);
+      centers[type] = scalePoint(
+        stackCenter(grantStack(type)),
+        (1 / STACK_AXIS_MAX) * STACK_LAYER_SCALE
+      );
     } else if (layer === "myers") {
-      centers[type] = scalePoint(stackCenter(myersStack(type)), 1 / STACK_AXIS_MAX);
+      centers[type] = scalePoint(
+        stackCenter(myersStack(type)),
+        (1 / STACK_AXIS_MAX) * STACK_LAYER_SCALE
+      );
     } else {
       centers[type] = axisCenter(type);
     }
