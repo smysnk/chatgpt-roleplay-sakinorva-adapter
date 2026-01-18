@@ -404,11 +404,9 @@ export default function MbtiMapCanvas({
   functionScores
 }: MbtiMapCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [enabledLayers, setEnabledLayers] = useState<Record<LayerId, boolean>>({
-    grant: true,
-    axis: true,
-    myers: true
-  });
+  const [activeLayer, setActiveLayer] = useState<LayerId>("grant");
+  const [autoRotate, setAutoRotate] = useState(false);
+  const [rotateInterval, setRotateInterval] = useState(2500);
   const [hovered, setHovered] = useState<{ layer: LayerId; type: MbtiType } | null>(null);
 
   const axisFallback = useMemo(() => {
@@ -557,7 +555,7 @@ export default function MbtiMapCanvas({
 
       const imageData = context.createImageData(width, height);
       const data = imageData.data;
-      const activeLayers = layers.filter((layer) => enabledLayers[layer.id]);
+      const activeLayers = layers.filter((layer) => layer.id === activeLayer);
 
       for (let y = 0; y < height; y += 1) {
         for (let x = 0; x < width; x += 1) {
@@ -687,14 +685,8 @@ export default function MbtiMapCanvas({
         context.restore();
       };
 
-      if (highlights.grant && enabledLayers.grant) {
-        drawMarker("grant", highlights.grant);
-      }
-      if (highlights.myers && enabledLayers.myers) {
-        drawMarker("myers", highlights.myers);
-      }
-      if (highlights.axis) {
-        drawMarker("axis", highlights.axis);
+      if (highlights[activeLayer]) {
+        drawMarker(activeLayer, highlights[activeLayer]);
       }
 
       context.textAlign = "center";
@@ -721,7 +713,7 @@ export default function MbtiMapCanvas({
     return () => {
       observer.disconnect();
     };
-  }, [layers, enabledLayers, highlights, hovered]);
+  }, [layers, activeLayer, highlights, hovered]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -744,7 +736,7 @@ export default function MbtiMapCanvas({
         return;
       }
 
-      const activeLayers = layers.filter((layer) => enabledLayers[layer.id]);
+      const activeLayers = layers.filter((layer) => layer.id === activeLayer);
       const candidates: { layer: LayerId; type: MbtiType }[] = [];
       activeLayers.forEach((layer) => {
         MBTI_TYPES.forEach((type) => {
@@ -798,7 +790,24 @@ export default function MbtiMapCanvas({
       canvas.removeEventListener("mousemove", handleMove);
       canvas.removeEventListener("mouseleave", handleLeave);
     };
-  }, [layers, enabledLayers]);
+  }, [layers, activeLayer]);
+
+  useEffect(() => {
+    if (!autoRotate) {
+      return;
+    }
+    const order: LayerId[] = ["grant", "axis", "myers"];
+    const tick = () => {
+      setActiveLayer((current) => {
+        const index = order.indexOf(current);
+        return order[(index + 1) % order.length];
+      });
+    };
+    const interval = window.setInterval(tick, rotateInterval);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [autoRotate, rotateInterval]);
 
   return (
     <div className="mbti-map-panel">
@@ -807,14 +816,12 @@ export default function MbtiMapCanvas({
           <button
             key={layerId}
             type="button"
-            className={`mbti-map-toggle ${enabledLayers[layerId] ? "is-active" : ""}`}
-            onClick={() =>
-              setEnabledLayers((prev) => ({
-                ...prev,
-                [layerId]: !prev[layerId]
-              }))
-            }
-            aria-pressed={enabledLayers[layerId]}
+            className={`mbti-map-toggle ${activeLayer === layerId ? "is-active" : ""}`}
+            onClick={() => {
+              setActiveLayer(layerId);
+              setAutoRotate(false);
+            }}
+            aria-pressed={activeLayer === layerId}
           >
             <span className="mbti-map-toggle-label">{LAYER_LABELS[layerId]}</span>
             <span className="mbti-map-toggle-style" aria-hidden="true">
@@ -822,6 +829,29 @@ export default function MbtiMapCanvas({
             </span>
           </button>
         ))}
+        <button
+          type="button"
+          className={`mbti-map-toggle ${autoRotate ? "is-active" : ""}`}
+          onClick={() => setAutoRotate((value) => !value)}
+          aria-pressed={autoRotate}
+        >
+          <span className="mbti-map-toggle-label">Auto-rotate</span>
+          <span className="mbti-map-toggle-style" aria-hidden="true">
+            <span className="mbti-map-line rotate" />
+          </span>
+        </button>
+        <label className="mbti-map-speed">
+          <span className="mbti-map-speed-label">Speed</span>
+          <input
+            type="range"
+            min={1000}
+            max={6000}
+            step={250}
+            value={rotateInterval}
+            onChange={(event) => setRotateInterval(Number(event.target.value))}
+            aria-label="Auto-rotate speed"
+          />
+        </label>
       </div>
       <canvas ref={canvasRef} className="mbti-map-canvas" role="img" aria-label="MBTI axis map" />
     </div>

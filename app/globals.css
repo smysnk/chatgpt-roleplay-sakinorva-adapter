@@ -497,6 +497,32 @@ a {
   border-top-style: dotted;
 }
 
+.mbti-map-line.rotate {
+  border-top-style: solid;
+  border-top-color: rgba(255, 255, 255, 0.4);
+}
+
+.mbti-map-speed {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f5f7fb;
+  font-weight: 600;
+}
+
+.mbti-map-speed-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.mbti-map-speed input[type="range"] {
+  accent-color: var(--accent);
+}
+
 .sakinorva-results.custom {
   display: grid;
   gap: 20px;
