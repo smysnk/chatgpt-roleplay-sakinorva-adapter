@@ -28,6 +28,8 @@ type ResultSection = {
 };
 
 const TYPE_CODE_PATTERN = /\b[EI][NS][TF][JP]\b/g;
+const TYPE_CODE_TEST = /\b[EI][NS][TF][JP]\b/;
+const TYPE_CODE_WITH_UNKNOWN = /\b[EI\?][NS\?][TF\?][JP\?]\b/i;
 const FUNCTION_ORDER = ["Te", "Ti", "Fe", "Fi", "Ne", "Ni", "Se", "Si"] as const;
 const OPPOSITE_FUNCTION: Record<string, string> = {
   Te: "Fi",
@@ -160,9 +162,10 @@ export default function SakinorvaResults({
 
   const renderValueWithBadges = (value: string) => {
     const matches = Array.from(value.matchAll(TYPE_CODE_PATTERN));
+    const functionMatches = Array.from(value.matchAll(/\b(Te|Ti|Fe|Fi|Ne|Ni|Se|Si)\b/gi));
     const fallbackMatches = Array.from(value.matchAll(/[EISNTFJP\?]/gi));
-    const useFallback = !matches.length && fallbackMatches.length;
-    const activeMatches = useFallback ? fallbackMatches : matches;
+    const activeMatches =
+      matches.length > 0 ? matches : functionMatches.length > 0 ? functionMatches : fallbackMatches;
     if (!activeMatches.length) {
       return value;
     }
@@ -177,12 +180,27 @@ export default function SakinorvaResults({
       if (match.index > lastIndex) {
         fragments.push(value.slice(lastIndex, match.index));
       }
-      const letter = match[0].toUpperCase();
-      fragments.push(
-        <span className="type-badges" key={`${letter}-${index}`}>
-          {renderTypeBadge(letter, `${letter}-${index}`)}
-        </span>
-      );
+      const token = match[0];
+      if (/^(Te|Ti|Fe|Fi|Ne|Ni|Se|Si)$/i.test(token)) {
+        fragments.push(
+          <span className="type-badges" key={`${token}-${index}`}>
+            {token
+              .split("")
+              .map((letter, letterIndex) =>
+                renderTypeBadge(letter.toUpperCase(), `${token}-${letter}-${letterIndex}`)
+              )}
+          </span>
+        );
+      } else {
+        const letters = token.split("");
+        fragments.push(
+          <span className="type-badges" key={`${token}-${index}`}>
+            {letters.map((letter, letterIndex) =>
+              renderTypeBadge(letter.toUpperCase(), `${token}-${letter}-${letterIndex}`)
+            )}
+          </span>
+        );
+      }
       lastIndex = match.index + match[0].length;
       if (index === activeMatches.length - 1 && lastIndex < value.length) {
         fragments.push(value.slice(lastIndex));
@@ -191,6 +209,11 @@ export default function SakinorvaResults({
 
     return fragments;
   };
+
+  const shouldRenderBadges = (value: string) =>
+    /\b(Te|Ti|Fe|Fi|Ne|Ni|Se|Si)\b/i.test(value) ||
+    TYPE_CODE_WITH_UNKNOWN.test(value) ||
+    TYPE_CODE_TEST.test(value);
 
   const derived = useMemo(() => {
     if (!functionScores) {
@@ -543,7 +566,7 @@ export default function SakinorvaResults({
                         </span>
                       ))}
                     </span>
-                  ) : section.title.toLowerCase().includes("absolute") ? (
+                  ) : shouldRenderBadges(row.value) ? (
                     renderValueWithBadges(row.value)
                   ) : (
                     row.value
