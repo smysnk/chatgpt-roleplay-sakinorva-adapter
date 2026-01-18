@@ -659,6 +659,44 @@ export default function MbtiMapCanvas({
         });
       });
 
+      const drawMarker = (layerId: LayerId, type: MbtiType) => {
+        const layer = layers.find((entry) => entry.id === layerId);
+        if (!layer) {
+          return;
+        }
+        const center = layer.centers[type];
+        const x = centerX + center.x * axisLength;
+        const y = centerY - center.y * axisLength;
+        context.save();
+        context.lineWidth = 2;
+        if (layerId === "axis") {
+          context.fillStyle = "rgba(255, 255, 255, 0.9)";
+          context.strokeStyle = "rgba(255, 255, 255, 0.9)";
+          context.beginPath();
+          context.rect(x - 5, y - 5, 10, 10);
+          context.fill();
+          context.stroke();
+        } else {
+          context.fillStyle = "rgba(255, 255, 255, 0.95)";
+          context.strokeStyle = "rgba(11, 13, 18, 0.8)";
+          context.beginPath();
+          context.arc(x, y, 6, 0, Math.PI * 2);
+          context.fill();
+          context.stroke();
+        }
+        context.restore();
+      };
+
+      if (highlights.grant && enabledLayers.grant) {
+        drawMarker("grant", highlights.grant);
+      }
+      if (highlights.myers && enabledLayers.myers) {
+        drawMarker("myers", highlights.myers);
+      }
+      if (highlights.axis && enabledLayers.axis) {
+        drawMarker("axis", highlights.axis);
+      }
+
       context.textAlign = "center";
       context.textBaseline = "middle";
       context.font = "600 13px ui-sans-serif, system-ui, -apple-system, sans-serif";
