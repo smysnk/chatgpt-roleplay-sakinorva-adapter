@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     const questionBlock = QUESTIONS.map((question, index) => `#${index + 1} ${question}`).join("\n");
 
     const systemMessage =
-      "You are roleplaying as the specified character. Answer truthfully as that character would behave. Output must match the JSON schema exactly.";
+      "You are roleplaying as the specified character. Answer truthfully as that character would behave and think. Answer questions as you see yourself, not how others see you. Output must match the JSON schema exactly.";
   
     const userMessage = `Character: ${payload.character}\nContext: ${payload.context || "(none)"}\n\nAnswer all 96 questions on a 1-5 scale (1=no, 5=yes). Provide a one-sentence explanation for each answer.\nReturn JSON only, no markdown, no commentary.\n\nQuestions:\n${questionBlock}\n\nJSON schema:\n{\n \"responses\": [\n{ \"answer\": number (1..5), \"explanation\": string (one sentence) \n} \n// exactly 96 objects \n]\n}\n`;
 
