@@ -33,6 +33,7 @@ type MbtiMapCanvasProps = {
 };
 
 type Point = { x: number; y: number };
+type Point3D = { x: number; y: number; z: number };
 
 const STACK_WEIGHTS = [0.46, 0.26, 0.18, 0.1];
 const STACK_AXIS_MAX = {
@@ -41,6 +42,8 @@ const STACK_AXIS_MAX = {
 };
 
 const STACK_LAYER_SCALE = 1;
+const FUNCTION_SPACE_ROTATION = { x: 0.35, y: -0.35 };
+const FUNCTION_SPACE_SCALE = 0.9;
 
 const BORDER_STYLES: Record<LayerId, number[]> = {
   grant: [],
@@ -55,6 +58,9 @@ const LAYER_LABELS: Record<LayerId, string> = {
   axis: "Axis",
   myers: "Myers"
 };
+
+const FUNCTION_KEYS = ["Ne", "Ni", "Se", "Si", "Te", "Ti", "Fe", "Fi"] as const;
+type FunctionKey = (typeof FUNCTION_KEYS)[number];
 
 const parseMbtiType = (value?: string | null): MbtiType | null => {
   if (!value) {
@@ -108,6 +114,20 @@ const scalePoint = (point: Point, scale: number) => ({
   x: point.x * scale,
   y: point.y * scale
 });
+
+const rotatePoint = (point: Point3D, angleX: number, angleY: number) => {
+  const cosY = Math.cos(angleY);
+  const sinY = Math.sin(angleY);
+  const x1 = point.x * cosY + point.z * sinY;
+  const z1 = -point.x * sinY + point.z * cosY;
+
+  const cosX = Math.cos(angleX);
+  const sinX = Math.sin(angleX);
+  const y1 = point.y * cosX - z1 * sinX;
+  const z2 = point.y * sinX + z1 * cosX;
+
+  return { x: x1, y: y1, z: z2 };
+};
 
 const oppositeFunctionKind = (func: string) => {
   if (func === "S") {
@@ -191,6 +211,39 @@ const stackCenter = (stack: string[]) => {
   return sumPoints(weightedPoints);
 };
 
+const stackFunctionScores = (stack: string[]) => {
+  const scores = FUNCTION_KEYS.reduce(
+    (acc, key) => {
+      acc[key] = 0;
+      return acc;
+    },
+    {} as Record<FunctionKey, number>
+  );
+
+  stack.forEach((fn, index) => {
+    const weight = STACK_WEIGHTS[index] ?? 0;
+    const key = `${fn[0]}${fn[1]}` as FunctionKey;
+    scores[key] = weight;
+  });
+
+  return scores;
+};
+
+const functionSpacePoint = (scores: Record<FunctionKey, number>): Point3D => {
+  const value = (key: FunctionKey) => scores[key] ?? 0;
+
+  const x = value("Ne") + value("Si") - (value("Se") + value("Ni"));
+  const y = value("Ti") + value("Fe") - (value("Te") + value("Fi"));
+  const z =
+    value("Ne") +
+    value("Se") +
+    value("Te") +
+    value("Fe") -
+    (value("Ni") + value("Si") + value("Ti") + value("Fi"));
+
+  return { x, y, z };
+};
+
 const axisCenter = (type: MbtiType) => {
   const letters = type.split("");
   const isExtraverted = letters[0] === "E";
@@ -235,16 +288,42 @@ const axisTypeFromFunctions = (scores: Record<string, number>) => {
   return `${eiLetter}${snLetter}${tfLetter}${jpLetter}`;
 };
 
-const buildBaseCenters = (layer: LayerId) => {
+const buildFunctionSpaceCenters = (stackBuilder: (type: MbtiType) => string[]) => {
+  const rawCenters = {} as Record<MbtiType, Point>;
+
+  MBTI_TYPES.forEach((type) => {
+    const scores = stackFunctionScores(stackBuilder(type));
+    const point = functionSpacePoint(scores);
+    const rotated = rotatePoint(point, FUNCTION_SPACE_ROTATION.x, FUNCTION_SPACE_ROTATION.y);
+    rawCenters[type] = { x: rotated.x, y: rotated.y };
+  });
+
+  const maxAbs = Math.max(
+    ...Object.values(rawCenters).flatMap((point) => [Math.abs(point.x), Math.abs(point.y), 1])
+  );
+  const scale = FUNCTION_SPACE_SCALE / maxAbs;
+
+  return Object.fromEntries(
+    Object.entries(rawCenters).map(([type, point]) => [type, scalePoint(point, scale)])
+  ) as Record<MbtiType, Point>;
+};
+
+const buildBaseCenters = (layer: LayerId, useBeta: boolean) => {
   const centers: Record<MbtiType, Point> = {} as Record<MbtiType, Point>;
 
   MBTI_TYPES.forEach((type) => {
     if (layer === "grant") {
+      if (useBeta) {
+        return;
+      }
       centers[type] = scalePoint(
         stackCenter(grantStack(type)),
         (1 / STACK_AXIS_MAX[layer]) * STACK_LAYER_SCALE
       );
     } else if (layer === "myers") {
+      if (useBeta) {
+        return;
+      }
       centers[type] = scalePoint(
         stackCenter(myersStack(type)),
         (1 / STACK_AXIS_MAX[layer]) * STACK_LAYER_SCALE
@@ -253,6 +332,13 @@ const buildBaseCenters = (layer: LayerId) => {
       centers[type] = axisCenter(type);
     }
   });
+
+  if (useBeta && layer === "grant") {
+    return buildFunctionSpaceCenters(grantStack);
+  }
+  if (useBeta && layer === "myers") {
+    return buildFunctionSpaceCenters(myersStack);
+  }
 
   return centers;
 };
@@ -418,6 +504,7 @@ export default function MbtiMapCanvas({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [activeLayer, setActiveLayer] = useState<LayerId>("grant");
   const [autoRotate, setAutoRotate] = useState(false);
+  const [betaMode, setBetaMode] = useState(false);
   const [rotateInterval, setRotateInterval] = useState(2500);
   const [hovered, setHovered] = useState<{ layer: LayerId; type: MbtiType } | null>(null);
 
@@ -442,7 +529,7 @@ export default function MbtiMapCanvas({
 
   const layers = useMemo(() => {
     const entries = (["grant", "axis", "myers"] as LayerId[]).map((layerId) => {
-      const baseCenters = buildBaseCenters(layerId);
+      const baseCenters = buildBaseCenters(layerId, betaMode);
       let centers = baseCenters;
       let polygons = buildPolygons(centers);
 
@@ -482,7 +569,7 @@ export default function MbtiMapCanvas({
       return { id: layerId, centers, polygons, polygonBounds, polygonCenters };
     });
     return entries;
-  }, []);
+  }, [betaMode]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -825,6 +912,18 @@ export default function MbtiMapCanvas({
             </span>
           </button>
         ))}
+        <button
+          type="button"
+          className={`mbti-map-toggle ${betaMode ? "is-active" : ""}`}
+          onClick={() => setBetaMode((value) => !value)}
+          aria-pressed={betaMode}
+          aria-label={betaMode ? "Disable beta charting mode" : "Enable beta charting mode"}
+        >
+          <span className="mbti-map-toggle-label">Beta</span>
+          <span className="mbti-map-toggle-style" aria-hidden="true">
+            <span className="mbti-map-line beta" />
+          </span>
+        </button>
         <button
           type="button"
           className={`mbti-map-toggle ${autoRotate ? "is-active" : ""}`}

@@ -502,6 +502,11 @@ a {
   border-top-color: rgba(255, 255, 255, 0.4);
 }
 
+.mbti-map-line.beta {
+  border-top-style: double;
+  border-top-color: rgba(255, 255, 255, 0.8);
+}
+
 .mbti-map-speed {
   display: inline-flex;
   align-items: center;
