@@ -18,6 +18,8 @@ export default function AppMenuBar() {
   const pathname = usePathname();
   const router = useRouter();
 
+  const indicatorLabel = indicator === "sakinorva" ? "Sakinorva" : "SMYSNK";
+
   const currentLabel = useMemo(() => {
     if (pathname?.startsWith("/sakinorva-adapter")) {
       return "Sakinorva";
@@ -114,7 +116,13 @@ export default function AppMenuBar() {
             aria-haspopup="menu"
             aria-expanded={menuOpen}
           >
-            Indicators
+            <span className="menu-trigger-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" role="presentation">
+                <path d="M12 3.2 3.5 10v9.8a1 1 0 0 0 1 1h5.5v-6.2h4v6.2h5.5a1 1 0 0 0 1-1V10L12 3.2z" />
+              </svg>
+            </span>
+            <span className="menu-trigger-label">Indicator</span>
+            <span className="menu-trigger-value">{indicatorLabel}</span>
           </button>
           {menuOpen ? (
             <div className="menu-panel" role="menu">
@@ -127,10 +135,15 @@ export default function AppMenuBar() {
             </div>
           ) : null}
         </div>
-        <span className="menu-current">Current: {currentLabel}</span>
         <button type="button" className="menu-run" onClick={() => setWizardOpen(true)}>
+          <span className="menu-run-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="presentation">
+              <path d="M6 5.5h5.3l1.7 2h5.5a1 1 0 0 1 1 1v9.8a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6.5a1 1 0 0 1 1-1zm4.4 9.7 4.8-2.8-4.8-2.8v5.6z" />
+            </svg>
+          </span>
           Run
         </button>
+        <span className="menu-current">{currentLabel}</span>
       </div>
       {wizardOpen ? (
         <div className="wizard-backdrop" role="dialog" aria-modal="true">

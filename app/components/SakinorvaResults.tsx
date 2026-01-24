@@ -1,36 +1,12 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
 import StnfIndicator from "@/app/components/StnfIndicator";
 import MbtiMapCanvas from "@/app/components/MbtiMapCanvas";
 
 export const STNF_TOOLTIP =
   "The STNF indicator visualizes cognitive function expression in a more Jungian interpretive lens where we possess the ability to express both introverted and extroverted functions based on situational context.";
 
-type ResultRow =
-  | {
-      kind: "text";
-      label: string;
-      value: string;
-      className: string;
-      isFunctionRow: boolean;
-    }
-  | {
-      kind: "letters";
-      label: string;
-      letters: string[];
-      className: string;
-      isFunctionRow: boolean;
-    };
-
-type ResultSection = {
-  title: string;
-  rows: ResultRow[];
-};
-
-const TYPE_CODE_PATTERN = /\b[EI][NS][TF][JP]\b/g;
-const TYPE_CODE_TEST = /\b[EI][NS][TF][JP]\b/;
-const TYPE_CODE_WITH_UNKNOWN = /\b[EI\?][NS\?][TF\?][JP\?]\b/i;
 const FUNCTION_ORDER = ["Te", "Ti", "Fe", "Fi", "Ne", "Ni", "Se", "Si"] as const;
 const OPPOSITE_FUNCTION: Record<string, string> = {
   Te: "Fi",
@@ -50,100 +26,10 @@ const getCategory = (fn: string) => (/[TF]/i.test(fn[0]) ? "judging" : "perceivi
 const getTF = (fn: string) => (/^T/i.test(fn) ? "T" : "F");
 const getSN = (fn: string) => (/^N/i.test(fn) ? "N" : "S");
 
-const parseResultsFragment = (htmlFragment: string): ResultSection[] => {
-  if (typeof window === "undefined") {
-    return [];
-  }
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(htmlFragment, "text/html");
-  const root = doc.querySelector("#my_results.kekka") ?? doc.querySelector(".kekka");
-
-  if (!root) {
-    return [];
-  }
-
-  const sections: ResultSection[] = [];
-  let currentSection: ResultSection | null = null;
-
-  Array.from(root.children).forEach((child) => {
-    if (!(child instanceof HTMLElement)) {
-      return;
-    }
-
-    if (child.classList.contains("zuhyou")) {
-      return;
-    }
-
-    if (child.classList.contains("header")) {
-      const title = child.textContent?.trim() ?? "";
-      currentSection = { title: title || "Results", rows: [] };
-      sections.push(currentSection);
-      return;
-    }
-
-    if (child.classList.contains("row")) {
-      const label = child.querySelector("div:first-child span")?.textContent?.trim() ?? "";
-      const valueContainer = child.querySelector("div:last-child");
-      if (!label || !valueContainer) {
-        return;
-      }
-
-      const isFunctionRow = child.classList.contains("kinou");
-      const className = child.className;
-
-      if (child.classList.contains("myers_letter_type")) {
-        const letters = Array.from(valueContainer.querySelectorAll("span"))
-          .map((span) => span.textContent?.trim())
-          .filter(Boolean) as string[];
-
-        if (!letters.length) {
-          return;
-        }
-
-        if (!currentSection) {
-          currentSection = { title: "Results", rows: [] };
-          sections.push(currentSection);
-        }
-
-        currentSection.rows.push({
-          kind: "letters",
-          label,
-          letters,
-          className,
-          isFunctionRow
-        });
-        return;
-      }
-
-      const value = valueContainer.textContent?.trim() ?? "";
-      if (!value) {
-        return;
-      }
-
-      if (!currentSection) {
-        currentSection = { title: "Results", rows: [] };
-        sections.push(currentSection);
-      }
-
-      currentSection.rows.push({
-        kind: "text",
-        label,
-        value,
-        className,
-        isFunctionRow
-      });
-    }
-  });
-
-  return sections.filter((section) => section.rows.length > 0);
-};
-
 export default function SakinorvaResults({
-  htmlFragment,
   functionScores,
   mbtiMeta
 }: {
-  htmlFragment: string;
   functionScores: Record<string, number> | null;
   mbtiMeta?: {
     grantType?: string | null;
@@ -151,7 +37,6 @@ export default function SakinorvaResults({
     myersType?: string | null;
   } | null;
 }) {
-  const sections = useMemo(() => parseResultsFragment(htmlFragment), [htmlFragment]);
   const renderTypeBadge = (letter: string, key: string) => (
     <span
       key={key}
@@ -166,61 +51,6 @@ export default function SakinorvaResults({
       {typeCode.split("").map((letter, index) => renderTypeBadge(letter, `${letter}-${index}`))}
     </span>
   );
-
-  const renderValueWithBadges = (value: string) => {
-    const matches = Array.from(value.matchAll(TYPE_CODE_PATTERN));
-    const functionMatches = Array.from(value.matchAll(/\b(Te|Ti|Fe|Fi|Ne|Ni|Se|Si)\b/gi));
-    const fallbackMatches = Array.from(value.matchAll(/[EISNTFJP\?]/gi));
-    const activeMatches =
-      matches.length > 0 ? matches : functionMatches.length > 0 ? functionMatches : fallbackMatches;
-    if (!activeMatches.length) {
-      return value;
-    }
-
-    const fragments: ReactNode[] = [];
-    let lastIndex = 0;
-
-    activeMatches.forEach((match, index) => {
-      if (match.index === undefined) {
-        return;
-      }
-      if (match.index > lastIndex) {
-        fragments.push(value.slice(lastIndex, match.index));
-      }
-      const token = match[0];
-      if (/^(Te|Ti|Fe|Fi|Ne|Ni|Se|Si)$/i.test(token)) {
-        fragments.push(
-          <span className="type-badges" key={`${token}-${index}`}>
-            {token
-              .split("")
-              .map((letter, letterIndex) =>
-                renderTypeBadge(letter.toUpperCase(), `${token}-${letter}-${letterIndex}`)
-              )}
-          </span>
-        );
-      } else {
-        const letters = token.split("");
-        fragments.push(
-          <span className="type-badges" key={`${token}-${index}`}>
-            {letters.map((letter, letterIndex) =>
-              renderTypeBadge(letter.toUpperCase(), `${token}-${letter}-${letterIndex}`)
-            )}
-          </span>
-        );
-      }
-      lastIndex = match.index + match[0].length;
-      if (index === activeMatches.length - 1 && lastIndex < value.length) {
-        fragments.push(value.slice(lastIndex));
-      }
-    });
-
-    return fragments;
-  };
-
-  const shouldRenderBadges = (value: string) =>
-    /\b(Te|Ti|Fe|Fi|Ne|Ni|Se|Si)\b/i.test(value) ||
-    TYPE_CODE_WITH_UNKNOWN.test(value) ||
-    TYPE_CODE_TEST.test(value);
 
   const derived = useMemo(() => {
     if (!functionScores) {
@@ -326,8 +156,18 @@ export default function SakinorvaResults({
     };
   }, [functionScores]);
 
-  const hasMbtiPanel = Boolean(mbtiMeta);
-  const isRelativeSection = (title: string) => title.toLowerCase().includes("relative");
+  const mapMeta = useMemo(
+    () =>
+      mbtiMeta ??
+      (derived
+        ? {
+            grantType: derived.grantType,
+            axisType: derived.axisType,
+            myersType: derived.myersType
+          }
+        : null),
+    [mbtiMeta, derived]
+  );
 
   return (
     <div className="sakinorva-results custom">
@@ -554,58 +394,23 @@ export default function SakinorvaResults({
           </div>
         </>
       ) : null}
-      {sections.map((section, sectionIndex) => (
-        <div key={`${section.title}-${sectionIndex}`}>
-          <div className="sakinorva-section">
-            <div className="sakinorva-section-title">{section.title}</div>
-            <div className="sakinorva-section-body">
-              {section.rows.map((row, rowIndex) => (
-                <div
-                  className={`sakinorva-row ${row.isFunctionRow ? "is-function" : ""}`.trim()}
-                  key={`${row.label}-${rowIndex}`}
-                >
-                  <div className="sakinorva-row-label">{row.label}</div>
-                  <div className="sakinorva-row-value">
-                    {row.kind === "letters" ? (
-                      <span className="type-badges">
-                        {row.letters.map((letter, index) => (
-                          <span
-                            key={`${letter}-${index}`}
-                            className={`type-letter ${letter.toLowerCase()}`}
-                          >
-                            {letter}
-                          </span>
-                        ))}
-                      </span>
-                    ) : shouldRenderBadges(row.value) ? (
-                      renderValueWithBadges(row.value)
-                    ) : (
-                      row.value
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+      {mapMeta ? (
+        <div className="sakinorva-section">
+          <div className="sakinorva-section-title">MBTI axis map</div>
+          <div className="sakinorva-section-body">
+            <p className="helper">
+              Toggle layers to compare Grant, Axis, and Myers polygons. Hover a region to emphasize
+              the label.
+            </p>
+            <MbtiMapCanvas
+              grantType={mapMeta.grantType}
+              axisType={mapMeta.axisType}
+              myersType={mapMeta.myersType}
+              functionScores={functionScores}
+            />
           </div>
-          {hasMbtiPanel && isRelativeSection(section.title) ? (
-            <div className="sakinorva-section">
-              <div className="sakinorva-section-title">MBTI axis map</div>
-              <div className="sakinorva-section-body">
-                <p className="helper">
-                  Toggle layers to compare Grant, Axis, and Myers polygons. Hover a region to
-                  emphasize the label.
-                </p>
-                <MbtiMapCanvas
-                  grantType={mbtiMeta?.grantType}
-                  axisType={mbtiMeta?.axisType}
-                  myersType={mbtiMeta?.myersType}
-                  functionScores={functionScores}
-                />
-              </div>
-            </div>
-          ) : null}
         </div>
-      ))}
+      ) : null}
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { initializeDatabase } from "@/lib/db";
-import { initializeSmysnkRunModel, SmysnkRun } from "@/lib/models/SmysnkRun";
-import { initializeInteractionModel } from "@/lib/models/Interaction";
+import { initializeRunModel, Run } from "@/lib/models/Run";
 
 export const dynamic = "force-dynamic";
 
@@ -9,12 +8,11 @@ export async function GET(
   _request: Request,
   { params }: { params: { slug: string } }
 ) {
-  initializeSmysnkRunModel();
-  initializeInteractionModel();
+  initializeRunModel();
   await initializeDatabase();
 
-  const run = await SmysnkRun.findOne({
-    where: { slug: params.slug }
+  const run = await Run.findOne({
+    where: { slug: params.slug, indicator: "smysnk" }
   });
 
   if (!run) {
@@ -27,7 +25,7 @@ export async function GET(
     subject: run.subject,
     context: run.context,
     responses: run.responses,
-    scores: run.scores,
+    scores: run.functionScores,
     createdAt: run.createdAt
   });
 }

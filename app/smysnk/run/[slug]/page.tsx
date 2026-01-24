@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { SMYSNK_QUESTIONS } from "@/lib/smysnkQuestions";
 import SakinorvaResults from "@/app/components/SakinorvaResults";
 import RatingScaleHeader from "@/app/components/RatingScaleHeader";
+import StnfMiniChart from "@/app/components/StnfMiniChart";
+import { getScoreRange, getStnfValues } from "@/app/components/stnfUtils";
 
 type SmysnkRunPayload = {
   slug: string;
@@ -92,8 +94,24 @@ export default function SmysnkRunPage({ params }: { params: { slug: string } }) 
               </p>
               <p className="helper">Run mode: {data.runMode === "ai" ? "AI roleplay" : "Self answer"}</p>
               <p className="helper">Created: {formatDate(data.createdAt)}</p>
+              {(() => {
+                const stnfValues = getStnfValues(data.scores);
+                const scoreRange = getScoreRange(data.scores);
+                return stnfValues ? (
+                  <div style={{ marginTop: "16px", maxWidth: "280px" }}>
+                    <StnfMiniChart
+                      sensing={stnfValues.sensing}
+                      thinking={stnfValues.thinking}
+                      intuition={stnfValues.intuition}
+                      feeling={stnfValues.feeling}
+                      minScore={scoreRange?.min}
+                      maxScore={scoreRange?.max}
+                    />
+                  </div>
+                ) : null;
+              })()}
               <div style={{ marginTop: "20px" }}>
-                <SakinorvaResults htmlFragment="" functionScores={data.scores} mbtiMeta={null} />
+                <SakinorvaResults functionScores={data.scores} mbtiMeta={null} />
               </div>
             </div>
           ) : null}

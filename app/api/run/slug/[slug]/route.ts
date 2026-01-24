@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { initializeDatabase } from "@/lib/db";
-import { initializeInteractionModel, Interaction } from "@/lib/models/Interaction";
-import { SAKINORVA_RESULTS_CSS } from "@/lib/sakinorvaStyles";
+import { initializeRunModel, Run } from "@/lib/models/Run";
 
 export const dynamic = "force-dynamic";
 
@@ -9,30 +8,28 @@ export async function GET(
   _request: Request,
   { params }: { params: { slug: string } }
 ) {
-  initializeInteractionModel();
+  initializeRunModel();
   await initializeDatabase();
 
-  const interaction = await Interaction.findOne({
-    where: { slug: params.slug }
+  const run = await Run.findOne({
+    where: { slug: params.slug, indicator: "sakinorva" }
   });
 
-  if (!interaction) {
+  if (!run) {
     return NextResponse.json({ error: "Run not found." }, { status: 404 });
   }
 
   return NextResponse.json({
-    id: interaction.id,
-    slug: interaction.slug,
-    character: interaction.character,
-    context: interaction.context,
-    answers: interaction.answers,
-    explanations: interaction.explanations,
-    resultsHtmlFragment: interaction.resultsHtmlFragment,
-    resultsCss: SAKINORVA_RESULTS_CSS,
-    functionScores: interaction.functionScores,
-    grantType: interaction.grantType,
-    axisType: interaction.axisType,
-    myersType: interaction.myersType,
-    createdAt: interaction.createdAt
+    id: run.id,
+    slug: run.slug,
+    character: run.character,
+    context: run.context,
+    answers: run.answers,
+    explanations: run.explanations,
+    functionScores: run.functionScores,
+    grantType: run.grantType,
+    axisType: run.axisType,
+    myersType: run.myersType,
+    createdAt: run.createdAt
   });
 }

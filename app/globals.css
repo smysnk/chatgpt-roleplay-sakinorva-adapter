@@ -18,6 +18,11 @@
   --letter-t: linear-gradient(135deg, #4b8bff, #3cc7ff);
   --letter-n: linear-gradient(135deg, #41d89d, #2fb36f);
   --letter-s: linear-gradient(135deg, #f1b44b, #d98b3a);
+  --rating-1: #e74c3c;
+  --rating-2: #d6453d;
+  --rating-3: #b8bcc5;
+  --rating-4: #7bd77a;
+  --rating-5: #35b86b;
 }
 
 * {
@@ -63,6 +68,33 @@ body {
   border-radius: 4px;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.menu-trigger-icon,
+.menu-run-icon {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+}
+
+.menu-trigger-icon svg,
+.menu-run-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+.menu-trigger-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.menu-trigger-value {
+  font-size: 0.95rem;
 }
 
 .menu-trigger:focus-visible {
@@ -98,13 +130,13 @@ body {
 }
 
 .menu-current {
+  margin-left: auto;
   font-size: 0.85rem;
   color: #1b1b1b;
   font-weight: 600;
 }
 
 .menu-run {
-  margin-left: auto;
   background: #efefef;
   border: 1px solid #b5b5b5;
   color: #1b1b1b;
@@ -112,6 +144,9 @@ body {
   border-radius: 4px;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .menu-run:focus-visible {
@@ -139,6 +174,7 @@ body {
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
   display: grid;
   gap: 20px;
+  color: #f5f7fb;
 }
 
 .wizard-header {
@@ -171,6 +207,10 @@ body {
 
 .wizard-column h3 {
   margin: 0;
+}
+
+.wizard-card .helper {
+  color: #f5f7fb;
 }
 
 @media (min-width: 900px) {
@@ -316,14 +356,31 @@ a {
 
 .rating-scale-header {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 6px;
+  min-width: 220px;
   max-width: 220px;
   margin-left: auto;
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
+}
+
+.rating-scale-label.start {
+  text-align: left;
+}
+
+.rating-scale-label.center {
+  text-align: center;
+}
+
+.rating-scale-label.end {
+  text-align: right;
+}
+
+.rating-scale-spacer {
+  pointer-events: none;
 }
 
 .rating-pill {
@@ -353,23 +410,23 @@ button.rating-pill:focus-visible {
 }
 
 .rating-pill.value-1.active {
-  background: #e74c3c;
+  background: var(--rating-1);
 }
 
 .rating-pill.value-2.active {
-  background: #d6453d;
+  background: var(--rating-2);
 }
 
 .rating-pill.value-3.active {
-  background: #b8bcc5;
+  background: var(--rating-3);
 }
 
 .rating-pill.value-4.active {
-  background: #7bd77a;
+  background: var(--rating-4);
 }
 
 .rating-pill.value-5.active {
-  background: #35b86b;
+  background: var(--rating-5);
 }
 
 .sakinorva-results {

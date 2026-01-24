@@ -32,12 +32,13 @@ export const getSequelize = () => {
 
 export const initializeDatabase = async () => {
   if (!initialization) {
-    initialization = getSequelize()
-      .sync()
-      .then(async () => {
-        const { runRunUpgrades } = await import("@/lib/runUpgrade");
-        await runRunUpgrades();
-      });
+    initialization = (async () => {
+      const { initializeRunModel } = await import("@/lib/models/Run");
+      initializeRunModel();
+      await getSequelize().sync();
+      const { runRunUpgrades } = await import("@/lib/runUpgrade");
+      await runRunUpgrades();
+    })();
   }
   await initialization;
 };
