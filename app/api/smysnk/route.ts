@@ -115,3 +115,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export async function GET() {
+  initializeSmysnkRunModel();
+  initializeInteractionModel();
+  await initializeDatabase();
+
+  const runs = await SmysnkRun.findAll({
+    order: [["createdAt", "DESC"]],
+    attributes: ["id", "slug", "subject", "context", "scores", "createdAt"]
+  });
+
+  return NextResponse.json({
+    items: runs.map((run) => ({
+      id: run.id.toString(),
+      slug: run.slug,
+      subject: run.subject,
+      context: run.context,
+      functionScores: run.scores,
+      createdAt: run.createdAt
+    }))
+  });
+}

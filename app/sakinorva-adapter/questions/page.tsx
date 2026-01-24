@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { QUESTIONS } from "@/lib/questions";
 import RatingScaleHeader from "@/app/components/RatingScaleHeader";
@@ -9,8 +10,9 @@ const MIN_LENGTH = 2;
 const MAX_LENGTH = 80;
 
 export default function SakinorvaQuestionsPage() {
-  const [manualName, setManualName] = useState("");
-  const [manualNotes, setManualNotes] = useState("");
+  const searchParams = useSearchParams();
+  const [manualName, setManualName] = useState(searchParams.get("label") ?? "");
+  const [manualNotes, setManualNotes] = useState(searchParams.get("notes") ?? "");
   const [manualAnswers, setManualAnswers] = useState<number[]>(
     () => Array.from({ length: QUESTIONS.length }, () => 0)
   );

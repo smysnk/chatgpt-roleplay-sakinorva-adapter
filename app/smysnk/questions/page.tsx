@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { SMYSNK_QUESTIONS } from "@/lib/smysnkQuestions";
 import RatingScaleHeader from "@/app/components/RatingScaleHeader";
@@ -18,9 +19,10 @@ const shuffleQuestions = (items: typeof SMYSNK_QUESTIONS) => {
 };
 
 export default function SmysnkQuestionsPage() {
+  const searchParams = useSearchParams();
   const shuffledQuestions = useMemo(() => shuffleQuestions(SMYSNK_QUESTIONS), []);
-  const [participant, setParticipant] = useState("");
-  const [manualContext, setManualContext] = useState("");
+  const [participant, setParticipant] = useState(searchParams.get("label") ?? "");
+  const [manualContext, setManualContext] = useState(searchParams.get("notes") ?? "");
   const [manualAnswers, setManualAnswers] = useState<Record<string, number>>({});
   const [manualSubmitting, setManualSubmitting] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
