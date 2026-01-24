@@ -11,8 +11,10 @@ type SmysnkRunPayload = {
   runMode: "ai" | "user";
   subject: string | null;
   context: string | null;
-  responses: { questionId: string; answer: number; rationale: string }[];
-  scores: Record<string, number>;
+  responses: { questionId: string; answer: number; rationale: string }[] | null;
+  scores: Record<string, number> | null;
+  state: "QUEUED" | "PROCESSING" | "COMPLETED" | "ERROR";
+  errors: number;
   createdAt: string;
 };
 
@@ -64,14 +66,14 @@ export default function SmysnkRunPage({ params }: { params: { slug: string } }) 
   }, [params.slug]);
 
   const responseMap = useMemo(() => {
-    if (!data?.responses) {
+    if (!data?.responses?.length) {
       return new Map<string, number>();
     }
     return new Map(data.responses.map((response) => [response.questionId, response.answer]));
   }, [data]);
 
   const rationaleMap = useMemo(() => {
-    if (!data?.responses) {
+    if (!data?.responses?.length) {
       return new Map<string, string>();
     }
     return new Map(data.responses.map((response) => [response.questionId, response.rationale]));
@@ -96,15 +98,27 @@ export default function SmysnkRunPage({ params }: { params: { slug: string } }) 
               </p>
               <p className="helper">Run mode: {data.runMode === "ai" ? "AI roleplay" : "Self answer"}</p>
               <p className="helper">Created: {formatDate(data.createdAt)}</p>
-              <div style={{ marginTop: "20px" }}>
-                <SakinorvaResults htmlFragment="" functionScores={data.scores} mbtiMeta={null} />
-              </div>
-              {hasScores ? (
-                <div style={{ marginTop: "24px" }}>
-                  <h3 style={{ marginBottom: "12px" }}>MBTI Axis Map</h3>
-                  <MbtiMapCanvas functionScores={data.scores} />
+              {data.state === "ERROR" ? (
+                <div className="error" style={{ marginTop: "20px" }}>
+                  This run failed to complete after multiple attempts.
                 </div>
-              ) : null}
+              ) : data.state !== "COMPLETED" ? (
+                <p className="helper" style={{ marginTop: "20px" }}>
+                  Run is queued and will update once processing completes.
+                </p>
+              ) : (
+                <>
+                  <div style={{ marginTop: "20px" }}>
+                    <SakinorvaResults htmlFragment="" functionScores={data.scores} mbtiMeta={null} />
+                  </div>
+                  {hasScores ? (
+                    <div style={{ marginTop: "24px" }}>
+                      <h3 style={{ marginBottom: "12px" }}>MBTI Axis Map</h3>
+                      <MbtiMapCanvas functionScores={data.scores} />
+                    </div>
+                  ) : null}
+                </>
+              )}
             </div>
           ) : null}
         </div>
@@ -115,7 +129,7 @@ export default function SmysnkRunPage({ params }: { params: { slug: string } }) 
             <p style={{ marginTop: "20px" }}>Loading answers…</p>
           ) : error ? (
             <div className="error">{error}</div>
-          ) : data ? (
+          ) : data && data.responses?.length ? (
             <div className="answers-list" style={{ marginTop: "20px" }}>
               <RatingScaleHeader />
               {SMYSNK_QUESTIONS.map((question, index) => {

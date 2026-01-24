@@ -6,6 +6,8 @@ export class Run extends Model<InferAttributes<Run>, InferCreationAttributes<Run
   declare slug: string;
   declare indicator: "sakinorva" | "smysnk";
   declare runMode: "ai" | "user";
+  declare state: "QUEUED" | "PROCESSING" | "COMPLETED" | "ERROR";
+  declare errors: CreationOptional<number>;
   declare subject: string;
   declare context: CreationOptional<string | null>;
   declare answers: CreationOptional<number[] | null>;
@@ -41,6 +43,16 @@ export const initializeRunModel = () => {
       runMode: {
         type: DataTypes.STRING(20),
         allowNull: false
+      },
+      state: {
+        type: DataTypes.STRING(20),
+        allowNull: false,
+        defaultValue: "QUEUED"
+      },
+      errors: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
       },
       subject: {
         type: DataTypes.STRING(80),

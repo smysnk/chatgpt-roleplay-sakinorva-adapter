@@ -16,6 +16,8 @@ type IndicatorRun = {
   grantType?: string | null;
   axisType?: string | null;
   myersType?: string | null;
+  state: "QUEUED" | "PROCESSING" | "COMPLETED" | "ERROR";
+  errors: number;
   testLabel: string;
   runPath: string;
 };
@@ -31,6 +33,7 @@ export default function IndicatorIndex({ title, description, mode }: IndicatorIn
   const [items, setItems] = useState<IndicatorRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorRun, setErrorRun] = useState<IndicatorRun | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -64,6 +67,8 @@ export default function IndicatorIndex({ title, description, mode }: IndicatorIn
               grantType: item.grantType ?? null,
               axisType: item.axisType ?? null,
               myersType: item.myersType ?? null,
+              state: item.state ?? "COMPLETED",
+              errors: item.errors ?? 0,
               testLabel: endpoint.label,
               runPath: `${endpoint.runBase}${item.slug}`
             }));
@@ -72,7 +77,9 @@ export default function IndicatorIndex({ title, description, mode }: IndicatorIn
         if (!active) {
           return;
         }
-        const combined = responses.flat();
+        const combined = responses
+          .flat()
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setItems(combined);
       } catch (err) {
         if (active) {
@@ -105,6 +112,8 @@ export default function IndicatorIndex({ title, description, mode }: IndicatorIn
         axisType: item.axisType ?? derived?.axisType ?? null,
         myersType: item.myersType ?? derived?.myersType ?? null,
         functionScores: item.functionScores,
+        state: item.state,
+        errors: item.errors,
         createdAt: item.createdAt,
         runPath: item.runPath
       };
@@ -124,9 +133,57 @@ export default function IndicatorIndex({ title, description, mode }: IndicatorIn
           items={tableItems}
           loading={loading}
           error={error}
-          onRowClick={(path) => router.push(path)}
+          onRowClick={(item) => {
+            if (item.state === "ERROR") {
+              setErrorRun(item);
+              return;
+            }
+            if (item.state === "COMPLETED") {
+              router.push(item.runPath);
+            }
+          }}
         />
       </div>
+      {errorRun ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" style={{ alignItems: "center" }}>
+          <div className="modal-card" style={{ maxWidth: "520px" }}>
+            <div className="modal-header">
+              <div>
+                <h2>Run failed</h2>
+                <p className="helper">
+                  This run encountered errors while processing. You can retry or return to the index.
+                </p>
+              </div>
+              <button type="button" className="button secondary" onClick={() => setErrorRun(null)}>
+                Close
+              </button>
+            </div>
+            <div className="modal-body" style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="button"
+                onClick={async () => {
+                  await fetch(`/api/runs/retry/${errorRun.slug}`, { method: "POST" });
+                  setErrorRun(null);
+                  router.push(errorRun.testLabel === "SMYSNK" ? "/smysnk" : "/sakinorva-adapter");
+                }}
+              >
+                Retry
+              </button>
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => {
+                  setErrorRun(null);
+                  router.push(errorRun.testLabel === "SMYSNK" ? "/smysnk" : "/sakinorva-adapter");
+                }}
+              >
+                Return to Index
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

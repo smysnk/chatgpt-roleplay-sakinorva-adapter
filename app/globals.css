@@ -545,12 +545,36 @@ button.rating-pill:focus-visible {
   border-color: rgba(214, 178, 90, 0.6);
   background: rgba(214, 178, 90, 0.15);
   color: var(--accent);
+  position: relative;
+  overflow: hidden;
+}
+
+.status-pill.running::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, rgba(214, 178, 90, 0.35), transparent);
+  transform: translateX(-120%);
+  animation: status-progress 1.4s ease-in-out infinite;
 }
 
 .status-pill.error {
   border-color: rgba(231, 76, 60, 0.6);
   background: rgba(231, 76, 60, 0.2);
   color: #ffb3a8;
+}
+
+@keyframes status-progress {
+  0% {
+    transform: translateX(-120%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
 }
 
 .type-badges {

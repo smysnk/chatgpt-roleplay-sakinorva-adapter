@@ -9,12 +9,14 @@ import RatingScaleHeader from "@/app/components/RatingScaleHeader";
 
 
 type ResultsPayload = {
-  runId: number;
+  runId?: number;
+  id?: number;
   slug: string;
-  answers: number[];
-  explanations: string[];
-  formBody: string;
+  answers: number[] | null;
+  explanations: string[] | null;
   functionScores: Record<string, number> | null;
+  state: "QUEUED" | "PROCESSING" | "COMPLETED" | "ERROR";
+  errors: number;
 };
 
 export default function ResultsPage() {
@@ -32,6 +34,7 @@ function Page() {
   const [data, setData] = useState<ResultsPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [polling, setPolling] = useState(false);
   const hasRunRef = useRef(false);
 
   useEffect(() => {
@@ -61,6 +64,9 @@ function Page() {
         const payload = (await response.json()) as ResultsPayload;
         if (active) {
           setData(payload);
+          if (payload.state !== "COMPLETED") {
+            setPolling(true);
+          }
         }
       } catch (err) {
         if (active) {
@@ -80,12 +86,35 @@ function Page() {
     };
   }, [character, context]);
 
-  const handleCopy = async () => {
-    if (!data?.formBody) {
+  useEffect(() => {
+    if (!polling || !data?.slug) {
       return;
     }
-    await navigator.clipboard.writeText(data.formBody);
-  };
+    let active = true;
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/run/slug/${data.slug}`);
+        if (!response.ok) {
+          return;
+        }
+        const payload = (await response.json()) as ResultsPayload;
+        if (active) {
+          setData(payload);
+          if (payload.state === "COMPLETED" || payload.state === "ERROR") {
+            setPolling(false);
+          }
+        }
+      } catch (err) {
+        if (active) {
+          setPolling(false);
+        }
+      }
+    }, 4000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [polling, data?.slug]);
 
   return (
     <main>
@@ -96,11 +125,13 @@ function Page() {
             Generated for <strong>{character}</strong>
             {context ? ` — ${context}` : ""}
           </p>
-          {loading ? (
-            <p style={{ marginTop: "20px" }}>Running the test…</p>
+          {loading || polling ? (
+            <p style={{ marginTop: "20px" }}>
+              {data?.state === "ERROR" ? "Run failed to complete." : "Running the test…"}
+            </p>
           ) : error ? (
             <div className="error">{error}</div>
-          ) : data ? (
+          ) : data && data.state === "COMPLETED" ? (
             <div style={{ marginTop: "20px" }}>
               <SakinorvaResults
                 htmlFragment=""
@@ -110,9 +141,6 @@ function Page() {
             </div>
           ) : null}
           <div style={{ display: "flex", gap: "12px", marginTop: "24px", flexWrap: "wrap" }}>
-            <button className="button secondary" type="button" onClick={handleCopy} disabled={!data}>
-              Copy form body
-            </button>
             {data?.slug ? (
               <Link className="button secondary" href={`/sakinorva-adapter/run/${data.slug}`}>
                 View run
@@ -126,16 +154,16 @@ function Page() {
         <div className="app-card">
           <h2>Answers</h2>
           <p className="helper">A 1–5 scale, where 1 is “No” and 5 is “Yes.”</p>
-          {loading ? (
+          {loading || polling ? (
             <p style={{ marginTop: "20px" }}>Generating answers…</p>
           ) : error ? (
             <div className="error">{error}</div>
-          ) : data ? (
+          ) : data && data.answers ? (
             <div className="answers-list" style={{ marginTop: "20px" }}>
               <RatingScaleHeader />
               {QUESTIONS.map((question, index) => {
                 const answer = data.answers[index];
-                const explanation = data.explanations[index];
+                const explanation = data.explanations?.[index] ?? "";
                 return (
                   <div className="answer-row" key={`${index}-${question}`}>
                     <div className="answer-meta">

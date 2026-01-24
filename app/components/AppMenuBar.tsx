@@ -77,9 +77,8 @@ export default function AppMenuBar() {
         const payload = await response.json().catch(() => ({}));
         throw new Error(payload?.error ?? "Failed to run the indicator.");
       }
-      const payload = (await response.json()) as { slug: string };
-      const runPath =
-        indicator === "sakinorva" ? `/sakinorva-adapter/run/${payload.slug}` : `/smysnk/run/${payload.slug}`;
+      await response.json();
+      const runPath = indicator === "sakinorva" ? "/sakinorva-adapter" : "/smysnk";
       setWizardOpen(false);
       setCharacter("");
       setContext("");

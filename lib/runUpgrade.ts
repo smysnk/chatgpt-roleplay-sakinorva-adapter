@@ -51,6 +51,24 @@ export const runRunUpgrades = async () => {
         }
       }
 
+      if (tableNames.has("runs")) {
+        const runTable = await queryInterface.describeTable("runs");
+        if (!("state" in runTable)) {
+          await queryInterface.addColumn("runs", "state", {
+            type: DataTypes.STRING(20),
+            allowNull: false,
+            defaultValue: "COMPLETED"
+          });
+        }
+        if (!("errors" in runTable)) {
+          await queryInterface.addColumn("runs", "errors", {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 0
+          });
+        }
+      }
+
       const existingRuns = await Run.findAll({ attributes: ["slug"] });
       const existingSlugs = new Set(existingRuns.map((run) => run.slug));
 
@@ -80,6 +98,8 @@ export const runRunUpgrades = async () => {
               slug: interaction.slug,
               indicator: "sakinorva",
               runMode: (interaction.runMode as "ai" | "user") ?? "ai",
+              state: "COMPLETED",
+              errors: 0,
               subject: interaction.character,
               context: interaction.context,
               answers: interaction.answers,
@@ -103,6 +123,8 @@ export const runRunUpgrades = async () => {
               slug: run.slug,
               indicator: "smysnk",
               runMode: run.runMode,
+              state: "COMPLETED",
+              errors: 0,
               subject: run.subject ?? "Self",
               context: run.context,
               answers: null,

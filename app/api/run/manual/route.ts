@@ -90,6 +90,8 @@ export async function POST(request: Request) {
       slug,
       indicator: "sakinorva",
       runMode: "user",
+      state: "COMPLETED",
+      errors: 0,
       subject: label,
       context: payload.context || null,
       answers: payload.answers,
@@ -104,6 +106,8 @@ export async function POST(request: Request) {
       character: interaction.subject,
       context: interaction.context,
       functionScores: interaction.functionScores,
+      state: interaction.state,
+      errors: interaction.errors,
       createdAt: interaction.createdAt,
       answers: interaction.answers,
       explanations: interaction.explanations

@@ -57,6 +57,8 @@ export async function POST(request: Request) {
       slug,
       indicator: "smysnk",
       runMode: "user",
+      state: "COMPLETED",
+      errors: 0,
       subject: label,
       context: payload.context || null,
       responses,
@@ -72,6 +74,8 @@ export async function POST(request: Request) {
       context: run.context,
       responses: run.responses,
       scores: run.functionScores,
+      state: run.state,
+      errors: run.errors,
       createdAt: run.createdAt
     });
   } catch (error) {

@@ -21,8 +21,9 @@ type RunItem = {
   axisType: string | null;
   myersType: string | null;
   functionScores: Record<string, number> | null;
+  state: "QUEUED" | "PROCESSING" | "COMPLETED" | "ERROR";
+  errors: number;
   createdAt: string;
-  status: "ready" | "running" | "error";
   errorMessage?: string | null;
 };
 
@@ -32,6 +33,8 @@ type RunApiItem = {
   character: string;
   context: string | null;
   functionScores: Record<string, number> | null;
+  state: "QUEUED" | "PROCESSING" | "COMPLETED" | "ERROR";
+  errors: number;
   createdAt: string;
 };
 
@@ -40,9 +43,11 @@ type RunDetail = {
   slug: string;
   character: string;
   context: string | null;
-  answers: number[];
-  explanations: string[];
+  answers: number[] | null;
+  explanations: string[] | null;
   functionScores: Record<string, number> | null;
+  state: "QUEUED" | "PROCESSING" | "COMPLETED" | "ERROR";
+  errors: number;
   createdAt: string;
 };
 
@@ -52,6 +57,8 @@ type ResultsPayload = {
   character: string;
   context: string | null;
   functionScores: Record<string, number> | null;
+  state: "QUEUED" | "PROCESSING" | "COMPLETED" | "ERROR";
+  errors: number;
   createdAt: string;
 };
 
@@ -156,7 +163,8 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
               grantType: derived?.grantType ?? null,
               axisType: derived?.axisType ?? null,
               myersType: derived?.myersType ?? null,
-              status: "ready" as const
+              state: item.state ?? "COMPLETED",
+              errors: item.errors ?? 0
             };
           });
           setRuns(items);
@@ -223,7 +231,7 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
   );
 
   const handleRowClick = (item: RunItem) => {
-    if (item.status !== "ready" || !item.slug) {
+    if (item.state !== "COMPLETED" || !item.slug) {
       return;
     }
     setActiveSlug(item.slug);
@@ -255,8 +263,10 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
       axisType: null,
       myersType: null,
       functionScores: null,
+      state: "QUEUED",
+      errors: 0,
       createdAt: new Date().toISOString(),
-      status: "running"
+      errorMessage: null
     };
 
     setRuns((prev) => [pendingItem, ...prev]);
@@ -290,7 +300,8 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                 myersType: derived?.myersType ?? null,
                 functionScores: payload.functionScores,
                 createdAt: payload.createdAt,
-                status: "ready"
+                state: payload.state ?? "QUEUED",
+                errors: payload.errors ?? 0
               }
             : item
         )
@@ -304,7 +315,8 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
           item.id === pendingId
             ? {
                 ...item,
-                status: "error",
+                state: "ERROR",
+                errors: (item.errors ?? 0) + 1,
                 errorMessage: message
               }
             : item
@@ -407,9 +419,10 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                 </thead>
                 <tbody>
                   {runs.map((item) => {
-                    const isClickable = item.status === "ready" && !!item.slug;
+                    const isClickable = item.state === "COMPLETED" && !!item.slug;
                     const stnfValues = getStnfValues(item.functionScores);
                     const scoreRange = getScoreRange(item.functionScores);
+                    const stateLabel = item.state === "PROCESSING" ? "QUEUED" : item.state;
                     return (
                       <tr
                         key={item.id}
@@ -459,15 +472,14 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                           {renderTypeCell(item.myersType)}
                         </td>
                         <td>
-                          {item.status === "running" ? (
-                            <span className="status-pill running">Running…</span>
-                          ) : item.status === "error" ? (
-                            <span className="status-pill error" title={item.errorMessage || "Run failed."}>
-                              Error
-                            </span>
-                          ) : (
-                            formatDate(item.createdAt)
-                          )}
+                          <span
+                            className={`status-pill ${
+                              stateLabel === "QUEUED" ? "running" : stateLabel === "ERROR" ? "error" : ""
+                            }`.trim()}
+                            title={item.errorMessage || undefined}
+                          >
+                            {stateLabel}
+                          </span>
                         </td>
                       </tr>
                     );
@@ -507,42 +519,58 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
               <div className="modal-body grid two" style={{ marginTop: "20px" }}>
                 <div className="app-card">
                   <h3>Results</h3>
-                  <div style={{ marginTop: "20px" }}>
-                    <SakinorvaResults
-                      htmlFragment=""
-                      functionScores={runDetail.functionScores}
-                      mbtiMeta={derivedDetail}
-                    />
-                  </div>
+                  {runDetail.state === "ERROR" ? (
+                    <div className="error" style={{ marginTop: "20px" }}>
+                      This run failed to complete after multiple attempts.
+                    </div>
+                  ) : runDetail.state !== "COMPLETED" ? (
+                    <p className="helper" style={{ marginTop: "20px" }}>
+                      Run is queued and will update once processing completes.
+                    </p>
+                  ) : (
+                    <div style={{ marginTop: "20px" }}>
+                      <SakinorvaResults
+                        htmlFragment=""
+                        functionScores={runDetail.functionScores}
+                        mbtiMeta={derivedDetail}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="app-card">
                   <h3>Answers</h3>
                   <p className="helper">A 1–5 scale, where 1 is “No” and 5 is “Yes.”</p>
-                  <div className="answers-list" style={{ marginTop: "20px" }}>
-                    <RatingScaleHeader />
-                    {QUESTIONS.map((question, index) => {
-                      const answer = runDetail.answers[index];
-                      const explanation = runDetail.explanations[index];
-                      return (
-                        <div className="answer-row" key={`${index}-${question}`}>
-                          <div className="answer-meta">
-                            <div className="answer-question">#{index + 1} {question}</div>
-                            <div className="rating-bar" aria-label={`Answer ${answer}`}>
-                              {[1, 2, 3, 4, 5].map((value) => (
-                                <span
-                                  key={value}
-                                  className={`rating-pill value-${value} ${value === answer ? "active" : ""}`}
-                                >
-                                  {value}
-                                </span>
-                              ))}
+                  {runDetail.state === "COMPLETED" ? (
+                    <div className="answers-list" style={{ marginTop: "20px" }}>
+                      <RatingScaleHeader />
+                      {QUESTIONS.map((question, index) => {
+                        const answer = runDetail.answers[index];
+                        const explanation = runDetail.explanations[index];
+                        return (
+                          <div className="answer-row" key={`${index}-${question}`}>
+                            <div className="answer-meta">
+                              <div className="answer-question">#{index + 1} {question}</div>
+                              <div className="rating-bar" aria-label={`Answer ${answer}`}>
+                                {[1, 2, 3, 4, 5].map((value) => (
+                                  <span
+                                    key={value}
+                                    className={`rating-pill value-${value} ${value === answer ? "active" : ""}`}
+                                  >
+                                    {value}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
+                            <div className="helper">{explanation}</div>
                           </div>
-                          <div className="helper">{explanation}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="helper" style={{ marginTop: "20px" }}>
+                      Answers will appear once the run completes.
+                    </p>
+                  )}
                 </div>
               </div>
             ) : null}

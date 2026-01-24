@@ -27,6 +27,8 @@ export async function GET(
     answers: interaction.answers,
     explanations: interaction.explanations,
     functionScores: interaction.functionScores,
+    state: interaction.state,
+    errors: interaction.errors,
     createdAt: interaction.createdAt
   });
 }

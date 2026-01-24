@@ -12,6 +12,8 @@ type RunItem = {
   axisType: string | null;
   myersType: string | null;
   functionScores: Record<string, number> | null;
+  state: "QUEUED" | "PROCESSING" | "COMPLETED" | "ERROR";
+  errors: number;
   createdAt: string;
   runPath: string;
 };
@@ -91,8 +93,15 @@ export default function RunsTable({
   items: RunItem[];
   loading: boolean;
   error: string | null;
-  onRowClick: (path: string) => void;
+  onRowClick: (item: RunItem) => void;
 }) {
+  const getStateLabel = (state: RunItem["state"]) => {
+    if (state === "PROCESSING") {
+      return "QUEUED";
+    }
+    return state;
+  };
+
   return (
     <div className="app-card">
       <h2>{title}</h2>
@@ -113,24 +122,36 @@ export default function RunsTable({
                 <th>Axis</th>
                 <th>Myers</th>
                 <th>STNF</th>
+                <th>Status</th>
                 <th>Run</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item) => {
+                const isCompleted = item.state === "COMPLETED";
+                const isError = item.state === "ERROR";
+                const isClickable = isCompleted || isError;
                 const stnfValues = getStnfValues(item.functionScores);
                 const scoreRange = getScoreRange(item.functionScores);
+                const stateLabel = getStateLabel(item.state);
                 return (
                   <tr
                     key={item.id}
-                    className="is-clickable"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => onRowClick(item.runPath)}
+                    className={isClickable ? "is-clickable" : "is-disabled"}
+                    role={isClickable ? "button" : undefined}
+                    tabIndex={isClickable ? 0 : -1}
+                    onClick={() => {
+                      if (isClickable) {
+                        onRowClick(item);
+                      }
+                    }}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
+                        if (!isClickable) {
+                          return;
+                        }
                         event.preventDefault();
-                        onRowClick(item.runPath);
+                        onRowClick(item);
                       }
                     }}
                   >
@@ -160,6 +181,15 @@ export default function RunsTable({
                       ) : (
                         <span className="helper">—</span>
                       )}
+                    </td>
+                    <td>
+                      <span
+                        className={`status-pill ${
+                          stateLabel === "QUEUED" ? "running" : stateLabel === "ERROR" ? "error" : ""
+                        }`.trim()}
+                      >
+                        {stateLabel}
+                      </span>
                     </td>
                     <td>{formatDate(item.createdAt)}</td>
                   </tr>
