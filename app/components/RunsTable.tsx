@@ -2,7 +2,7 @@
 
 import StnfMiniChart from "@/app/components/StnfMiniChart";
 
-type RunItem = {
+export type RunItem = {
   id: string;
   slug: string;
   testLabel: string;

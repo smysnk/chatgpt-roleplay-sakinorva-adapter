@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import RunsTable from "@/app/components/RunsTable";
+import RunsTable, { type RunItem } from "@/app/components/RunsTable";
 import { deriveTypesFromScores } from "@/lib/mbti";
 
 type IndicatorRun = {
@@ -33,7 +33,7 @@ export default function IndicatorIndex({ title, description, mode }: IndicatorIn
   const [items, setItems] = useState<IndicatorRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [errorRun, setErrorRun] = useState<IndicatorRun | null>(null);
+  const [errorRun, setErrorRun] = useState<RunItem | null>(null);
 
   useEffect(() => {
     let active = true;
