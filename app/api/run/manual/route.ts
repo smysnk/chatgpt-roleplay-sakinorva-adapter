@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
-import { z } from "zod";
 import * as cheerio from "cheerio";
+import { z } from "zod";
 import { QUESTIONS } from "@/lib/questions";
 import { SAKINORVA_RESULTS_CSS } from "@/lib/sakinorvaStyles";
 import { initializeDatabase } from "@/lib/db";
@@ -10,19 +9,10 @@ import { extractResultMetadata } from "@/lib/runMetadata";
 
 export const dynamic = "force-dynamic";
 
-const ANSWER_SCHEMA = z.object({
-  responses: z
-    .array(
-      z.object({
-        answer: z.number().int().min(1).max(5),
-        explanation: z.string().min(1)
-      })
-    )
-    .length(96)
-});
 const requestSchema = z.object({
-  character: z.string().min(2).max(80),
-  context: z.string().max(500).optional().default("")
+  character: z.string().max(80).optional().default("Self"),
+  context: z.string().max(500).optional().default(""),
+  answers: z.array(z.number().int().min(1).max(5)).length(QUESTIONS.length)
 });
 
 const userAgent =
@@ -53,54 +43,18 @@ const toAbsoluteScores = (scores: Record<string, number> | null) =>
 export async function POST(request: Request) {
   try {
     const payload = requestSchema.parse(await request.json());
-    if (!process.env.OPENAI_API_KEY) {
+    const label = payload.character.trim() || "Self";
+    if (label.length < 2 || label.length > 80) {
       return NextResponse.json(
-        { error: "Missing OPENAI_API_KEY environment variable." },
-        { status: 500 }
+        { error: "Run label must be between 2 and 80 characters." },
+        { status: 400 }
       );
     }
 
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
-
-    const questionBlock = QUESTIONS.map((question, index) => `#${index + 1} ${question}`).join("\n");
-
-    const systemMessage =
-      "You are roleplaying as the specified character. Answer truthfully as that character would behave and think. Answer questions as you see yourself, not how others see you. Output must match the JSON schema exactly.";
-  
-    const userMessage = `Character: ${payload.character}\nContext: ${payload.context || "(none)"}\n\nAnswer all 96 questions on a 1-5 scale (1=no, 5=yes). Provide a one-sentence explanation for each answer.\nReturn JSON only, no markdown, no commentary.\n\nQuestions:\n${questionBlock}\n\nJSON schema:\n{\n \"responses\": [\n{ \"answer\": number (1..5), \"explanation\": string (one sentence) \n} \n// exactly 96 objects \n]\n}\n`;
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-5-mini",
-      messages: [
-        { role: "system", content: systemMessage },
-        { role: "user", content: userMessage }
-      ],
-      response_format: { type: "json_object" },
-      temperature: 1
-    });
-
-    console.log("OpenAI response:", JSON.stringify(completion, null, 2));
-
-    const content = completion.choices[0]?.message?.content;
-    if (!content) {
-      return NextResponse.json({ error: "OpenAI response was empty." }, { status: 502 });
-    }
-
-    const parsed = ANSWER_SCHEMA.safeParse(JSON.parse(content));
-    if (!parsed.success) {
-      return NextResponse.json({ error: "OpenAI response failed validation." }, { status: 502 });
-    }
-
-    const { responses } = parsed.data;
     const params = new URLSearchParams();
-    let { answers, explanations } = responses.reduce((acc, response, index) => {
-      acc.answers.push(response.answer);
-      acc.explanations.push(response.explanation);
-      params.set(`q${index + 1}`, response.answer.toString());
-      return acc;
-    }, { answers: [] as number[], explanations: [] as string[] });
+    payload.answers.forEach((answer, index) => {
+      params.set(`q${index + 1}`, answer.toString());
+    });
     params.set("age", "");
     params.set("idmbti", "");
     params.set("enneagram", "");
@@ -134,16 +88,17 @@ export async function POST(request: Request) {
     const resultsHtmlFragment = $.html(results);
     const resultsSummary = extractSummary(resultsHtmlFragment);
     const metadata = extractResultMetadata(resultsHtmlFragment);
-    const slugBase = slugify(payload.character);
+    const slugBase = slugify(label);
     const slug = `${slugBase || "run"}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
     initializeInteractionModel();
     await initializeDatabase();
+    const explanations = payload.answers.map((answer) => `User selected ${answer}.`);
     const interaction = await Interaction.create({
       slug,
-      character: payload.character,
+      character: label,
       context: payload.context || null,
-      answers,
+      answers: payload.answers,
       explanations,
       resultsHtmlFragment,
       resultsSummary,
@@ -153,7 +108,7 @@ export async function POST(request: Request) {
       axisType: metadata.axisType,
       myersType: metadata.myersType,
       functionScores: Object.keys(metadata.functionScores).length ? metadata.functionScores : null,
-      runMode: "ai"
+      runMode: "user"
     });
 
     return NextResponse.json({
@@ -168,9 +123,8 @@ export async function POST(request: Request) {
       myersType: interaction.myersType,
       functionScores: toAbsoluteScores(interaction.functionScores),
       createdAt: interaction.createdAt,
-      answers,
-      explanations,
-      formBody: params.toString(),
+      answers: interaction.answers,
+      explanations: interaction.explanations,
       resultsHtmlFragment,
       resultsCss: SAKINORVA_RESULTS_CSS
     });
@@ -178,42 +132,4 @@ export async function POST(request: Request) {
     const message = error instanceof Error ? error.message : "Unexpected error.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
-
-export async function GET() {
-  initializeInteractionModel();
-  await initializeDatabase();
-  const interactions = await Interaction.findAll({
-    where: { runMode: "ai" },
-    order: [["createdAt", "DESC"]],
-    attributes: [
-      "id",
-      "slug",
-      "character",
-      "context",
-      "grantType",
-      "secondType",
-      "thirdType",
-      "axisType",
-      "myersType",
-      "functionScores",
-      "createdAt"
-    ]
-  });
-
-  return NextResponse.json({
-    items: interactions.map((interaction) => ({
-      id: interaction.id.toString(),
-      slug: interaction.slug,
-      character: interaction.character,
-      context: interaction.context,
-      grantType: interaction.grantType,
-      secondType: interaction.secondType,
-      thirdType: interaction.thirdType,
-      axisType: interaction.axisType,
-      myersType: interaction.myersType,
-      functionScores: toAbsoluteScores(interaction.functionScores),
-      createdAt: interaction.createdAt
-    }))
-  });
 }

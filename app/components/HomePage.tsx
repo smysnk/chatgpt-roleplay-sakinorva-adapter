@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { QUESTIONS } from "@/lib/questions";
 import SakinorvaResults, { STNF_TOOLTIP } from "@/app/components/SakinorvaResults";
 import StnfMiniChart from "@/app/components/StnfMiniChart";
+import RatingScaleHeader from "@/app/components/RatingScaleHeader";
 
 const MIN_LENGTH = 2;
 const MAX_LENGTH = 80;
-
-const FUNCTION_ORDER = ["Te", "Ti", "Fe", "Fi", "Ne", "Ni", "Se", "Si"] as const;
 
 type RunItem = {
   id: string;
@@ -146,6 +146,7 @@ const getScoreRange = (scores: Record<string, number> | null) => {
 
 export default function HomePage({ initialSlug }: { initialSlug?: string | null }) {
   const router = useRouter();
+  const basePath = "/sakinorva-adapter";
   const [character, setCharacter] = useState("");
   const [context, setContext] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -242,12 +243,12 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
       return;
     }
     setActiveSlug(item.slug);
-    router.push(`/run/${item.slug}`);
+    router.push(`${basePath}/run/${item.slug}`);
   };
 
   const handleModalClose = () => {
     setActiveSlug(null);
-    router.push("/");
+    router.push(basePath);
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -382,8 +383,22 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
           </form>
         </div>
         <div className="app-card">
+          <h2>Answer the Sakinorva test yourself</h2>
+          <p className="helper">
+            Respond directly on the 1–5 scale (1 = No, 5 = Yes) from a dedicated questions page.
+          </p>
+          <div style={{ marginTop: "20px" }}>
+            <Link className="button secondary" href={`${basePath}/questions`}>
+              Answer Sakinorva questions
+            </Link>
+          </div>
+        </div>
+        <div className="app-card">
           <h2>Runs</h2>
-          <p className="helper">Click a completed row to revisit the full answers and Sakinorva results.</p>
+          <p className="helper">
+            AI roleplay runs appear here. Click a completed row to revisit the full answers and
+            Sakinorva results.
+          </p>
           {runsLoading ? (
             <p style={{ marginTop: "20px" }}>Loading runs…</p>
           ) : runsError ? (
@@ -533,6 +548,7 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                   <h3>Answers</h3>
                   <p className="helper">A 1–5 scale, where 1 is “No” and 5 is “Yes.”</p>
                   <div className="answers-list" style={{ marginTop: "20px" }}>
+                    <RatingScaleHeader />
                     {QUESTIONS.map((question, index) => {
                       const answer = runDetail.answers[index];
                       const explanation = runDetail.explanations[index];

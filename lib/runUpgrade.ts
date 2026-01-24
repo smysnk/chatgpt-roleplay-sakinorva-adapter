@@ -1,3 +1,4 @@
+import { DataTypes } from "sequelize";
 import { extractResultMetadata } from "@/lib/runMetadata";
 import { initializeInteractionModel, Interaction } from "@/lib/models/Interaction";
 
@@ -9,6 +10,17 @@ export const runRunUpgrades = async () => {
   if (!upgradePromise) {
     upgradePromise = (async () => {
       initializeInteractionModel();
+      const queryInterface = Interaction.sequelize?.getQueryInterface();
+      if (queryInterface) {
+        const table = await queryInterface.describeTable("interactions");
+        if (!("runMode" in table)) {
+          await queryInterface.addColumn("interactions", "runMode", {
+            type: DataTypes.STRING(20),
+            allowNull: false,
+            defaultValue: "ai"
+          });
+        }
+      }
       const interactions = await Interaction.findAll();
       const updates = interactions.map(async (interaction) => {
         if (!interaction.resultsHtmlFragment || !shouldUpdateScores(interaction.functionScores)) {
@@ -21,6 +33,10 @@ export const runRunUpgrades = async () => {
         await interaction.update({ functionScores: metadata.functionScores });
       });
       await Promise.all(updates);
+      const needsMode = interactions.filter((interaction) => !interaction.runMode);
+      if (needsMode.length) {
+        await Promise.all(needsMode.map((interaction) => interaction.update({ runMode: "ai" })));
+      }
     })();
   }
   await upgradePromise;

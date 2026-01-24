@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { QUESTIONS } from "@/lib/questions";
 import SakinorvaResults from "@/app/components/SakinorvaResults";
+import RatingScaleHeader from "@/app/components/RatingScaleHeader";
 
 
 type ResultsPayload = {
@@ -122,11 +123,11 @@ function Page() {
               Copy form body
             </button>
             {data?.slug ? (
-              <Link className="button secondary" href={`/run/${data.slug}`}>
+              <Link className="button secondary" href={`/sakinorva-adapter/run/${data.slug}`}>
                 View run
               </Link>
             ) : null}
-            <Link className="button secondary" href="/">
+            <Link className="button secondary" href="/sakinorva-adapter">
               Run another character
             </Link>
           </div>
@@ -140,6 +141,7 @@ function Page() {
             <div className="error">{error}</div>
           ) : data ? (
             <div className="answers-list" style={{ marginTop: "20px" }}>
+              <RatingScaleHeader />
               {QUESTIONS.map((question, index) => {
                 const answer = data.answers[index];
                 const explanation = data.explanations[index];

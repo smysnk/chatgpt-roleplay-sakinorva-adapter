@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import AppMenuBar from "@/app/components/AppMenuBar";
 
 export const metadata: Metadata = {
   title: "Sakinorva Character Adapter",
@@ -14,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <AppMenuBar />
         {children}
       </body>
     </html>
