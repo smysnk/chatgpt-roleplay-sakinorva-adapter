@@ -158,7 +158,7 @@ function Page() {
             <p style={{ marginTop: "20px" }}>Generating answers…</p>
           ) : error ? (
             <div className="error">{error}</div>
-          ) : data && data.answers ? (
+          ) : data && data.answers !== null ? (
             <div className="answers-list" style={{ marginTop: "20px" }}>
               <RatingScaleHeader />
               {QUESTIONS.map((question, index) => {
