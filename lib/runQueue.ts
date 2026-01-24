@@ -214,6 +214,7 @@ const processQueuedRun = async () => {
       return;
     }
 
+    console.log(`[runQueue] Processing ${run.indicator} run ${run.slug} (state=${run.state}, errors=${run.errors ?? 0})`);
     if (run.state === "QUEUED") {
       await run.update({ state: "PROCESSING" });
     }
@@ -224,6 +225,7 @@ const processQueuedRun = async () => {
       } else {
         await processSmysnkRun(run);
       }
+      console.log(`[runQueue] Completed ${run.indicator} run ${run.slug}`);
     } catch (error) {
       const nextErrors = (run.errors ?? 0) + 1;
       const nextState = nextErrors >= 3 ? "ERROR" : "QUEUED";
@@ -231,6 +233,10 @@ const processQueuedRun = async () => {
         errors: nextErrors,
         state: nextState
       });
+      console.warn(
+        `[runQueue] ${run.indicator} run ${run.slug} failed (errors=${nextErrors}, state=${nextState})`,
+        error
+      );
     }
   } finally {
     queueRunning = false;
