@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { QUESTIONS } from "@/lib/questions";
 import RatingScaleHeader from "@/app/components/RatingScaleHeader";
 
@@ -10,6 +10,14 @@ const MIN_LENGTH = 2;
 const MAX_LENGTH = 80;
 
 export default function SakinorvaQuestionsPage() {
+  return (
+    <Suspense fallback={<div>Loading questions…</div>}>
+      <SakinorvaQuestionsContent />
+    </Suspense>
+  );
+}
+
+function SakinorvaQuestionsContent() {
   const searchParams = useSearchParams();
   const [manualName, setManualName] = useState(searchParams.get("label") ?? "");
   const [manualNotes, setManualNotes] = useState(searchParams.get("notes") ?? "");
