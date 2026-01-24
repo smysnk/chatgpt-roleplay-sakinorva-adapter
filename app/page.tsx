@@ -25,13 +25,13 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="app-card">
-            <h2>JDB</h2>
+            <h2>SMYSNK</h2>
             <p className="helper">
-              Try the JDB indicator with roleplay mode or a self-scored run.
+              Try the SMYSNK indicator with roleplay mode or a self-scored run.
             </p>
             <div style={{ marginTop: "20px" }}>
-              <Link className="button secondary" href="/jdb">
-                Open JDB
+              <Link className="button secondary" href="/smysnk">
+                Open SMYSNK
               </Link>
             </div>
           </div>

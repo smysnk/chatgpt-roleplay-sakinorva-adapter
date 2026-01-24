@@ -1,18 +1,18 @@
-import { JDB_QUESTIONS } from "@/lib/jdbQuestions";
+import { SMYSNK_QUESTIONS } from "@/lib/smysnkQuestions";
 
-export type JdbResponse = {
+export type SmysnkResponse = {
   questionId: string;
   answer: number;
 };
 
-const QUESTION_MAP = new Map(JDB_QUESTIONS.map((question) => [question.id, question]));
+const QUESTION_MAP = new Map(SMYSNK_QUESTIONS.map((question) => [question.id, question]));
 
 const MAX_POINTS_PER_FUNCTION = 16 * 4;
 
 const scoreKey = (functionLetter: string, orientation: string) =>
   `${functionLetter}${orientation === "introverted" ? "i" : "e"}`;
 
-export const calculateJdbScores = (responses: JdbResponse[]) => {
+export const calculateSmysnkScores = (responses: SmysnkResponse[]) => {
   const totals: Record<string, number> = {
     Ni: 0,
     Ne: 0,

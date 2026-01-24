@@ -1,14 +1,14 @@
-export type JdbOrientation = "introverted" | "extraverted";
-export type JdbFunction = "N" | "S" | "T" | "F";
+export type SmysnkOrientation = "introverted" | "extraverted";
+export type SmysnkFunction = "N" | "S" | "T" | "F";
 
-export type JdbQuestion = {
+export type SmysnkQuestion = {
   id: string;
   question: string;
-  function: JdbFunction;
-  orientation: JdbOrientation;
+  function: SmysnkFunction;
+  orientation: SmysnkOrientation;
 };
 
-export const JDB_QUESTIONS: JdbQuestion[] = [
+export const SMYSNK_QUESTIONS: SmysnkQuestion[] = [
   { id: "ni-01", question: "I often sense where a situation is heading long before it becomes obvious.", function: "N", orientation: "introverted" },
   { id: "ni-02", question: "My understanding tends to crystallize into a single interpretation.", function: "N", orientation: "introverted" },
   { id: "ni-03", question: "I lose interest in ideas once they no longer fit a central vision.", function: "N", orientation: "introverted" },

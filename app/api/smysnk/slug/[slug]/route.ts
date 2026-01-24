@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { initializeDatabase } from "@/lib/db";
-import { initializeJdbRunModel, JdbRun } from "@/lib/models/JdbRun";
+import { initializeSmysnkRunModel, SmysnkRun } from "@/lib/models/SmysnkRun";
 import { initializeInteractionModel } from "@/lib/models/Interaction";
 
 export const dynamic = "force-dynamic";
@@ -9,11 +9,11 @@ export async function GET(
   _request: Request,
   { params }: { params: { slug: string } }
 ) {
-  initializeJdbRunModel();
+  initializeSmysnkRunModel();
   initializeInteractionModel();
   await initializeDatabase();
 
-  const run = await JdbRun.findOne({
+  const run = await SmysnkRun.findOne({
     where: { slug: params.slug }
   });
 

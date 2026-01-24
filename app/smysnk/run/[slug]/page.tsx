@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { JDB_QUESTIONS } from "@/lib/jdbQuestions";
+import { SMYSNK_QUESTIONS } from "@/lib/smysnkQuestions";
 import SakinorvaResults from "@/app/components/SakinorvaResults";
 import RatingScaleHeader from "@/app/components/RatingScaleHeader";
 
-type JdbRunPayload = {
+type SmysnkRunPayload = {
   slug: string;
   runMode: "ai" | "user";
   subject: string | null;
@@ -23,8 +23,8 @@ const formatDate = (value: string) => {
   return parsed.toLocaleString();
 };
 
-export default function JdbRunPage({ params }: { params: { slug: string } }) {
-  const [data, setData] = useState<JdbRunPayload | null>(null);
+export default function SmysnkRunPage({ params }: { params: { slug: string } }) {
+  const [data, setData] = useState<SmysnkRunPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,12 +34,12 @@ export default function JdbRunPage({ params }: { params: { slug: string } }) {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/jdb/slug/${params.slug}`);
+        const response = await fetch(`/api/smysnk/slug/${params.slug}`);
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
-          throw new Error(payload?.error ?? "Failed to load JDB run.");
+          throw new Error(payload?.error ?? "Failed to load SMYSNK run.");
         }
-        const payload = (await response.json()) as JdbRunPayload;
+        const payload = (await response.json()) as SmysnkRunPayload;
         if (active) {
           setData(payload);
         }
@@ -79,7 +79,7 @@ export default function JdbRunPage({ params }: { params: { slug: string } }) {
     <main>
       <div className="grid two">
         <div className="app-card">
-          <h2>JDB results</h2>
+          <h2>SMYSNK results</h2>
           {loading ? (
             <p style={{ marginTop: "20px" }}>Loading results…</p>
           ) : error ? (
@@ -108,7 +108,7 @@ export default function JdbRunPage({ params }: { params: { slug: string } }) {
           ) : data ? (
             <div className="answers-list" style={{ marginTop: "20px" }}>
               <RatingScaleHeader />
-              {JDB_QUESTIONS.map((question, index) => {
+              {SMYSNK_QUESTIONS.map((question, index) => {
                 const answer = responseMap.get(question.id) ?? 0;
                 return (
                   <div className="answer-row" key={question.id}>

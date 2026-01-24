@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { z } from "zod";
-import { JDB_QUESTIONS } from "@/lib/jdbQuestions";
-import { calculateJdbScores } from "@/lib/jdbScore";
+import { SMYSNK_QUESTIONS } from "@/lib/smysnkQuestions";
+import { calculateSmysnkScores } from "@/lib/smysnkScore";
 import { initializeDatabase } from "@/lib/db";
-import { initializeJdbRunModel, JdbRun } from "@/lib/models/JdbRun";
+import { initializeSmysnkRunModel, SmysnkRun } from "@/lib/models/SmysnkRun";
 import { initializeInteractionModel } from "@/lib/models/Interaction";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,7 @@ const requestSchema = z.object({
         rationale: z.string().min(1).optional()
       })
     )
-    .length(JDB_QUESTIONS.length)
+    .length(SMYSNK_QUESTIONS.length)
 });
 
 export async function POST(request: Request) {
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    const validIds = new Set(JDB_QUESTIONS.map((question) => question.id));
+    const validIds = new Set(SMYSNK_QUESTIONS.map((question) => question.id));
     const seen = new Set<string>();
     for (const response of payload.responses) {
       if (!validIds.has(response.questionId)) {
@@ -49,13 +49,13 @@ export async function POST(request: Request) {
       ...response,
       rationale: response.rationale?.trim() || `User selected ${response.answer}.`
     }));
-    const scores = calculateJdbScores(responses);
+    const scores = calculateSmysnkScores(responses);
     const slug = crypto.randomUUID();
 
-    initializeJdbRunModel();
+    initializeSmysnkRunModel();
     initializeInteractionModel();
     await initializeDatabase();
-    const run = await JdbRun.create({
+    const run = await SmysnkRun.create({
       slug,
       runMode: "user",
       subject: label,
