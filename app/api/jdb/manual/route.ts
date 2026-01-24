@@ -5,6 +5,7 @@ import { JDB_QUESTIONS } from "@/lib/jdbQuestions";
 import { calculateJdbScores } from "@/lib/jdbScore";
 import { initializeDatabase } from "@/lib/db";
 import { initializeJdbRunModel, JdbRun } from "@/lib/models/JdbRun";
+import { initializeInteractionModel } from "@/lib/models/Interaction";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
     const slug = crypto.randomUUID();
 
     initializeJdbRunModel();
+    initializeInteractionModel();
     await initializeDatabase();
     const run = await JdbRun.create({
       slug,

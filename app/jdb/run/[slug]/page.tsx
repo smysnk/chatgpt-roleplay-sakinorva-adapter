@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { JDB_QUESTIONS } from "@/lib/jdbQuestions";
+import SakinorvaResults from "@/app/components/SakinorvaResults";
 import RatingScaleHeader from "@/app/components/RatingScaleHeader";
 
 type JdbRunPayload = {
@@ -84,23 +85,8 @@ export default function JdbRunPage({ params }: { params: { slug: string } }) {
               </p>
               <p className="helper">Run mode: {data.runMode === "ai" ? "AI roleplay" : "Self answer"}</p>
               <p className="helper">Created: {formatDate(data.createdAt)}</p>
-              <div className="table-wrapper" style={{ marginTop: "20px" }}>
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Function</th>
-                      <th>Score (0–40)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(data.scores).map(([key, value]) => (
-                      <tr key={key}>
-                        <td>{key}</td>
-                        <td>{value}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div style={{ marginTop: "20px" }}>
+                <SakinorvaResults htmlFragment="" functionScores={data.scores} mbtiMeta={null} />
               </div>
             </div>
           ) : null}
