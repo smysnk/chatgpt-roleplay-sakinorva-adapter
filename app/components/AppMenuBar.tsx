@@ -28,6 +28,8 @@ export default function AppMenuBar() {
     return "Combined";
   }, [pathname]);
 
+  const indicatorLabel = currentLabel === "Combined" ? "Indicators" : currentLabel;
+
   useEffect(() => {
     if (currentLabel === "Sakinorva") {
       setIndicator("sakinorva");
@@ -114,7 +116,25 @@ export default function AppMenuBar() {
             aria-haspopup="menu"
             aria-expanded={menuOpen}
           >
-            Indicators
+            <span className="menu-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                <path
+                  d="M3 10.5L12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 19.5v-9Z"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M9 21v-6h6v6"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            {indicatorLabel}
           </button>
           {menuOpen ? (
             <div className="menu-panel" role="menu">
@@ -127,8 +147,19 @@ export default function AppMenuBar() {
             </div>
           ) : null}
         </div>
-        <span className="menu-current">Current: {currentLabel}</span>
+        <span className="menu-current">{currentLabel}</span>
         <button type="button" className="menu-run" onClick={() => setWizardOpen(true)}>
+          <span className="menu-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+              <path
+                d="M5 3.5v17l14-8.5-14-8.5Z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
           Run
         </button>
       </div>

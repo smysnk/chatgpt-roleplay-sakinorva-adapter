@@ -5,8 +5,7 @@ import { z } from "zod";
 import { SMYSNK_QUESTIONS } from "@/lib/smysnkQuestions";
 import { calculateSmysnkScores } from "@/lib/smysnkScore";
 import { initializeDatabase } from "@/lib/db";
-import { initializeSmysnkRunModel, SmysnkRun } from "@/lib/models/SmysnkRun";
-import { initializeInteractionModel } from "@/lib/models/Interaction";
+import { initializeRunModel, Run } from "@/lib/models/Run";
 
 export const dynamic = "force-dynamic";
 
@@ -89,16 +88,18 @@ export async function POST(request: Request) {
     const scores = calculateSmysnkScores(responses);
     const slug = crypto.randomUUID();
 
-    initializeSmysnkRunModel();
-    initializeInteractionModel();
+    initializeRunModel();
     await initializeDatabase();
-    const run = await SmysnkRun.create({
+    const run = await Run.create({
       slug,
+      indicator: "smysnk",
       runMode: "ai",
       subject: payload.character,
       context: payload.context || null,
       responses,
-      scores
+      functionScores: scores,
+      answers: null,
+      explanations: null
     });
 
     return NextResponse.json({
@@ -107,7 +108,7 @@ export async function POST(request: Request) {
       subject: run.subject,
       context: run.context,
       responses: run.responses,
-      scores: run.scores,
+      scores: run.functionScores,
       createdAt: run.createdAt
     });
   } catch (error) {
@@ -117,13 +118,13 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  initializeSmysnkRunModel();
-  initializeInteractionModel();
+  initializeRunModel();
   await initializeDatabase();
 
-  const runs = await SmysnkRun.findAll({
+  const runs = await Run.findAll({
+    where: { indicator: "smysnk" },
     order: [["createdAt", "DESC"]],
-    attributes: ["id", "slug", "subject", "context", "scores", "createdAt"]
+    attributes: ["id", "slug", "subject", "context", "functionScores", "createdAt"]
   });
 
   return NextResponse.json({
@@ -132,7 +133,7 @@ export async function GET() {
       slug: run.slug,
       subject: run.subject,
       context: run.context,
-      functionScores: run.scores,
+      functionScores: run.functionScores,
       createdAt: run.createdAt
     }))
   });

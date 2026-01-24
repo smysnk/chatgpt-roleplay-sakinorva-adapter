@@ -14,12 +14,7 @@ type ResultsPayload = {
   answers: number[];
   explanations: string[];
   formBody: string;
-  resultsHtmlFragment: string;
-  resultsCss: string;
   functionScores: Record<string, number> | null;
-  grantType: string | null;
-  axisType: string | null;
-  myersType: string | null;
 };
 
 export default function ResultsPage() {
@@ -108,13 +103,9 @@ function Page() {
           ) : data ? (
             <div style={{ marginTop: "20px" }}>
               <SakinorvaResults
-                htmlFragment={data.resultsHtmlFragment}
+                htmlFragment=""
                 functionScores={data.functionScores}
-                mbtiMeta={{
-                  grantType: data.grantType,
-                  axisType: data.axisType,
-                  myersType: data.myersType
-                }}
+                mbtiMeta={null}
               />
             </div>
           ) : null}

@@ -7,6 +7,7 @@ import { QUESTIONS } from "@/lib/questions";
 import SakinorvaResults, { STNF_TOOLTIP } from "@/app/components/SakinorvaResults";
 import StnfMiniChart from "@/app/components/StnfMiniChart";
 import RatingScaleHeader from "@/app/components/RatingScaleHeader";
+import { deriveTypesFromScores } from "@/lib/mbti";
 
 const MIN_LENGTH = 2;
 const MAX_LENGTH = 80;
@@ -17,8 +18,6 @@ type RunItem = {
   character: string;
   context: string | null;
   grantType: string | null;
-  secondType: string | null;
-  thirdType: string | null;
   axisType: string | null;
   myersType: string | null;
   functionScores: Record<string, number> | null;
@@ -27,7 +26,14 @@ type RunItem = {
   errorMessage?: string | null;
 };
 
-type RunApiItem = Omit<RunItem, "status" | "errorMessage">;
+type RunApiItem = {
+  id: string;
+  slug: string;
+  character: string;
+  context: string | null;
+  functionScores: Record<string, number> | null;
+  createdAt: string;
+};
 
 type RunDetail = {
   id: number;
@@ -36,12 +42,7 @@ type RunDetail = {
   context: string | null;
   answers: number[];
   explanations: string[];
-  resultsHtmlFragment: string;
-  resultsCss: string;
   functionScores: Record<string, number> | null;
-  grantType: string | null;
-  axisType: string | null;
-  myersType: string | null;
   createdAt: string;
 };
 
@@ -50,11 +51,6 @@ type ResultsPayload = {
   slug: string;
   character: string;
   context: string | null;
-  grantType: string | null;
-  secondType: string | null;
-  thirdType: string | null;
-  axisType: string | null;
-  myersType: string | null;
   functionScores: Record<string, number> | null;
   createdAt: string;
 };
@@ -95,27 +91,6 @@ const renderTypeCell = (typeValue: string | null) => {
   );
 };
 
-const normalizeScores = (scores: Record<string, number> | null) => {
-  if (!scores) {
-    return null;
-  }
-  const values = Object.values(scores).filter((value) => Number.isFinite(value));
-  if (!values.length) {
-    return null;
-  }
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  if (min === max) {
-    return Object.fromEntries(Object.keys(scores).map((key) => [key, 0.85]));
-  }
-  return Object.fromEntries(
-    Object.entries(scores).map(([key, value]) => {
-      const normalized = (value - min) / (max - min);
-      const intensity = 0.35 + normalized * 0.65;
-      return [key, Number.isFinite(intensity) ? intensity : 0.6];
-    })
-  );
-};
 
 const getStnfValues = (scores: Record<string, number> | null) => {
   if (!scores) {
@@ -174,10 +149,16 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
         }
         const payload = (await response.json()) as { items: RunApiItem[] };
         if (active) {
-          const items = (payload.items ?? []).map((item) => ({
-            ...item,
-            status: "ready" as const
-          }));
+          const items = (payload.items ?? []).map((item) => {
+            const derived = item.functionScores ? deriveTypesFromScores(item.functionScores) : null;
+            return {
+              ...item,
+              grantType: derived?.grantType ?? null,
+              axisType: derived?.axisType ?? null,
+              myersType: derived?.myersType ?? null,
+              status: "ready" as const
+            };
+          });
           setRuns(items);
         }
       } catch (err) {
@@ -236,7 +217,10 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
     };
   }, [activeSlug]);
 
-  const scoreIntensity = useMemo(() => normalizeScores(runDetail?.functionScores ?? null), [runDetail]);
+  const derivedDetail = useMemo(
+    () => (runDetail?.functionScores ? deriveTypesFromScores(runDetail.functionScores) : null),
+    [runDetail]
+  );
 
   const handleRowClick = (item: RunItem) => {
     if (item.status !== "ready" || !item.slug) {
@@ -268,8 +252,6 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
       character: trimmed,
       context: context.trim() || null,
       grantType: null,
-      secondType: null,
-      thirdType: null,
       axisType: null,
       myersType: null,
       functionScores: null,
@@ -295,6 +277,7 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
         throw new Error(payload?.error ?? "Failed to run the test.");
       }
       const payload = (await response.json()) as ResultsPayload;
+      const derived = payload.functionScores ? deriveTypesFromScores(payload.functionScores) : null;
       setRuns((prev) =>
         prev.map((item) =>
           item.id === pendingId
@@ -302,11 +285,9 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                 ...item,
                 id: payload.runId.toString(),
                 slug: payload.slug,
-                grantType: payload.grantType,
-                secondType: payload.secondType,
-                thirdType: payload.thirdType,
-                axisType: payload.axisType,
-                myersType: payload.myersType,
+                grantType: derived?.grantType ?? null,
+                axisType: derived?.axisType ?? null,
+                myersType: derived?.myersType ?? null,
                 functionScores: payload.functionScores,
                 createdAt: payload.createdAt,
                 status: "ready"
@@ -411,7 +392,6 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                     <th>Character</th>
                     <th>Context</th>
                     <th>GFT</th>
-                    <th>2nd</th>
                     <th>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
                         STNF
@@ -457,12 +437,7 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                             Context
                           </span>
                         </td>
-                        <td>
-                          {renderTypeCell(item.grantType)}
-                        </td>
-                        <td>
-                          {renderTypeCell(item.secondType)}
-                        </td>
+                        <td>{renderTypeCell(item.grantType)}</td>
                         <td>
                           {stnfValues ? (
                             <StnfMiniChart
@@ -534,13 +509,9 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                   <h3>Results</h3>
                   <div style={{ marginTop: "20px" }}>
                     <SakinorvaResults
-                      htmlFragment={runDetail.resultsHtmlFragment}
+                      htmlFragment=""
                       functionScores={runDetail.functionScores}
-                      mbtiMeta={{
-                        grantType: runDetail.grantType,
-                        axisType: runDetail.axisType,
-                        myersType: runDetail.myersType
-                      }}
+                      mbtiMeta={derivedDetail}
                     />
                   </div>
                 </div>

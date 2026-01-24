@@ -1,17 +1,46 @@
 import { DataTypes } from "sequelize";
 import { extractResultMetadata } from "@/lib/runMetadata";
 import { initializeInteractionModel, Interaction } from "@/lib/models/Interaction";
+import { initializeSmysnkRunModel, SmysnkRun } from "@/lib/models/SmysnkRun";
+import { initializeRunModel, Run } from "@/lib/models/Run";
 
 let upgradePromise: Promise<void> | null = null;
 
 const shouldUpdateScores = (scores: Record<string, number> | null) => !scores || !Object.keys(scores).length;
 
+const toAbsoluteScores = (scores: Record<string, number> | null) =>
+  scores
+    ? Object.fromEntries(Object.entries(scores).map(([key, value]) => [key, Math.abs(value)]))
+    : null;
+
+const normalizeTableName = (value: unknown) => {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const candidate = (value as { tableName?: string; name?: string }).tableName ??
+    (value as { name?: string }).name;
+  return typeof candidate === "string" ? candidate : null;
+};
+
 export const runRunUpgrades = async () => {
   if (!upgradePromise) {
     upgradePromise = (async () => {
-      initializeInteractionModel();
-      const queryInterface = Interaction.sequelize?.getQueryInterface();
-      if (queryInterface) {
+      initializeRunModel();
+      const queryInterface = Run.sequelize?.getQueryInterface();
+      if (!queryInterface) {
+        return;
+      }
+      const tables = await queryInterface.showAllTables();
+      const tableNames = new Set(tables.map(normalizeTableName).filter(Boolean));
+      if (!tableNames.has("interactions") && !tableNames.has("smysnk_runs")) {
+        return;
+      }
+
+      if (tableNames.has("interactions")) {
+        initializeInteractionModel();
         const table = await queryInterface.describeTable("interactions");
         if (!("runMode" in table)) {
           await queryInterface.addColumn("interactions", "runMode", {
@@ -21,21 +50,70 @@ export const runRunUpgrades = async () => {
           });
         }
       }
-      const interactions = await Interaction.findAll();
-      const updates = interactions.map(async (interaction) => {
-        if (!interaction.resultsHtmlFragment || !shouldUpdateScores(interaction.functionScores)) {
-          return;
+
+      const existingRuns = await Run.findAll({ attributes: ["slug"] });
+      const existingSlugs = new Set(existingRuns.map((run) => run.slug));
+
+      if (tableNames.has("interactions")) {
+        const interactions = await Interaction.findAll();
+        const updates = interactions.map(async (interaction) => {
+          if (!interaction.resultsHtmlFragment || !shouldUpdateScores(interaction.functionScores)) {
+            return;
+          }
+          const metadata = extractResultMetadata(interaction.resultsHtmlFragment);
+          if (!Object.keys(metadata.functionScores).length) {
+            return;
+          }
+          await interaction.update({ functionScores: metadata.functionScores });
+        });
+        await Promise.all(updates);
+
+        const needsMode = interactions.filter((interaction) => !interaction.runMode);
+        if (needsMode.length) {
+          await Promise.all(needsMode.map((interaction) => interaction.update({ runMode: "ai" })));
         }
-        const metadata = extractResultMetadata(interaction.resultsHtmlFragment);
-        if (!Object.keys(metadata.functionScores).length) {
-          return;
-        }
-        await interaction.update({ functionScores: metadata.functionScores });
-      });
-      await Promise.all(updates);
-      const needsMode = interactions.filter((interaction) => !interaction.runMode);
-      if (needsMode.length) {
-        await Promise.all(needsMode.map((interaction) => interaction.update({ runMode: "ai" })));
+
+        const runCreates = interactions
+          .filter((interaction) => !existingSlugs.has(interaction.slug))
+          .map((interaction) =>
+            Run.create({
+              slug: interaction.slug,
+              indicator: "sakinorva",
+              runMode: (interaction.runMode as "ai" | "user") ?? "ai",
+              subject: interaction.character,
+              context: interaction.context,
+              answers: interaction.answers,
+              explanations: interaction.explanations,
+              responses: null,
+              functionScores: toAbsoluteScores(interaction.functionScores),
+              createdAt: interaction.createdAt,
+              updatedAt: interaction.updatedAt
+            })
+          );
+        await Promise.all(runCreates);
+      }
+
+      if (tableNames.has("smysnk_runs")) {
+        initializeSmysnkRunModel();
+        const smysnkRuns = await SmysnkRun.findAll();
+        const runCreates = smysnkRuns
+          .filter((run) => !existingSlugs.has(run.slug))
+          .map((run) =>
+            Run.create({
+              slug: run.slug,
+              indicator: "smysnk",
+              runMode: run.runMode,
+              subject: run.subject ?? "Self",
+              context: run.context,
+              answers: null,
+              explanations: null,
+              responses: run.responses,
+              functionScores: run.scores,
+              createdAt: run.createdAt,
+              updatedAt: run.updatedAt
+            })
+          );
+        await Promise.all(runCreates);
       }
     })();
   }

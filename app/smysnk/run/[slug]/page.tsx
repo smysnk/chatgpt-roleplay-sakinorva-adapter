@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { SMYSNK_QUESTIONS } from "@/lib/smysnkQuestions";
 import SakinorvaResults from "@/app/components/SakinorvaResults";
 import RatingScaleHeader from "@/app/components/RatingScaleHeader";
+import StnfMiniChart from "@/app/components/StnfMiniChart";
 
 type SmysnkRunPayload = {
   slug: string;
@@ -21,6 +22,33 @@ const formatDate = (value: string) => {
     return value;
   }
   return parsed.toLocaleString();
+};
+
+const getStnfValues = (scores: Record<string, number> | null) => {
+  if (!scores) {
+    return null;
+  }
+  const value = (key: string) => scores?.[key] ?? 0;
+  return {
+    sensing: { extroverted: value("Se"), introverted: value("Si") },
+    thinking: { extroverted: value("Te"), introverted: value("Ti") },
+    intuition: { extroverted: value("Ne"), introverted: value("Ni") },
+    feeling: { extroverted: value("Fe"), introverted: value("Fi") }
+  };
+};
+
+const getScoreRange = (scores: Record<string, number> | null) => {
+  if (!scores) {
+    return null;
+  }
+  const values = Object.values(scores).filter((value) => Number.isFinite(value));
+  if (!values.length) {
+    return null;
+  }
+  return {
+    min: Math.min(...values),
+    max: Math.max(...values)
+  };
 };
 
 export default function SmysnkRunPage({ params }: { params: { slug: string } }) {
@@ -75,6 +103,9 @@ export default function SmysnkRunPage({ params }: { params: { slug: string } }) 
     return new Map(data.responses.map((response) => [response.questionId, response.rationale]));
   }, [data]);
 
+  const stnfValues = useMemo(() => getStnfValues(data?.scores ?? null), [data]);
+  const scoreRange = useMemo(() => getScoreRange(data?.scores ?? null), [data]);
+
   return (
     <main>
       <div className="grid two">
@@ -95,6 +126,19 @@ export default function SmysnkRunPage({ params }: { params: { slug: string } }) 
               <div style={{ marginTop: "20px" }}>
                 <SakinorvaResults htmlFragment="" functionScores={data.scores} mbtiMeta={null} />
               </div>
+              {stnfValues ? (
+                <div style={{ marginTop: "24px" }}>
+                  <h3 style={{ marginBottom: "12px" }}>STNF Mini Chart</h3>
+                  <StnfMiniChart
+                    sensing={stnfValues.sensing}
+                    thinking={stnfValues.thinking}
+                    intuition={stnfValues.intuition}
+                    feeling={stnfValues.feeling}
+                    minScore={scoreRange?.min}
+                    maxScore={scoreRange?.max}
+                  />
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>

@@ -4,8 +4,7 @@ import { z } from "zod";
 import { SMYSNK_QUESTIONS } from "@/lib/smysnkQuestions";
 import { calculateSmysnkScores } from "@/lib/smysnkScore";
 import { initializeDatabase } from "@/lib/db";
-import { initializeSmysnkRunModel, SmysnkRun } from "@/lib/models/SmysnkRun";
-import { initializeInteractionModel } from "@/lib/models/Interaction";
+import { initializeRunModel, Run } from "@/lib/models/Run";
 
 export const dynamic = "force-dynamic";
 
@@ -52,16 +51,18 @@ export async function POST(request: Request) {
     const scores = calculateSmysnkScores(responses);
     const slug = crypto.randomUUID();
 
-    initializeSmysnkRunModel();
-    initializeInteractionModel();
+    initializeRunModel();
     await initializeDatabase();
-    const run = await SmysnkRun.create({
+    const run = await Run.create({
       slug,
+      indicator: "smysnk",
       runMode: "user",
       subject: label,
       context: payload.context || null,
       responses,
-      scores
+      functionScores: scores,
+      answers: null,
+      explanations: null
     });
 
     return NextResponse.json({
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
       subject: run.subject,
       context: run.context,
       responses: run.responses,
-      scores: run.scores,
+      scores: run.functionScores,
       createdAt: run.createdAt
     });
   } catch (error) {
