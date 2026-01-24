@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { SMYSNK_QUESTIONS } from "@/lib/smysnkQuestions";
 import RatingScaleHeader from "@/app/components/RatingScaleHeader";
 
@@ -18,6 +18,14 @@ const shuffleQuestions = (items: typeof SMYSNK_QUESTIONS) => {
 };
 
 export default function SmysnkQuestionsPage() {
+  return (
+    <Suspense fallback={<div>Loading questions…</div>}>
+      <SmysnkQuestionsContent />
+    </Suspense>
+  );
+}
+
+function SmysnkQuestionsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const shuffledQuestions = useMemo(() => shuffleQuestions(SMYSNK_QUESTIONS), []);
