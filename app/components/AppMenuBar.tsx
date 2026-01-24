@@ -138,16 +138,54 @@ export default function AppMenuBar() {
           </button>
           {menuOpen ? (
             <div className="menu-panel" role="menu">
+              <Link className="menu-item" href="/" role="menuitem">
+                <span className="menu-item-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                    <path
+                      d="M4 5.5h16M4 12h16M4 18.5h16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </span>
+                Indicators
+              </Link>
               <Link className="menu-item" href="/sakinorva-adapter" role="menuitem">
+                <span className="menu-item-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                    <circle cx="12" cy="7.5" r="3.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                    <path
+                      d="M5 20.5c1.8-3.5 5-5 7-5s5.2 1.5 7 5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </span>
                 Sakinorva
               </Link>
               <Link className="menu-item" href="/smysnk" role="menuitem">
+                <span className="menu-item-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                    <path
+                      d="M15.5 6.5c-1.5-1.5-5-1.5-5 1 0 3 6 1.5 6 5s-4 3-6.5 1.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <circle cx="16.5" cy="5.5" r="0.8" fill="currentColor" />
+                  </svg>
+                </span>
                 SMYSNK
               </Link>
             </div>
           ) : null}
         </div>
-        <span className="menu-current">{currentLabel}</span>
         <button type="button" className="menu-run" onClick={() => setWizardOpen(true)}>
           <span className="menu-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" role="presentation" focusable="false">
