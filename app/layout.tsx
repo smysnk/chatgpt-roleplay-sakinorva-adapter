@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import AppMenuBar from "@/app/components/AppMenuBar";
-import { startRunQueue } from "@/lib/runQueue";
-
-startRunQueue();
 
 export const metadata: Metadata = {
   title: "Sakinorva Character Adapter",
