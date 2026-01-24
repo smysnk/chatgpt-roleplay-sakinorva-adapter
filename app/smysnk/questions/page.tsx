@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { SMYSNK_QUESTIONS } from "@/lib/smysnkQuestions";
 import RatingScaleHeader from "@/app/components/RatingScaleHeader";
@@ -20,13 +19,13 @@ const shuffleQuestions = (items: typeof SMYSNK_QUESTIONS) => {
 
 export default function SmysnkQuestionsPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const shuffledQuestions = useMemo(() => shuffleQuestions(SMYSNK_QUESTIONS), []);
   const [participant, setParticipant] = useState(searchParams.get("label") ?? "");
   const [manualContext, setManualContext] = useState(searchParams.get("notes") ?? "");
   const [manualAnswers, setManualAnswers] = useState<Record<string, number>>({});
   const [manualSubmitting, setManualSubmitting] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
-  const [manualSlug, setManualSlug] = useState<string | null>(null);
 
   const handleManualAnswer = (questionId: string, value: number) => {
     setManualAnswers((prev) => ({ ...prev, [questionId]: value }));
@@ -46,7 +45,6 @@ export default function SmysnkQuestionsPage() {
     }
     setManualError(null);
     setManualSubmitting(true);
-    setManualSlug(null);
     try {
       const response = await fetch("/api/smysnk/manual", {
         method: "POST",
@@ -68,7 +66,7 @@ export default function SmysnkQuestionsPage() {
         throw new Error(payload?.error ?? "Failed to submit the SMYSNK responses.");
       }
       const payload = (await response.json()) as { slug: string };
-      setManualSlug(payload.slug);
+      router.push(`/smysnk/run/${payload.slug}`);
     } catch (err) {
       setManualError(err instanceof Error ? err.message : "Unexpected error.");
     } finally {
@@ -139,18 +137,10 @@ export default function SmysnkQuestionsPage() {
                 </div>
               ))}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center" }}>
               <button type="submit" className="button" disabled={manualSubmitting}>
-                {manualSubmitting ? "Saving…" : "Save results"}
+                {manualSubmitting ? "Saving…" : "Submit"}
               </button>
-              {manualSlug ? (
-                <Link className="button secondary" href={`/smysnk/run/${manualSlug}`}>
-                  View saved results
-                </Link>
-              ) : null}
-              <Link className="button secondary" href="/smysnk">
-                Back to SMYSNK
-              </Link>
             </div>
             {manualError ? <div className="error">{manualError}</div> : null}
           </form>
