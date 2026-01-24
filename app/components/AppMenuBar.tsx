@@ -29,6 +29,7 @@ export default function AppMenuBar() {
   }, [pathname]);
 
   const indicatorLabel = currentLabel === "Combined" ? "Indicators" : currentLabel;
+  const isIndicatorSelected = currentLabel !== "Combined";
 
   useEffect(() => {
     if (currentLabel === "Sakinorva") {
@@ -107,6 +108,35 @@ export default function AppMenuBar() {
   return (
     <header className="menu-bar">
       <div className="menu-bar-inner">
+        <button
+          type="button"
+          className="menu-home"
+          onClick={() => {
+            setMenuOpen(false);
+            router.push("/");
+          }}
+          aria-label="Home"
+        >
+          <span className="menu-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+              <path
+                d="M3 10.5L12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 19.5v-9Z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M9 21v-6h6v6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
+          Home
+        </button>
         <div className="menu-group" ref={menuRef}>
           <button
             type="button"
@@ -116,22 +146,34 @@ export default function AppMenuBar() {
             aria-expanded={menuOpen}
           >
             <span className="menu-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" role="presentation" focusable="false">
-                <path
-                  d="M3 10.5L12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 19.5v-9Z"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M9 21v-6h6v6"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              {isIndicatorSelected ? (
+                <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                  <path
+                    d="M3 10.5L12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 19.5v-9Z"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M9 21v-6h6v6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                  <path
+                    d="M4 6.5h16M4 12h16M4 17.5h16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              )}
             </span>
             {indicatorLabel}
           </button>

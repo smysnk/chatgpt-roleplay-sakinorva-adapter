@@ -109,6 +109,7 @@ body {
   font-weight: 600;
 }
 
+.menu-home,
 .menu-run {
   background: #efefef;
   border: 1px solid #b5b5b5;
@@ -120,6 +121,11 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+.menu-home:focus-visible {
+  outline: 2px solid #6aa7ff;
+  outline-offset: 2px;
 }
 
 .menu-icon {
