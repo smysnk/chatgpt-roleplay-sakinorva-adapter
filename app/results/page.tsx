@@ -36,6 +36,7 @@ function Page() {
   const [loading, setLoading] = useState(false);
   const [polling, setPolling] = useState(false);
   const hasRunRef = useRef(false);
+  const answers = data?.answers;
 
   useEffect(() => {
     if (hasRunRef.current) {
@@ -158,12 +159,12 @@ function Page() {
             <p style={{ marginTop: "20px" }}>Generating answers…</p>
           ) : error ? (
             <div className="error">{error}</div>
-          ) : data && data.answers !== null ? (
+          ) : answers ? (
             <div className="answers-list" style={{ marginTop: "20px" }}>
               <RatingScaleHeader />
               {QUESTIONS.map((question, index) => {
-                const answer = data.answers[index];
-                const explanation = data.explanations?.[index] ?? "";
+                const answer = answers[index];
+                const explanation = data?.explanations?.[index] ?? "";
                 return (
                   <div className="answer-row" key={`${index}-${question}`}>
                     <div className="answer-meta">
