@@ -3,9 +3,8 @@ import OpenAI from "openai";
 import { z } from "zod";
 import * as cheerio from "cheerio";
 import { QUESTIONS } from "@/lib/questions";
-import { SAKINORVA_RESULTS_CSS } from "@/lib/sakinorvaStyles";
 import { initializeDatabase } from "@/lib/db";
-import { initializeInteractionModel, Interaction } from "@/lib/models/Interaction";
+import { initializeRunModel, Run } from "@/lib/models/Run";
 import { extractResultMetadata } from "@/lib/runMetadata";
 
 export const dynamic = "force-dynamic";
@@ -35,15 +34,6 @@ const slugify = (value: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "")
     .slice(0, 60);
-
-const extractSummary = (htmlFragment: string) => {
-  const $ = cheerio.load(htmlFragment);
-  const summary = $.text().replace(/\s+/g, " ").trim();
-  if (!summary) {
-    return "Summary unavailable.";
-  }
-  return summary.length > 220 ? `${summary.slice(0, 217)}...` : summary;
-};
 
 const toAbsoluteScores = (scores: Record<string, number> | null) =>
   scores
@@ -132,47 +122,46 @@ export async function POST(request: Request) {
     }
 
     const resultsHtmlFragment = $.html(results);
-    const resultsSummary = extractSummary(resultsHtmlFragment);
     const metadata = extractResultMetadata(resultsHtmlFragment);
     const slugBase = slugify(payload.character);
     const slug = `${slugBase || "run"}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const functionScores = toAbsoluteScores(
+      Object.keys(metadata.functionScores).length ? metadata.functionScores : null
+    );
 
-    initializeInteractionModel();
+    initializeRunModel();
     await initializeDatabase();
-    const interaction = await Interaction.create({
+    const run = await Run.create({
       slug,
+      indicator: "sakinorva",
       character: payload.character,
       context: payload.context || null,
       answers,
       explanations,
-      resultsHtmlFragment,
-      resultsSummary,
       grantType: metadata.grantType,
       secondType: metadata.secondType,
       thirdType: metadata.thirdType,
       axisType: metadata.axisType,
       myersType: metadata.myersType,
-      functionScores: Object.keys(metadata.functionScores).length ? metadata.functionScores : null,
+      functionScores,
       runMode: "ai"
     });
 
     return NextResponse.json({
-      runId: interaction.id,
-      slug: interaction.slug,
-      character: interaction.character,
-      context: interaction.context,
-      grantType: interaction.grantType,
-      secondType: interaction.secondType,
-      thirdType: interaction.thirdType,
-      axisType: interaction.axisType,
-      myersType: interaction.myersType,
-      functionScores: toAbsoluteScores(interaction.functionScores),
-      createdAt: interaction.createdAt,
+      runId: run.id,
+      slug: run.slug,
+      character: run.character,
+      context: run.context,
+      grantType: run.grantType,
+      secondType: run.secondType,
+      thirdType: run.thirdType,
+      axisType: run.axisType,
+      myersType: run.myersType,
+      functionScores: run.functionScores,
+      createdAt: run.createdAt,
       answers,
       explanations,
-      formBody: params.toString(),
-      resultsHtmlFragment,
-      resultsCss: SAKINORVA_RESULTS_CSS
+      formBody: params.toString()
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error.";
@@ -181,10 +170,10 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  initializeInteractionModel();
+  initializeRunModel();
   await initializeDatabase();
-  const interactions = await Interaction.findAll({
-    where: { runMode: "ai" },
+  const runs = await Run.findAll({
+    where: { indicator: "sakinorva", runMode: "ai" },
     order: [["createdAt", "DESC"]],
     attributes: [
       "id",
@@ -202,18 +191,18 @@ export async function GET() {
   });
 
   return NextResponse.json({
-    items: interactions.map((interaction) => ({
-      id: interaction.id.toString(),
-      slug: interaction.slug,
-      character: interaction.character,
-      context: interaction.context,
-      grantType: interaction.grantType,
-      secondType: interaction.secondType,
-      thirdType: interaction.thirdType,
-      axisType: interaction.axisType,
-      myersType: interaction.myersType,
-      functionScores: toAbsoluteScores(interaction.functionScores),
-      createdAt: interaction.createdAt
+    items: runs.map((run) => ({
+      id: run.id.toString(),
+      slug: run.slug,
+      character: run.character,
+      context: run.context,
+      grantType: run.grantType,
+      secondType: run.secondType,
+      thirdType: run.thirdType,
+      axisType: run.axisType,
+      myersType: run.myersType,
+      functionScores: run.functionScores,
+      createdAt: run.createdAt
     }))
   });
 }

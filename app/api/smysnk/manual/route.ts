@@ -4,10 +4,12 @@ import { z } from "zod";
 import { SMYSNK_QUESTIONS } from "@/lib/smysnkQuestions";
 import { calculateSmysnkScores } from "@/lib/smysnkScore";
 import { initializeDatabase } from "@/lib/db";
-import { initializeSmysnkRunModel, SmysnkRun } from "@/lib/models/SmysnkRun";
-import { initializeInteractionModel } from "@/lib/models/Interaction";
+import { initializeRunModel, Run } from "@/lib/models/Run";
 
 export const dynamic = "force-dynamic";
+
+const toAbsoluteScores = (scores: Record<string, number>) =>
+  Object.fromEntries(Object.entries(scores).map(([key, value]) => [key, Math.abs(value)]));
 
 const requestSchema = z.object({
   subject: z.string().max(80).optional().default("Self"),
@@ -49,19 +51,19 @@ export async function POST(request: Request) {
       ...response,
       rationale: response.rationale?.trim() || `User selected ${response.answer}.`
     }));
-    const scores = calculateSmysnkScores(responses);
+    const scores = toAbsoluteScores(calculateSmysnkScores(responses));
     const slug = crypto.randomUUID();
 
-    initializeSmysnkRunModel();
-    initializeInteractionModel();
+    initializeRunModel();
     await initializeDatabase();
-    const run = await SmysnkRun.create({
+    const run = await Run.create({
       slug,
+      indicator: "smysnk",
       runMode: "user",
       subject: label,
       context: payload.context || null,
       responses,
-      scores
+      functionScores: scores
     });
 
     return NextResponse.json({
@@ -70,7 +72,7 @@ export async function POST(request: Request) {
       subject: run.subject,
       context: run.context,
       responses: run.responses,
-      scores: run.scores,
+      scores: run.functionScores,
       createdAt: run.createdAt
     });
   } catch (error) {

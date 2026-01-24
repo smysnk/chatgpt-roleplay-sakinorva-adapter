@@ -14,8 +14,6 @@ type ResultsPayload = {
   answers: number[];
   explanations: string[];
   formBody: string;
-  resultsHtmlFragment: string;
-  resultsCss: string;
   functionScores: Record<string, number> | null;
   grantType: string | null;
   axisType: string | null;
@@ -108,7 +106,6 @@ function Page() {
           ) : data ? (
             <div style={{ marginTop: "20px" }}>
               <SakinorvaResults
-                htmlFragment={data.resultsHtmlFragment}
                 functionScores={data.functionScores}
                 mbtiMeta={{
                   grantType: data.grantType,

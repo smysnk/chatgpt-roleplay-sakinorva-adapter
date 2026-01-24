@@ -7,6 +7,7 @@ import { QUESTIONS } from "@/lib/questions";
 import SakinorvaResults, { STNF_TOOLTIP } from "@/app/components/SakinorvaResults";
 import StnfMiniChart from "@/app/components/StnfMiniChart";
 import RatingScaleHeader from "@/app/components/RatingScaleHeader";
+import { getScoreRange, getStnfValues } from "@/app/components/stnfUtils";
 
 const MIN_LENGTH = 2;
 const MAX_LENGTH = 80;
@@ -36,8 +37,6 @@ type RunDetail = {
   context: string | null;
   answers: number[];
   explanations: string[];
-  resultsHtmlFragment: string;
-  resultsCss: string;
   functionScores: Record<string, number> | null;
   grantType: string | null;
   axisType: string | null;
@@ -115,33 +114,6 @@ const normalizeScores = (scores: Record<string, number> | null) => {
       return [key, Number.isFinite(intensity) ? intensity : 0.6];
     })
   );
-};
-
-const getStnfValues = (scores: Record<string, number> | null) => {
-  if (!scores) {
-    return null;
-  }
-  const value = (key: string) => scores?.[key] ?? 0;
-  return {
-    sensing: { extroverted: value("Se"), introverted: value("Si") },
-    thinking: { extroverted: value("Te"), introverted: value("Ti") },
-    intuition: { extroverted: value("Ne"), introverted: value("Ni") },
-    feeling: { extroverted: value("Fe"), introverted: value("Fi") }
-  };
-};
-
-const getScoreRange = (scores: Record<string, number> | null) => {
-  if (!scores) {
-    return null;
-  }
-  const values = Object.values(scores).filter((value) => Number.isFinite(value));
-  if (!values.length) {
-    return null;
-  }
-  return {
-    min: Math.min(...values),
-    max: Math.max(...values)
-  };
 };
 
 export default function HomePage({ initialSlug }: { initialSlug?: string | null }) {
@@ -534,7 +506,6 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                   <h3>Results</h3>
                   <div style={{ marginTop: "20px" }}>
                     <SakinorvaResults
-                      htmlFragment={runDetail.resultsHtmlFragment}
                       functionScores={runDetail.functionScores}
                       mbtiMeta={{
                         grantType: runDetail.grantType,
