@@ -16,14 +16,15 @@ const requestSchema = z.object({
 });
 
 const responseSchema = z.object({
-  responses: z
-    .array(
-      z.object({
-        id: z.string(),
-        answer: z.number().int().min(1).max(5)
-      })
-    )
-    .length(JDB_QUESTIONS.length)
+      responses: z
+        .array(
+          z.object({
+            id: z.string(),
+            answer: z.number().int().min(1).max(5),
+            rationale: z.string().min(1)
+          })
+        )
+        .length(JDB_QUESTIONS.length)
 });
 
 const buildQuestionBlock = () =>
@@ -44,8 +45,8 @@ export async function POST(request: Request) {
     });
 
     const systemMessage =
-      "You are roleplaying as the specified character. Answer as they would on a 1-5 agreement scale. Output must match the JSON schema exactly.";
-    const userMessage = `Character: ${payload.character}\nContext: ${payload.context || "(none)"}\n\nAnswer all JDB questions on a 1-5 scale (1=disagree, 5=agree). Return JSON only.\n\nQuestions:\n${buildQuestionBlock()}\n\nJSON schema:\n{\n \"responses\": [\n  { \"id\": \"question id\", \"answer\": number (1..5) }\n  // exactly ${JDB_QUESTIONS.length} objects\n ]\n}\n`;
+      "You are roleplaying as the specified character. Answer as they would on a 1-5 agreement scale. Include a brief rationale for each answer. Output must match the JSON schema exactly.";
+    const userMessage = `Character: ${payload.character}\nContext: ${payload.context || "(none)"}\n\nAnswer all JDB questions on a 1-5 scale (1=disagree, 5=agree). Provide a one-sentence rationale for each answer. Return JSON only.\n\nQuestions:\n${buildQuestionBlock()}\n\nJSON schema:\n{\n \"responses\": [\n  { \"id\": \"question id\", \"answer\": number (1..5), \"rationale\": string }\n  // exactly ${JDB_QUESTIONS.length} objects\n ]\n}\n`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-5-mini",
@@ -81,7 +82,8 @@ export async function POST(request: Request) {
 
     const responses = parsed.data.responses.map((response) => ({
       questionId: response.id,
-      answer: response.answer
+      answer: response.answer,
+      rationale: response.rationale
     }));
 
     const scores = calculateJdbScores(responses);

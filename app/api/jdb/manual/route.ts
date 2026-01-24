@@ -16,7 +16,8 @@ const requestSchema = z.object({
     .array(
       z.object({
         questionId: z.string(),
-        answer: z.number().int().min(1).max(5)
+        answer: z.number().int().min(1).max(5),
+        rationale: z.string().min(1).optional()
       })
     )
     .length(JDB_QUESTIONS.length)
@@ -44,7 +45,11 @@ export async function POST(request: Request) {
       seen.add(response.questionId);
     }
 
-    const scores = calculateJdbScores(payload.responses);
+    const responses = payload.responses.map((response) => ({
+      ...response,
+      rationale: response.rationale?.trim() || `User selected ${response.answer}.`
+    }));
+    const scores = calculateJdbScores(responses);
     const slug = crypto.randomUUID();
 
     initializeJdbRunModel();
@@ -55,7 +60,7 @@ export async function POST(request: Request) {
       runMode: "user",
       subject: label,
       context: payload.context || null,
-      responses: payload.responses,
+      responses,
       scores
     });
 

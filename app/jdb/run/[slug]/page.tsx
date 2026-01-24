@@ -10,7 +10,7 @@ type JdbRunPayload = {
   runMode: "ai" | "user";
   subject: string | null;
   context: string | null;
-  responses: { questionId: string; answer: number }[];
+  responses: { questionId: string; answer: number; rationale: string }[];
   scores: Record<string, number>;
   createdAt: string;
 };
@@ -68,6 +68,13 @@ export default function JdbRunPage({ params }: { params: { slug: string } }) {
     return new Map(data.responses.map((response) => [response.questionId, response.answer]));
   }, [data]);
 
+  const rationaleMap = useMemo(() => {
+    if (!data?.responses) {
+      return new Map<string, string>();
+    }
+    return new Map(data.responses.map((response) => [response.questionId, response.rationale]));
+  }, [data]);
+
   return (
     <main>
       <div className="grid two">
@@ -118,6 +125,9 @@ export default function JdbRunPage({ params }: { params: { slug: string } }) {
                         ))}
                       </div>
                     </div>
+                    {rationaleMap.get(question.id) ? (
+                      <div className="helper">{rationaleMap.get(question.id)}</div>
+                    ) : null}
                   </div>
                 );
               })}

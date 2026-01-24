@@ -10,7 +10,7 @@ export class JdbRun extends Model<
   declare runMode: "ai" | "user";
   declare subject: CreationOptional<string | null>;
   declare context: CreationOptional<string | null>;
-  declare responses: { questionId: string; answer: number }[];
+  declare responses: { questionId: string; answer: number; rationale: string }[];
   declare scores: Record<string, number>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;

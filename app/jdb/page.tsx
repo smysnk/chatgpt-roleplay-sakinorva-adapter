@@ -98,7 +98,8 @@ export default function JdbIndicatorPage() {
           context: manualContext.trim(),
           responses: JDB_QUESTIONS.map((question) => ({
             questionId: question.id,
-            answer: manualAnswers[question.id]
+            answer: manualAnswers[question.id],
+            rationale: `User selected ${manualAnswers[question.id]}.`
           }))
         })
       });
