@@ -3,7 +3,7 @@ name: Deploy Next.js Docker Image
 on:
   push:
     branches:
-      - main
+      - staging
   workflow_dispatch:
 
 env:
