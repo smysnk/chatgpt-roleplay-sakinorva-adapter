@@ -32,6 +32,88 @@ body {
   min-height: 100vh;
 }
 
+.menu-bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(15, 17, 21, 0.92);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+}
+
+.menu-bar-inner {
+  width: min(1200px, 92vw);
+  margin: 0 auto;
+  padding: 14px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.menu-group {
+  position: relative;
+}
+
+.menu-trigger {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: #f5f7fb;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 600;
+  text-transform: lowercase;
+  cursor: pointer;
+}
+
+.menu-panel {
+  position: absolute;
+  top: 44px;
+  left: 0;
+  background: #0f131c;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px;
+  min-width: 200px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  display: grid;
+  gap: 4px;
+}
+
+.menu-item {
+  padding: 8px 10px;
+  border-radius: 10px;
+  text-decoration: none;
+  font-weight: 600;
+  color: #f5f7fb;
+}
+
+.menu-item:hover,
+.menu-item:focus {
+  background: rgba(214, 178, 90, 0.2);
+}
+
+.menu-links {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.menu-link {
+  text-decoration: none;
+  font-weight: 600;
+  color: #f5f7fb;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.menu-link:hover,
+.menu-link:focus {
+  border-color: rgba(214, 178, 90, 0.5);
+  background: rgba(214, 178, 90, 0.12);
+}
+
 main {
   width: min(1100px, 92vw);
   margin: 48px auto 80px;
@@ -175,6 +257,16 @@ a {
   font-size: 0.85rem;
   color: var(--muted);
   background: #0b0d12;
+}
+
+button.rating-pill {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button.rating-pill:focus-visible {
+  outline: 2px solid rgba(214, 178, 90, 0.6);
+  outline-offset: 2px;
 }
 
 .rating-pill.active {

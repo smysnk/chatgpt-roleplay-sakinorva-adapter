@@ -1,0 +1,54 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+
+export default function AppMenuBar() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      if (!menuRef.current) {
+        return;
+      }
+      if (!menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+    };
+  }, []);
+
+  return (
+    <header className="menu-bar">
+      <div className="menu-bar-inner">
+        <div className="menu-group" ref={menuRef}>
+          <button
+            type="button"
+            className="menu-trigger"
+            onClick={() => setMenuOpen((prev) => !prev)}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+          >
+            app
+          </button>
+          {menuOpen ? (
+            <div className="menu-panel" role="menu">
+              <Link className="menu-item" href="/sakinorva-adapter" role="menuitem">
+                Sakinorva Adapter
+              </Link>
+            </div>
+          ) : null}
+        </div>
+        <nav className="menu-links">
+          <Link className="menu-link" href="/jbh">
+            JBH Indicator
+          </Link>
+        </nav>
+      </div>
+    </header>
+  );
+}

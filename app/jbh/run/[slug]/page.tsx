@@ -1,0 +1,142 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { JBH_QUESTIONS } from "@/lib/jbhQuestions";
+
+type JbhRunPayload = {
+  slug: string;
+  runMode: "ai" | "user";
+  subject: string | null;
+  context: string | null;
+  responses: { questionId: string; answer: number }[];
+  scores: Record<string, number>;
+  createdAt: string;
+};
+
+const formatDate = (value: string) => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleString();
+};
+
+export default function JbhRunPage({ params }: { params: { slug: string } }) {
+  const [data, setData] = useState<JbhRunPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`/api/jbh/slug/${params.slug}`);
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload?.error ?? "Failed to load JBH run.");
+        }
+        const payload = (await response.json()) as JbhRunPayload;
+        if (active) {
+          setData(payload);
+        }
+      } catch (err) {
+        if (active) {
+          setError(err instanceof Error ? err.message : "Unexpected error.");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    load();
+
+    return () => {
+      active = false;
+    };
+  }, [params.slug]);
+
+  const responseMap = useMemo(() => {
+    if (!data?.responses) {
+      return new Map<string, number>();
+    }
+    return new Map(data.responses.map((response) => [response.questionId, response.answer]));
+  }, [data]);
+
+  return (
+    <main>
+      <div className="grid two">
+        <div className="app-card">
+          <h2>JBH results</h2>
+          {loading ? (
+            <p style={{ marginTop: "20px" }}>Loading results…</p>
+          ) : error ? (
+            <div className="error">{error}</div>
+          ) : data ? (
+            <div style={{ marginTop: "20px" }}>
+              <p className="helper">
+                {data.subject ? <strong>{data.subject}</strong> : "Unnamed run"}
+                {data.context ? ` — ${data.context}` : ""}
+              </p>
+              <p className="helper">Run mode: {data.runMode === "ai" ? "AI roleplay" : "Self answer"}</p>
+              <p className="helper">Created: {formatDate(data.createdAt)}</p>
+              <div className="table-wrapper" style={{ marginTop: "20px" }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Function</th>
+                      <th>Score (0–40)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(data.scores).map(([key, value]) => (
+                      <tr key={key}>
+                        <td>{key}</td>
+                        <td>{value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+        </div>
+        <div className="app-card">
+          <h2>Answers</h2>
+          <p className="helper">A 1–5 scale, where 1 is “Disagree” and 5 is “Agree.”</p>
+          {loading ? (
+            <p style={{ marginTop: "20px" }}>Loading answers…</p>
+          ) : error ? (
+            <div className="error">{error}</div>
+          ) : data ? (
+            <div className="answers-list" style={{ marginTop: "20px" }}>
+              {JBH_QUESTIONS.map((question, index) => {
+                const answer = responseMap.get(question.id) ?? 0;
+                return (
+                  <div className="answer-row" key={question.id}>
+                    <div className="answer-meta">
+                      <div className="answer-question">#{index + 1} {question.question}</div>
+                      <div className="rating-bar" aria-label={`Answer ${answer}`}>
+                        {[1, 2, 3, 4, 5].map((value) => (
+                          <span
+                            key={value}
+                            className={`rating-pill value-${value} ${value === answer ? "active" : ""}`}
+                          >
+                            {value}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </main>
+  );
+}

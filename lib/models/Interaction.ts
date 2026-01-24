@@ -19,6 +19,7 @@ export class Interaction extends Model<
   declare axisType: CreationOptional<string | null>;
   declare myersType: CreationOptional<string | null>;
   declare functionScores: CreationOptional<Record<string, number> | null>;
+  declare runMode: CreationOptional<"ai" | "user">;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
 }
@@ -88,6 +89,11 @@ export const initializeInteractionModel = () => {
       functionScores: {
         type: DataTypes.JSON,
         allowNull: true
+      },
+      runMode: {
+        type: DataTypes.STRING(20),
+        allowNull: false,
+        defaultValue: "ai"
       },
       createdAt: {
         type: DataTypes.DATE,

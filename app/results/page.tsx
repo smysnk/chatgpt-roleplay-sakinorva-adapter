@@ -122,11 +122,11 @@ function Page() {
               Copy form body
             </button>
             {data?.slug ? (
-              <Link className="button secondary" href={`/run/${data.slug}`}>
+              <Link className="button secondary" href={`/sakinorva-adapter/run/${data.slug}`}>
                 View run
               </Link>
             ) : null}
-            <Link className="button secondary" href="/">
+            <Link className="button secondary" href="/sakinorva-adapter">
               Run another character
             </Link>
           </div>
