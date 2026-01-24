@@ -7,31 +7,31 @@ export default function LandingPage() {
     <main>
       <div className="stack">
         <div className="app-card">
-          <h1>Personality utilities</h1>
+          <h1>Indicators</h1>
           <p className="helper">
-            Choose an experience from the menu above or jump directly to one of the tools below.
+            Choose an indicator from the menu above or jump directly to one of the tools below.
           </p>
         </div>
         <div className="grid two">
           <div className="app-card">
-            <h2>Sakinorva Adapter</h2>
+            <h2>Sakinorva</h2>
             <p className="helper">
               Run the 96-question Sakinorva test through AI roleplay or answer it yourself.
             </p>
             <div style={{ marginTop: "20px" }}>
               <Link className="button secondary" href="/sakinorva-adapter">
-                Open Sakinorva Adapter
+                Open Sakinorva
               </Link>
             </div>
           </div>
           <div className="app-card">
-            <h2>JBH Indicator</h2>
+            <h2>JDB</h2>
             <p className="helper">
-              Try the JBH indicator with roleplay mode or a self-scored run.
+              Try the JDB indicator with roleplay mode or a self-scored run.
             </p>
             <div style={{ marginTop: "20px" }}>
-              <Link className="button secondary" href="/jbh">
-                Open JBH Indicator
+              <Link className="button secondary" href="/jdb">
+                Open JDB
               </Link>
             </div>
           </div>

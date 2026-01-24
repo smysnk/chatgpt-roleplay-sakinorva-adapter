@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { initializeDatabase } from "@/lib/db";
-import { initializeJbhRunModel, JbhRun } from "@/lib/models/JbhRun";
+import { initializeJdbRunModel, JdbRun } from "@/lib/models/JdbRun";
 
 export const dynamic = "force-dynamic";
 
@@ -8,10 +8,10 @@ export async function GET(
   _request: Request,
   { params }: { params: { slug: string } }
 ) {
-  initializeJbhRunModel();
+  initializeJdbRunModel();
   await initializeDatabase();
 
-  const run = await JbhRun.findOne({
+  const run = await JdbRun.findOne({
     where: { slug: params.slug }
   });
 

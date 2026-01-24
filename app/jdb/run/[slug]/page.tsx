@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { JBH_QUESTIONS } from "@/lib/jbhQuestions";
+import { JDB_QUESTIONS } from "@/lib/jdbQuestions";
+import RatingScaleHeader from "@/app/components/RatingScaleHeader";
 
-type JbhRunPayload = {
+type JdbRunPayload = {
   slug: string;
   runMode: "ai" | "user";
   subject: string | null;
@@ -21,8 +22,8 @@ const formatDate = (value: string) => {
   return parsed.toLocaleString();
 };
 
-export default function JbhRunPage({ params }: { params: { slug: string } }) {
-  const [data, setData] = useState<JbhRunPayload | null>(null);
+export default function JdbRunPage({ params }: { params: { slug: string } }) {
+  const [data, setData] = useState<JdbRunPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,12 +33,12 @@ export default function JbhRunPage({ params }: { params: { slug: string } }) {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/jbh/slug/${params.slug}`);
+        const response = await fetch(`/api/jdb/slug/${params.slug}`);
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
-          throw new Error(payload?.error ?? "Failed to load JBH run.");
+          throw new Error(payload?.error ?? "Failed to load JDB run.");
         }
-        const payload = (await response.json()) as JbhRunPayload;
+        const payload = (await response.json()) as JdbRunPayload;
         if (active) {
           setData(payload);
         }
@@ -70,7 +71,7 @@ export default function JbhRunPage({ params }: { params: { slug: string } }) {
     <main>
       <div className="grid two">
         <div className="app-card">
-          <h2>JBH results</h2>
+          <h2>JDB results</h2>
           {loading ? (
             <p style={{ marginTop: "20px" }}>Loading results…</p>
           ) : error ? (
@@ -113,7 +114,8 @@ export default function JbhRunPage({ params }: { params: { slug: string } }) {
             <div className="error">{error}</div>
           ) : data ? (
             <div className="answers-list" style={{ marginTop: "20px" }}>
-              {JBH_QUESTIONS.map((question, index) => {
+              <RatingScaleHeader />
+              {JDB_QUESTIONS.map((question, index) => {
                 const answer = responseMap.get(question.id) ?? 0;
                 return (
                   <div className="answer-row" key={question.id}>

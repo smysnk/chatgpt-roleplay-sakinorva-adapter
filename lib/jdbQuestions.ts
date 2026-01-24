@@ -1,14 +1,14 @@
-export type JbhOrientation = "introverted" | "extraverted";
-export type JbhFunction = "N" | "S" | "T" | "F";
+export type JdbOrientation = "introverted" | "extraverted";
+export type JdbFunction = "N" | "S" | "T" | "F";
 
-export type JbhQuestion = {
+export type JdbQuestion = {
   id: string;
   question: string;
-  function: JbhFunction;
-  orientation: JbhOrientation;
+  function: JdbFunction;
+  orientation: JdbOrientation;
 };
 
-export const JBH_QUESTIONS: JbhQuestion[] = [
+export const JDB_QUESTIONS: JdbQuestion[] = [
   { id: "ni-01", question: "I often sense where a situation is heading long before it becomes obvious.", function: "N", orientation: "introverted" },
   { id: "ni-02", question: "My understanding tends to crystallize into a single interpretation.", function: "N", orientation: "introverted" },
   { id: "ni-03", question: "I lose interest in ideas once they no longer fit a central vision.", function: "N", orientation: "introverted" },

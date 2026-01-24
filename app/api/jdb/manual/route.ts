@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { z } from "zod";
-import { JBH_QUESTIONS } from "@/lib/jbhQuestions";
-import { calculateJbhScores } from "@/lib/jbhScore";
+import { JDB_QUESTIONS } from "@/lib/jdbQuestions";
+import { calculateJdbScores } from "@/lib/jdbScore";
 import { initializeDatabase } from "@/lib/db";
-import { initializeJbhRunModel, JbhRun } from "@/lib/models/JbhRun";
+import { initializeJdbRunModel, JdbRun } from "@/lib/models/JdbRun";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ const requestSchema = z.object({
         answer: z.number().int().min(1).max(5)
       })
     )
-    .length(JBH_QUESTIONS.length)
+    .length(JDB_QUESTIONS.length)
 });
 
 export async function POST(request: Request) {
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    const validIds = new Set(JBH_QUESTIONS.map((question) => question.id));
+    const validIds = new Set(JDB_QUESTIONS.map((question) => question.id));
     const seen = new Set<string>();
     for (const response of payload.responses) {
       if (!validIds.has(response.questionId)) {
@@ -43,12 +43,12 @@ export async function POST(request: Request) {
       seen.add(response.questionId);
     }
 
-    const scores = calculateJbhScores(payload.responses);
+    const scores = calculateJdbScores(payload.responses);
     const slug = crypto.randomUUID();
 
-    initializeJbhRunModel();
+    initializeJdbRunModel();
     await initializeDatabase();
-    const run = await JbhRun.create({
+    const run = await JdbRun.create({
       slug,
       runMode: "user",
       subject: label,

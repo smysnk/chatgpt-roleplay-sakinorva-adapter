@@ -1,9 +1,9 @@
 import { CreationOptional, DataTypes, InferAttributes, InferCreationAttributes, Model } from "sequelize";
 import { getSequelize } from "@/lib/db";
 
-export class JbhRun extends Model<
-  InferAttributes<JbhRun>,
-  InferCreationAttributes<JbhRun>
+export class JdbRun extends Model<
+  InferAttributes<JdbRun>,
+  InferCreationAttributes<JdbRun>
 > {
   declare id: CreationOptional<number>;
   declare slug: string;
@@ -18,11 +18,11 @@ export class JbhRun extends Model<
 
 let initialized = false;
 
-export const initializeJbhRunModel = () => {
+export const initializeJdbRunModel = () => {
   if (initialized) {
     return;
   }
-  JbhRun.init(
+  JdbRun.init(
     {
       id: {
         type: DataTypes.INTEGER,
@@ -65,7 +65,7 @@ export const initializeJbhRunModel = () => {
     },
     {
       sequelize: getSequelize(),
-      tableName: "jbh_runs"
+      tableName: "jdb_runs"
     }
   );
   initialized = true;

@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import OpenAI from "openai";
 import { z } from "zod";
-import { JBH_QUESTIONS } from "@/lib/jbhQuestions";
-import { calculateJbhScores } from "@/lib/jbhScore";
+import { JDB_QUESTIONS } from "@/lib/jdbQuestions";
+import { calculateJdbScores } from "@/lib/jdbScore";
 import { initializeDatabase } from "@/lib/db";
-import { initializeJbhRunModel, JbhRun } from "@/lib/models/JbhRun";
+import { initializeJdbRunModel, JdbRun } from "@/lib/models/JdbRun";
 
 export const dynamic = "force-dynamic";
 
@@ -22,11 +22,11 @@ const responseSchema = z.object({
         answer: z.number().int().min(1).max(5)
       })
     )
-    .length(JBH_QUESTIONS.length)
+    .length(JDB_QUESTIONS.length)
 });
 
 const buildQuestionBlock = () =>
-  JBH_QUESTIONS.map((question) => `${question.id}: ${question.question}`).join("\n");
+  JDB_QUESTIONS.map((question) => `${question.id}: ${question.question}`).join("\n");
 
 export async function POST(request: Request) {
   try {
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 
     const systemMessage =
       "You are roleplaying as the specified character. Answer as they would on a 1-5 agreement scale. Output must match the JSON schema exactly.";
-    const userMessage = `Character: ${payload.character}\nContext: ${payload.context || "(none)"}\n\nAnswer all JBH questions on a 1-5 scale (1=disagree, 5=agree). Return JSON only.\n\nQuestions:\n${buildQuestionBlock()}\n\nJSON schema:\n{\n \"responses\": [\n  { \"id\": \"question id\", \"answer\": number (1..5) }\n  // exactly ${JBH_QUESTIONS.length} objects\n ]\n}\n`;
+    const userMessage = `Character: ${payload.character}\nContext: ${payload.context || "(none)"}\n\nAnswer all JDB questions on a 1-5 scale (1=disagree, 5=agree). Return JSON only.\n\nQuestions:\n${buildQuestionBlock()}\n\nJSON schema:\n{\n \"responses\": [\n  { \"id\": \"question id\", \"answer\": number (1..5) }\n  // exactly ${JDB_QUESTIONS.length} objects\n ]\n}\n`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-5-mini",
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "OpenAI response failed validation." }, { status: 502 });
     }
 
-    const validIds = new Set(JBH_QUESTIONS.map((question) => question.id));
+    const validIds = new Set(JDB_QUESTIONS.map((question) => question.id));
     const seen = new Set<string>();
     for (const response of parsed.data.responses) {
       if (!validIds.has(response.id)) {
@@ -83,12 +83,12 @@ export async function POST(request: Request) {
       answer: response.answer
     }));
 
-    const scores = calculateJbhScores(responses);
+    const scores = calculateJdbScores(responses);
     const slug = crypto.randomUUID();
 
-    initializeJbhRunModel();
+    initializeJdbRunModel();
     await initializeDatabase();
-    const run = await JbhRun.create({
+    const run = await JdbRun.create({
       slug,
       runMode: "ai",
       subject: payload.character,

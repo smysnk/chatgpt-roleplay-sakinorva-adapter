@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { QUESTIONS } from "@/lib/questions";
 import SakinorvaResults, { STNF_TOOLTIP } from "@/app/components/SakinorvaResults";
 import StnfMiniChart from "@/app/components/StnfMiniChart";
+import RatingScaleHeader from "@/app/components/RatingScaleHeader";
 
 const MIN_LENGTH = 2;
 const MAX_LENGTH = 80;
@@ -471,6 +472,7 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
               </div>
             </div>
             <div className="answers-list">
+              <RatingScaleHeader />
               {QUESTIONS.map((question, index) => (
                 <div className="answer-row" key={`${index}-${question}`}>
                   <div className="answer-meta">
@@ -661,6 +663,7 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                   <h3>Answers</h3>
                   <p className="helper">A 1–5 scale, where 1 is “No” and 5 is “Yes.”</p>
                   <div className="answers-list" style={{ marginTop: "20px" }}>
+                    <RatingScaleHeader />
                     {QUESTIONS.map((question, index) => {
                       const answer = runDetail.answers[index];
                       const explanation = runDetail.explanations[index];

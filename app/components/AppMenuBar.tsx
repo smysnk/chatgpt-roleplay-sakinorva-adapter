@@ -33,19 +33,19 @@ export default function AppMenuBar() {
             aria-haspopup="menu"
             aria-expanded={menuOpen}
           >
-            app
+            App
           </button>
           {menuOpen ? (
             <div className="menu-panel" role="menu">
               <Link className="menu-item" href="/sakinorva-adapter" role="menuitem">
-                Sakinorva Adapter
+                Sakinorva
               </Link>
             </div>
           ) : null}
         </div>
         <nav className="menu-links">
-          <Link className="menu-link" href="/jbh">
-            JBH Indicator
+          <Link className="menu-link" href="/jdb">
+            JDB Indicator
           </Link>
         </nav>
       </div>

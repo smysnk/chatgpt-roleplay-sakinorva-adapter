@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { JBH_QUESTIONS } from "@/lib/jbhQuestions";
+import { JDB_QUESTIONS } from "@/lib/jdbQuestions";
+import RatingScaleHeader from "@/app/components/RatingScaleHeader";
 
 const MIN_LENGTH = 2;
 const MAX_LENGTH = 80;
 
-const shuffleQuestions = (items: typeof JBH_QUESTIONS) => {
+const shuffleQuestions = (items: typeof JDB_QUESTIONS) => {
   const shuffled = [...items];
   for (let i = shuffled.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -16,8 +17,8 @@ const shuffleQuestions = (items: typeof JBH_QUESTIONS) => {
   return shuffled;
 };
 
-export default function JbhIndicatorPage() {
-  const shuffledQuestions = useMemo(() => shuffleQuestions(JBH_QUESTIONS), []);
+export default function JdbIndicatorPage() {
+  const shuffledQuestions = useMemo(() => shuffleQuestions(JDB_QUESTIONS), []);
   const [character, setCharacter] = useState("");
   const [context, setContext] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -42,7 +43,7 @@ export default function JbhIndicatorPage() {
     setSubmitting(true);
     setAiSlug(null);
     try {
-      const response = await fetch("/api/jbh", {
+      const response = await fetch("/api/jdb", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -54,7 +55,7 @@ export default function JbhIndicatorPage() {
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.error ?? "Failed to run the JBH indicator.");
+        throw new Error(payload?.error ?? "Failed to run the JDB indicator.");
       }
       const payload = (await response.json()) as { slug: string };
       setAiSlug(payload.slug);
@@ -78,7 +79,7 @@ export default function JbhIndicatorPage() {
       setManualError(`Participant label must be between ${MIN_LENGTH} and ${MAX_LENGTH} characters.`);
       return;
     }
-    const missing = JBH_QUESTIONS.find((question) => !manualAnswers[question.id]);
+    const missing = JDB_QUESTIONS.find((question) => !manualAnswers[question.id]);
     if (missing) {
       setManualError("Please answer every question before submitting.");
       return;
@@ -87,7 +88,7 @@ export default function JbhIndicatorPage() {
     setManualSubmitting(true);
     setManualSlug(null);
     try {
-      const response = await fetch("/api/jbh/manual", {
+      const response = await fetch("/api/jdb/manual", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -95,7 +96,7 @@ export default function JbhIndicatorPage() {
         body: JSON.stringify({
           subject: label,
           context: manualContext.trim(),
-          responses: JBH_QUESTIONS.map((question) => ({
+          responses: JDB_QUESTIONS.map((question) => ({
             questionId: question.id,
             answer: manualAnswers[question.id]
           }))
@@ -103,7 +104,7 @@ export default function JbhIndicatorPage() {
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.error ?? "Failed to submit the JBH responses.");
+        throw new Error(payload?.error ?? "Failed to submit the JDB responses.");
       }
       const payload = (await response.json()) as { slug: string };
       setManualSlug(payload.slug);
@@ -118,25 +119,25 @@ export default function JbhIndicatorPage() {
     <main>
       <div className="stack">
         <div className="app-card">
-          <h1>JBH Indicator</h1>
+          <h1>JDB Indicator</h1>
           <p className="helper">
-            Run the JBH indicator with AI roleplay or submit your own answers. Questions are randomized
+            Run the JDB indicator with AI roleplay or submit your own answers. Questions are randomized
             on each load.
           </p>
         </div>
         <div className="app-card">
           <h2>Roleplay mode</h2>
           <p className="helper">
-            Let AI answer the JBH questions as a character. You will receive a permanent results link.
+            Let AI answer the JDB questions as a character. You will receive a permanent results link.
           </p>
           <form onSubmit={handleAiSubmit} className="grid" style={{ marginTop: "24px" }}>
             <div className="form-grid">
               <div>
-                <label className="label" htmlFor="jbh-character">
+                <label className="label" htmlFor="jdb-character">
                   Character
                 </label>
                 <input
-                  id="jbh-character"
+                  id="jdb-character"
                   className="input"
                   value={character}
                   onChange={(event) => setCharacter(event.target.value)}
@@ -146,11 +147,11 @@ export default function JbhIndicatorPage() {
                 />
               </div>
               <div>
-                <label className="label" htmlFor="jbh-context">
+                <label className="label" htmlFor="jdb-context">
                   Context / portrayal notes (optional)
                 </label>
                 <textarea
-                  id="jbh-context"
+                  id="jdb-context"
                   className="textarea"
                   value={context}
                   onChange={(event) => setContext(event.target.value)}
@@ -160,10 +161,10 @@ export default function JbhIndicatorPage() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
               <button type="submit" className="button" disabled={submitting}>
-                {submitting ? "Running…" : "Run JBH indicator"}
+                {submitting ? "Running…" : "Run JDB indicator"}
               </button>
               {aiSlug ? (
-                <Link className="button secondary" href={`/jbh/run/${aiSlug}`}>
+                <Link className="button secondary" href={`/jdb/run/${aiSlug}`}>
                   View results
                 </Link>
               ) : null}
@@ -179,11 +180,11 @@ export default function JbhIndicatorPage() {
           <form onSubmit={handleManualSubmit} className="grid" style={{ marginTop: "24px" }}>
             <div className="form-grid">
               <div>
-                <label className="label" htmlFor="jbh-participant">
+                <label className="label" htmlFor="jdb-participant">
                   Participant label
                 </label>
                 <input
-                  id="jbh-participant"
+                  id="jdb-participant"
                   className="input"
                   value={participant}
                   onChange={(event) => setParticipant(event.target.value)}
@@ -192,11 +193,11 @@ export default function JbhIndicatorPage() {
                 />
               </div>
               <div>
-                <label className="label" htmlFor="jbh-manual-context">
+                <label className="label" htmlFor="jdb-manual-context">
                   Notes (optional)
                 </label>
                 <textarea
-                  id="jbh-manual-context"
+                  id="jdb-manual-context"
                   className="textarea"
                   value={manualContext}
                   onChange={(event) => setManualContext(event.target.value)}
@@ -205,6 +206,7 @@ export default function JbhIndicatorPage() {
               </div>
             </div>
             <div className="answers-list">
+              <RatingScaleHeader />
               {shuffledQuestions.map((question, index) => (
                 <div className="answer-row" key={question.id}>
                   <div className="answer-meta">
@@ -232,7 +234,7 @@ export default function JbhIndicatorPage() {
                 {manualSubmitting ? "Saving…" : "Save results"}
               </button>
               {manualSlug ? (
-                <Link className="button secondary" href={`/jbh/run/${manualSlug}`}>
+                <Link className="button secondary" href={`/jdb/run/${manualSlug}`}>
                   View saved results
                 </Link>
               ) : null}

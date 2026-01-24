@@ -1,18 +1,18 @@
-import { JBH_QUESTIONS } from "@/lib/jbhQuestions";
+import { JDB_QUESTIONS } from "@/lib/jdbQuestions";
 
-export type JbhResponse = {
+export type JdbResponse = {
   questionId: string;
   answer: number;
 };
 
-const QUESTION_MAP = new Map(JBH_QUESTIONS.map((question) => [question.id, question]));
+const QUESTION_MAP = new Map(JDB_QUESTIONS.map((question) => [question.id, question]));
 
 const MAX_POINTS_PER_FUNCTION = 16 * 4;
 
 const scoreKey = (functionLetter: string, orientation: string) =>
   `${functionLetter}${orientation === "introverted" ? "i" : "e"}`;
 
-export const calculateJbhScores = (responses: JbhResponse[]) => {
+export const calculateJdbScores = (responses: JdbResponse[]) => {
   const totals: Record<string, number> = {
     Ni: 0,
     Ne: 0,

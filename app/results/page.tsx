@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { QUESTIONS } from "@/lib/questions";
 import SakinorvaResults from "@/app/components/SakinorvaResults";
+import RatingScaleHeader from "@/app/components/RatingScaleHeader";
 
 
 type ResultsPayload = {
@@ -140,6 +141,7 @@ function Page() {
             <div className="error">{error}</div>
           ) : data ? (
             <div className="answers-list" style={{ marginTop: "20px" }}>
+              <RatingScaleHeader />
               {QUESTIONS.map((question, index) => {
                 const answer = data.answers[index];
                 const explanation = data.explanations[index];
