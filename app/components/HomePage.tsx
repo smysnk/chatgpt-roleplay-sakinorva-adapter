@@ -543,28 +543,32 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                   {runDetail.state === "COMPLETED" ? (
                     <div className="answers-list" style={{ marginTop: "20px" }}>
                       <RatingScaleHeader />
-                      {QUESTIONS.map((question, index) => {
-                        const answer = runDetail.answers[index];
-                        const explanation = runDetail.explanations[index];
-                        return (
-                          <div className="answer-row" key={`${index}-${question}`}>
-                            <div className="answer-meta">
-                              <div className="answer-question">#{index + 1} {question}</div>
-                              <div className="rating-bar" aria-label={`Answer ${answer}`}>
-                                {[1, 2, 3, 4, 5].map((value) => (
-                                  <span
-                                    key={value}
-                                    className={`rating-pill value-${value} ${value === answer ? "active" : ""}`}
-                                  >
-                                    {value}
-                                  </span>
-                                ))}
+                      {(() => {
+                        const answers = runDetail.answers ?? [];
+                        const explanations = runDetail.explanations ?? [];
+                        return QUESTIONS.map((question, index) => {
+                          const answer = answers[index];
+                          const explanation = explanations[index];
+                          return (
+                            <div className="answer-row" key={`${index}-${question}`}>
+                              <div className="answer-meta">
+                                <div className="answer-question">#{index + 1} {question}</div>
+                                <div className="rating-bar" aria-label={`Answer ${answer ?? "—"}`}>
+                                  {[1, 2, 3, 4, 5].map((value) => (
+                                    <span
+                                      key={value}
+                                      className={`rating-pill value-${value} ${value === answer ? "active" : ""}`}
+                                    >
+                                      {value}
+                                    </span>
+                                  ))}
+                                </div>
                               </div>
+                              <div className="helper">{explanation}</div>
                             </div>
-                            <div className="helper">{explanation}</div>
-                          </div>
-                        );
-                      })}
+                          );
+                        });
+                      })()}
                     </div>
                   ) : (
                     <p className="helper" style={{ marginTop: "20px" }}>
