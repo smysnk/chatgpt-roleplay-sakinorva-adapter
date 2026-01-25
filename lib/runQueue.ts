@@ -490,7 +490,7 @@ const processQueuedRun = async () => {
     await initializeDatabase();
     const run = await Run.findOne({
       where: {
-        state: ["QUEUED", "PROCESSING"],
+        state: "QUEUED",
         runMode: ["ai", "reddit"]
       },
       order: [["createdAt", "ASC"]]
@@ -500,9 +500,7 @@ const processQueuedRun = async () => {
     }
 
     console.log(`[runQueue] Processing ${run.indicator} run ${run.slug} (state=${run.state}, errors=${run.errors ?? 0})`);
-    if (run.state === "QUEUED") {
-      await run.update({ state: "PROCESSING" });
-    }
+    await run.update({ state: "PROCESSING" });
 
     try {
       if (run.indicator === "sakinorva") {
