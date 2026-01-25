@@ -499,8 +499,20 @@ const processQueuedRun = async () => {
       return;
     }
 
+    const [claimed] = await Run.update(
+      { state: "PROCESSING" },
+      {
+        where: {
+          id: run.id,
+          state: "QUEUED"
+        }
+      }
+    );
+    if (!claimed) {
+      return;
+    }
+    await run.reload();
     console.log(`[runQueue] Processing ${run.indicator} run ${run.slug} (state=${run.state}, errors=${run.errors ?? 0})`);
-    await run.update({ state: "PROCESSING" });
 
     try {
       if (run.indicator === "sakinorva") {
