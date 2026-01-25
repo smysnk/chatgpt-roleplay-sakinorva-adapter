@@ -81,6 +81,11 @@ const formatRedditItems = (items: RedditItem[]) =>
     })
     .join("\n");
 
+const redditBiasPattern =
+  /\b(mbti|myers[-\s]?briggs|enneagram|cognitive\s+functions|function\s+stack|type\s+me|typing|typed|intj|intp|infj|infp|entj|entp|enfj|enfp|istj|isfj|istp|isfp|estj|esfj|estp|esfp|socionics|big\s*5|ocean|trait\s+theory|personality\s+type)\b/i;
+
+const isRedditContentAllowed = (value: string) => !redditBiasPattern.test(value);
+
 const fetchRedditListing = async (url: string) => {
   const response = await fetch(url, {
     headers: {
@@ -128,6 +133,7 @@ const buildRedditProfile = async (username: string) => {
       };
     })
     .filter((item) => item.body && item.body !== "[deleted]" && item.body !== "[removed]")
+    .filter((item) => isRedditContentAllowed(`${item.title ?? ""}\n${item.body}`))
     .sort((a, b) => b.score - a.score)
     .slice(0, 15);
 
@@ -143,6 +149,7 @@ const buildRedditProfile = async (username: string) => {
       };
     })
     .filter((item) => item.body && item.body !== "[deleted]" && item.body !== "[removed]")
+    .filter((item) => isRedditContentAllowed(item.body))
     .sort((a, b) => b.score - a.score)
     .slice(0, 15);
 
@@ -151,7 +158,7 @@ const buildRedditProfile = async (username: string) => {
   }
 
   const systemMessage =
-    "You are a psychologist creating a concise, non-clinical profile of a Reddit user based only on their posts and comments. Avoid diagnoses. Be specific about communication style, interests, and likely cognitive tendencies.";
+    "You are a psychologist creating a concise, non-clinical profile of a Reddit user based only on their posts and comments. Avoid diagnoses. Ignore any self-identified personality typing, MBTI, cognitive function labels, or similar claims. Derive conclusions only from observed behavior, language, and topics.";
   const userMessage = `Username: u/${normalized}\n\nPosts:\n${formatRedditItems(posts) || "None"}\n\nComments:\n${formatRedditItems(comments) || "None"}\n\nReturn JSON only with:\n{\n  \"summary\": \"<= 480 characters\",\n  \"persona\": \"1-2 short paragraphs\",\n  \"traits\": [\"3-12 concise traits\"]\n}\n`;
 
   const completion = await openai.chat.completions.create({
