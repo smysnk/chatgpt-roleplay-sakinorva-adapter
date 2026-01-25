@@ -154,8 +154,10 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
 
   useEffect(() => {
     let active = true;
-    const loadRuns = async () => {
-      setRunsLoading(true);
+    const loadRuns = async (withLoading = false) => {
+      if (withLoading) {
+        setRunsLoading(true);
+      }
       try {
         const response = await fetch("/api/run");
         if (!response.ok) {
@@ -182,15 +184,19 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
         }
       } finally {
         if (active) {
-          setRunsLoading(false);
+          if (withLoading) {
+            setRunsLoading(false);
+          }
         }
       }
     };
 
-    loadRuns();
+    loadRuns(true);
+    const interval = setInterval(() => loadRuns(false), 15000);
 
     return () => {
       active = false;
+      clearInterval(interval);
     };
   }, []);
 
@@ -201,8 +207,10 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
       return;
     }
     let active = true;
-    const loadRun = async () => {
-      setRunLoading(true);
+    const loadRun = async (withLoading = false) => {
+      if (withLoading) {
+        setRunLoading(true);
+      }
       setRunError(null);
       try {
         const response = await fetch(`/api/run/slug/${activeSlug}`);
@@ -220,17 +228,25 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
         }
       } finally {
         if (active) {
-          setRunLoading(false);
+          if (withLoading) {
+            setRunLoading(false);
+          }
         }
       }
     };
 
-    loadRun();
+    loadRun(true);
+    const shouldPoll =
+      runDetail?.state !== "COMPLETED" && runDetail?.state !== "ERROR";
+    const interval = shouldPoll ? setInterval(() => loadRun(false), 5000) : null;
 
     return () => {
       active = false;
+      if (interval) {
+        clearInterval(interval);
+      }
     };
-  }, [activeSlug]);
+  }, [activeSlug, runDetail?.state]);
 
   const derivedDetail = useMemo(
     () => (runDetail?.functionScores ? deriveTypesFromScores(runDetail.functionScores) : null),
@@ -660,6 +676,26 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                     </div>
                   )}
                 </div>
+                {runDetail.redditProfile ? (
+                  <div className="app-card">
+                    <h3>Psychological profile</h3>
+                    <p className="helper" style={{ marginTop: "12px" }}>
+                      {runDetail.redditProfile.summary}
+                    </p>
+                    <div style={{ marginTop: "16px" }}>
+                      <h4 style={{ marginBottom: "8px" }}>Persona snapshot</h4>
+                      <p className="helper">{runDetail.redditProfile.persona}</p>
+                    </div>
+                    <div style={{ marginTop: "16px" }}>
+                      <h4 style={{ marginBottom: "8px" }}>Traits</h4>
+                      <ul className="helper">
+                        {runDetail.redditProfile.traits.map((trait, index) => (
+                          <li key={`${trait}-${index}`}>{trait}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                ) : null}
                 <div className="app-card">
                   <h3>Answers</h3>
                   <p className="helper">A 1–5 scale, where 1 is “No” and 5 is “Yes.”</p>
