@@ -192,8 +192,8 @@ const processSakinorvaRun = async (run: Run) => {
   });
 
   const systemMessage =
-    "You are roleplaying as the specified character. Answer truthfully as that character would behave and think. Answer questions as you see yourself, not how others see you. Output must match the JSON schema exactly.";
-  const userMessage = `Character: ${run.subject}\nContext: ${run.context || "(none)"}\n\nAnswer all 96 questions on a 1-5 scale (1=no, 5=yes). Provide a one-sentence explanation for each answer.\nReturn JSON only, no markdown, no commentary.\n\nQuestions:\n${buildQuestionBlock()}\n\nJSON schema:\n{\n \"responses\": [\n{ \"answer\": number (1..5), \"explanation\": string (one sentence) \n} \n// exactly 96 objects \n]\n}\n`;
+    "You are roleplaying as the specified character. Answer truthfully as that character would behave and think. Answer questions as you see yourself, not how others see you. Avoid sourcing any knowledge from any online personality databases and use only literary texts when possible. Output must match the JSON schema exactly.";
+  const userMessage = `Character: ${run.subject}\nContext: ${run.context || "(none)"}\n\nAnswer all 128 questions on a 1-5 scale (1=no, 5=yes). Provide a one-sentence explanation for each answer.\nReturn JSON only, no markdown, no commentary.\n\nQuestions:\n${buildQuestionBlock()}\n\nJSON schema:\n{\n \"responses\": [\n{ \"answer\": number (1..5), \"explanation\": string (one sentence) \n} \n// exactly 128 objects \n]\n}\n`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-5-mini",
