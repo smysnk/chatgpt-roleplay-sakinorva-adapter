@@ -24,6 +24,7 @@ export async function GET(
     slug: interaction.slug,
     character: interaction.subject,
     context: interaction.context,
+    redditProfile: interaction.redditProfile,
     answers: interaction.answers,
     explanations: interaction.explanations,
     functionScores: interaction.functionScores,

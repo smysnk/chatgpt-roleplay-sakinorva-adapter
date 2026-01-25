@@ -44,6 +44,7 @@ type RunDetail = {
   slug: string;
   character: string;
   context: string | null;
+  redditProfile: { summary: string; persona: string; traits: string[] } | null;
   answers: number[] | null;
   explanations: string[] | null;
   functionScores: Record<string, number> | null;

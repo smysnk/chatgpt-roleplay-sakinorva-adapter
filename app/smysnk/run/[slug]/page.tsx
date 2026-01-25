@@ -8,9 +8,10 @@ import MbtiMapCanvas from "@/app/components/MbtiMapCanvas";
 
 type SmysnkRunPayload = {
   slug: string;
-  runMode: "ai" | "user";
+  runMode: "ai" | "user" | "reddit";
   subject: string | null;
   context: string | null;
+  redditProfile: { summary: string; persona: string; traits: string[] } | null;
   responses: { questionId: string; answer: number; rationale: string }[] | null;
   scores: Record<string, number> | null;
   state: "QUEUED" | "PROCESSING" | "COMPLETED" | "ERROR";

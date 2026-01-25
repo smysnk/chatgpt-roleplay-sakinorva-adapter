@@ -67,6 +67,12 @@ export const runRunUpgrades = async () => {
             defaultValue: 0
           });
         }
+        if (!("redditProfile" in runTable)) {
+          await queryInterface.addColumn("runs", "redditProfile", {
+            type: DataTypes.JSON,
+            allowNull: true
+          });
+        }
       }
 
       const existingRuns = await Run.findAll({ attributes: ["slug"] });

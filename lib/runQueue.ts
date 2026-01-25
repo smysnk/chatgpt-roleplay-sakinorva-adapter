@@ -276,9 +276,8 @@ const processRedditSakinorvaRun = async (run: Run) => {
   const username = normalizeRedditUsername(run.subject);
   const profile = await buildRedditProfile(username);
   const summary = truncateText(profile.summary, 480);
-  if (!run.context) {
-    await run.update({ context: summary });
-  }
+  const nextContext = run.context ?? summary;
+  await run.update({ context: nextContext, redditProfile: profile });
 
   const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
@@ -369,9 +368,8 @@ const processRedditSmysnkRun = async (run: Run) => {
   const username = normalizeRedditUsername(run.subject);
   const profile = await buildRedditProfile(username);
   const summary = truncateText(profile.summary, 480);
-  if (!run.context) {
-    await run.update({ context: summary });
-  }
+  const nextContext = run.context ?? summary;
+  await run.update({ context: nextContext, redditProfile: profile });
 
   const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
