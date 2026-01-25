@@ -31,6 +31,12 @@ const SMYSNK_SCHEMA = z.object({
     .length(SMYSNK_QUESTIONS.length)
 });
 
+const REDDIT_PROFILE_SCHEMA = z.object({
+  summary: z.string().min(1).max(480),
+  persona: z.string().min(1),
+  traits: z.array(z.string().min(1)).min(3).max(12)
+});
+
 const userAgent =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
@@ -49,6 +55,126 @@ const buildQuestionBlock = () =>
 const buildSmysnkQuestionBlock = () =>
   SMYSNK_QUESTIONS.map((question) => `${question.id}: ${question.question}`).join("\n");
 
+const truncateText = (value: string, maxLength: number) => {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+};
+
+const normalizeRedditUsername = (value: string) => value.trim().replace(/^u\//i, "");
+
+type RedditItem = {
+  type: "post" | "comment";
+  subreddit: string;
+  score: number;
+  title?: string;
+  body: string;
+};
+
+const formatRedditItems = (items: RedditItem[]) =>
+  items
+    .map((item, index) => {
+      const titleSegment = item.title ? `Title: ${truncateText(item.title, 140)} ` : "";
+      const bodySegment = truncateText(item.body, 420);
+      return `${index + 1}. (${item.type}) r/${item.subreddit} score ${item.score}: ${titleSegment}${bodySegment}`.trim();
+    })
+    .join("\n");
+
+const fetchRedditListing = async (url: string) => {
+  const response = await fetch(url, {
+    headers: {
+      accept: "application/json",
+      "user-agent": userAgent
+    }
+  });
+  if (!response.ok) {
+    throw new Error(`Reddit request failed with status ${response.status}.`);
+  }
+  const payload = (await response.json()) as {
+    data?: { children?: { data?: Record<string, unknown> }[] };
+  };
+  return payload?.data?.children ?? [];
+};
+
+const buildRedditProfile = async (username: string) => {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("Missing OPENAI_API_KEY environment variable.");
+  }
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+  });
+
+  const normalized = normalizeRedditUsername(username);
+  const postsListing = await fetchRedditListing(
+    `https://www.reddit.com/user/${normalized}/submitted.json?limit=25&sort=new`
+  );
+  const commentsListing = await fetchRedditListing(
+    `https://www.reddit.com/user/${normalized}/comments.json?limit=25&sort=new`
+  );
+
+  const posts = postsListing
+    .map((item) => item.data ?? {})
+    .map((data) => {
+      const title = typeof data.title === "string" ? data.title : "";
+      const body = typeof data.selftext === "string" ? data.selftext : "";
+      const combined = `${title}\n${body}`.trim();
+      return {
+        type: "post" as const,
+        subreddit: typeof data.subreddit === "string" ? data.subreddit : "unknown",
+        score: typeof data.score === "number" ? data.score : 0,
+        title: title || undefined,
+        body: combined
+      };
+    })
+    .filter((item) => item.body && item.body !== "[deleted]" && item.body !== "[removed]")
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 15);
+
+  const comments = commentsListing
+    .map((item) => item.data ?? {})
+    .map((data) => {
+      const body = typeof data.body === "string" ? data.body : "";
+      return {
+        type: "comment" as const,
+        subreddit: typeof data.subreddit === "string" ? data.subreddit : "unknown",
+        score: typeof data.score === "number" ? data.score : 0,
+        body
+      };
+    })
+    .filter((item) => item.body && item.body !== "[deleted]" && item.body !== "[removed]")
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 15);
+
+  if (!posts.length && !comments.length) {
+    throw new Error("No Reddit activity found for that user.");
+  }
+
+  const systemMessage =
+    "You are a psychologist creating a concise, non-clinical profile of a Reddit user based only on their posts and comments. Avoid diagnoses. Be specific about communication style, interests, and likely cognitive tendencies.";
+  const userMessage = `Username: u/${normalized}\n\nPosts:\n${formatRedditItems(posts) || "None"}\n\nComments:\n${formatRedditItems(comments) || "None"}\n\nReturn JSON only with:\n{\n  \"summary\": \"<= 480 characters\",\n  \"persona\": \"1-2 short paragraphs\",\n  \"traits\": [\"3-12 concise traits\"]\n}\n`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5-mini",
+    messages: [
+      { role: "system", content: systemMessage },
+      { role: "user", content: userMessage }
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.7
+  });
+
+  const content = completion.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error("OpenAI response was empty.");
+  }
+  const parsed = REDDIT_PROFILE_SCHEMA.safeParse(JSON.parse(content));
+  if (!parsed.success) {
+    throw new Error("OpenAI response failed validation.");
+  }
+  return parsed.data;
+};
+
 const processSakinorvaRun = async (run: Run) => {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("Missing OPENAI_API_KEY environment variable.");
@@ -60,6 +186,99 @@ const processSakinorvaRun = async (run: Run) => {
   const systemMessage =
     "You are roleplaying as the specified character. Answer truthfully as that character would behave and think. Answer questions as you see yourself, not how others see you. Output must match the JSON schema exactly.";
   const userMessage = `Character: ${run.subject}\nContext: ${run.context || "(none)"}\n\nAnswer all 96 questions on a 1-5 scale (1=no, 5=yes). Provide a one-sentence explanation for each answer.\nReturn JSON only, no markdown, no commentary.\n\nQuestions:\n${buildQuestionBlock()}\n\nJSON schema:\n{\n \"responses\": [\n{ \"answer\": number (1..5), \"explanation\": string (one sentence) \n} \n// exactly 96 objects \n]\n}\n`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5-mini",
+    messages: [
+      { role: "system", content: systemMessage },
+      { role: "user", content: userMessage }
+    ],
+    response_format: { type: "json_object" },
+    temperature: 1
+  });
+
+  const content = completion.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error("OpenAI response was empty.");
+  }
+
+  const parsed = ANSWER_SCHEMA.safeParse(JSON.parse(content));
+  if (!parsed.success) {
+    throw new Error("OpenAI response failed validation.");
+  }
+
+  const { responses } = parsed.data;
+  const params = new URLSearchParams();
+  const { answers, explanations } = responses.reduce(
+    (acc, response, index) => {
+      acc.answers.push(response.answer);
+      acc.explanations.push(response.explanation);
+      params.set(`q${index + 1}`, response.answer.toString());
+      return acc;
+    },
+    { answers: [] as number[], explanations: [] as string[] }
+  );
+  params.set("age", "");
+  params.set("idmbti", "");
+  params.set("enneagram", "");
+  params.set("comments", "");
+  params.set("token", "");
+  params.set("sousin", "＜submit results＞");
+
+  const response = await fetch("https://sakinorva.net/functions", {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      origin: "https://sakinorva.net",
+      referer: "https://sakinorva.net/functions",
+      "user-agent": userAgent
+    },
+    body: params.toString()
+  });
+
+  if (!response.ok) {
+    throw new Error("Sakinorva request failed.");
+  }
+
+  const html = await response.text();
+  const $ = cheerio.load(html);
+  const results = $("#my_results.kekka");
+  if (!results.length) {
+    throw new Error("Could not find results block in response.");
+  }
+
+  const resultsHtmlFragment = $.html(results);
+  const metadata = extractResultMetadata(resultsHtmlFragment);
+  const absoluteScores = toAbsoluteScores(
+    Object.keys(metadata.functionScores).length ? metadata.functionScores : null
+  );
+
+  await run.update({
+    answers,
+    explanations,
+    functionScores: absoluteScores,
+    state: "COMPLETED"
+  });
+};
+
+const processRedditSakinorvaRun = async (run: Run) => {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("Missing OPENAI_API_KEY environment variable.");
+  }
+  const username = normalizeRedditUsername(run.subject);
+  const profile = await buildRedditProfile(username);
+  const summary = truncateText(profile.summary, 480);
+  if (!run.context) {
+    await run.update({ context: summary });
+  }
+
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+  });
+  const systemMessage =
+    "You are roleplaying as the specified Reddit user. Answer truthfully as that user would behave and think, based on the provided psychological profile derived from their posts and comments. Output must match the JSON schema exactly.";
+  const userMessage = `Reddit user: u/${username}\nProfile summary: ${summary}\nPersona: ${profile.persona}\nTraits: ${profile.traits.join(", ")}\n\nAnswer all 96 questions on a 1-5 scale (1=no, 5=yes). Provide a one-sentence explanation for each answer.\nReturn JSON only, no markdown, no commentary.\n\nQuestions:\n${buildQuestionBlock()}\n\nJSON schema:\n{\n \"responses\": [\n{ \"answer\": number (1..5), \"explanation\": string (one sentence) \n} \n// exactly 96 objects \n]\n}\n`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-5-mini",
@@ -206,7 +425,7 @@ const processQueuedRun = async () => {
     const run = await Run.findOne({
       where: {
         state: ["QUEUED", "PROCESSING"],
-        runMode: "ai"
+        runMode: ["ai", "reddit"]
       },
       order: [["createdAt", "ASC"]]
     });
@@ -221,7 +440,11 @@ const processQueuedRun = async () => {
 
     try {
       if (run.indicator === "sakinorva") {
-        await processSakinorvaRun(run);
+        if (run.runMode === "reddit") {
+          await processRedditSakinorvaRun(run);
+        } else {
+          await processSakinorvaRun(run);
+        }
       } else {
         await processSmysnkRun(run);
       }

@@ -97,7 +97,7 @@ export const runRunUpgrades = async () => {
             Run.create({
               slug: interaction.slug,
               indicator: "sakinorva",
-              runMode: (interaction.runMode as "ai" | "user") ?? "ai",
+              runMode: (interaction.runMode as "ai" | "user" | "reddit") ?? "ai",
               state: "COMPLETED",
               errors: 0,
               subject: interaction.character,
