@@ -355,6 +355,72 @@ const processRedditSakinorvaRun = async (run: Run) => {
   });
 };
 
+const processRedditSmysnkRun = async (run: Run) => {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("Missing OPENAI_API_KEY environment variable.");
+  }
+  const username = normalizeRedditUsername(run.subject);
+  const profile = await buildRedditProfile(username);
+  const summary = truncateText(profile.summary, 480);
+  if (!run.context) {
+    await run.update({ context: summary });
+  }
+
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+  });
+
+  const systemMessage =
+    "You are roleplaying as the specified Reddit user. Answer as they would on a 1-5 agreement scale, based on the provided psychological profile. Output must match the JSON schema exactly.";
+  const userMessage = `Reddit user: u/${username}\nProfile summary: ${summary}\nPersona: ${profile.persona}\nTraits: ${profile.traits.join(", ")}\n\nAnswer all SMYSNK questions on a 1-5 scale (1=disagree, 5=agree). Provide a one-sentence rationale for each answer. Return JSON only.\n\nQuestions:\n${buildSmysnkQuestionBlock()}\n\nJSON schema:\n{\n \"responses\": [\n  { \"id\": \"question id\", \"answer\": number (1..5), \"rationale\": string }\n  // exactly ${SMYSNK_QUESTIONS.length} objects\n ]\n}\n`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5-mini",
+    messages: [
+      { role: "system", content: systemMessage },
+      { role: "user", content: userMessage }
+    ],
+    response_format: { type: "json_object" },
+    temperature: 1
+  });
+
+  const content = completion.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error("OpenAI response was empty.");
+  }
+
+  const parsed = SMYSNK_SCHEMA.safeParse(JSON.parse(content));
+  if (!parsed.success) {
+    throw new Error("OpenAI response failed validation.");
+  }
+
+  const validIds = new Set(SMYSNK_QUESTIONS.map((question) => question.id));
+  const seen = new Set<string>();
+  for (const response of parsed.data.responses) {
+    if (!validIds.has(response.id)) {
+      throw new Error("OpenAI returned an unknown question id.");
+    }
+    if (seen.has(response.id)) {
+      throw new Error("OpenAI returned duplicate question ids.");
+    }
+    seen.add(response.id);
+  }
+
+  const responses = parsed.data.responses.map((response) => ({
+    questionId: response.id,
+    answer: response.answer,
+    rationale: response.rationale
+  }));
+
+  const scores = calculateSmysnkScores(responses);
+
+  await run.update({
+    responses,
+    functionScores: scores,
+    state: "COMPLETED"
+  });
+};
+
 const processSmysnkRun = async (run: Run) => {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("Missing OPENAI_API_KEY environment variable.");
@@ -445,6 +511,8 @@ const processQueuedRun = async () => {
         } else {
           await processSakinorvaRun(run);
         }
+      } else if (run.runMode === "reddit") {
+        await processRedditSmysnkRun(run);
       } else {
         await processSmysnkRun(run);
       }

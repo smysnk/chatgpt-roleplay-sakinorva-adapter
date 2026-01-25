@@ -33,7 +33,6 @@ export default function AppMenuBar() {
 
   const indicatorLabel = currentLabel === "Combined" ? "Indicators" : currentLabel;
   const isIndicatorSelected = currentLabel !== "Combined";
-  const isRedditAvailable = indicator === "sakinorva";
 
   useEffect(() => {
     if (currentLabel === "Sakinorva") {
@@ -120,13 +119,16 @@ export default function AppMenuBar() {
     setRedditError(null);
     setRedditLoading(true);
     try {
-      const response = await fetch("/api/run/reddit", {
+      const response = await fetch(
+        indicator === "sakinorva" ? "/api/run/reddit" : "/api/smysnk/reddit",
+        {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ username: normalized })
-      });
+        }
+      );
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         throw new Error(payload?.error ?? "Failed to run the Reddit profile test.");
@@ -134,7 +136,8 @@ export default function AppMenuBar() {
       await response.json();
       setWizardOpen(false);
       setRedditUsername("");
-      router.push("/sakinorva-adapter");
+      const runPath = indicator === "sakinorva" ? "/sakinorva-adapter" : "/smysnk";
+      router.push(runPath);
     } catch (err) {
       setRedditError(err instanceof Error ? err.message : "Unexpected error.");
     } finally {
@@ -375,14 +378,11 @@ export default function AppMenuBar() {
                   placeholder="u/username"
                   maxLength={25}
                   required
-                  disabled={!isRedditAvailable}
                 />
                 <p className="helper">
-                  {isRedditAvailable
-                    ? "Uses public Reddit posts and comments to build the profile."
-                    : "Available only for Sakinorva runs."}
+                  Uses public Reddit posts and comments to build the profile.
                 </p>
-                <button type="submit" className="button" disabled={!isRedditAvailable || redditLoading}>
+                <button type="submit" className="button" disabled={redditLoading}>
                   {redditLoading ? "Running…" : "Run Reddit test"}
                 </button>
                 {redditError ? <div className="error">{redditError}</div> : null}
