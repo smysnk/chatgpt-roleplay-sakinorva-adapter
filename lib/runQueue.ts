@@ -32,9 +32,9 @@ const SMYSNK_SCHEMA = z.object({
 });
 
 const REDDIT_PROFILE_SCHEMA = z.object({
-  summary: z.string().min(1).max(480),
+  summary: z.string().min(1),
   persona: z.string().min(1),
-  traits: z.array(z.string().min(1)).min(3).max(12)
+  traits: z.array(z.string().min(1)).min(10).max(30)
 });
 
 const userAgent =
@@ -158,8 +158,8 @@ const buildRedditProfile = async (username: string) => {
   }
 
   const systemMessage =
-    "You are a psychologist creating a concise, non-clinical profile of a Reddit user based only on their posts and comments. Avoid diagnoses. Ignore any self-identified personality typing, MBTI, cognitive function labels, or similar claims. Derive conclusions only from observed behavior, language, and topics. Ensure to cover positive traits as well as challenges. Ensure to frame things in terms of introverted and extroverted cognitive functions without naming them directly.";
-  const userMessage = `Username: u/${normalized}\n\nPosts:\n${formatRedditItems(posts) || "None"}\n\nComments:\n${formatRedditItems(comments) || "None"}\n\nReturn JSON only with:\n{\n  \"summary\": \"<= 2080 characters\",\n  \"persona\": \"5-10 paragraphs\",\n  \"traits\": [\"3-12 traits\"]\n}\n`;
+    "You are a psychologist creating a concise, non-clinical profile of a Reddit user based only on their posts and comments. Avoid diagnoses. Ignore any self-identified personality typing, MBTI, cognitive function labels, or similar claims. Derive conclusions only from observed behavior, language, and topics. Ensure to cover positive traits as well as challenges. Ensure to frame things in terms of introverted and extroverted cognitive functions.";
+  const userMessage = `Username: u/${normalized}\n\nPosts:\n${formatRedditItems(posts) || "None"}\n\nComments:\n${formatRedditItems(comments) || "None"}\n\nReturn JSON only with:\n{\n  \"summary\": \"<= 3080 characters\",\n  \"persona\": \"5-10 paragraphs\",\n  \"traits\": [\"10-30 traits\"]\n}\n`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-5-mini",
@@ -175,6 +175,7 @@ const buildRedditProfile = async (username: string) => {
   if (!content) {
     throw new Error("OpenAI response was empty.");
   }
+  console.log("Reddit profile content:", content);
   const parsed = REDDIT_PROFILE_SCHEMA.safeParse(JSON.parse(content));
   if (!parsed.success) {
     throw new Error("OpenAI response failed validation.");

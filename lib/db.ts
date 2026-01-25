@@ -33,7 +33,7 @@ export const getSequelize = () => {
 export const initializeDatabase = async () => {
   if (!initialization) {
     initialization = getSequelize()
-      .sync()
+      .sync({ alter: true })
       .then(async () => {
         const { runRunUpgrades } = await import("@/lib/runUpgrade");
         await runRunUpgrades();
