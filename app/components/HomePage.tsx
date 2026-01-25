@@ -7,6 +7,7 @@ import { QUESTIONS } from "@/lib/questions";
 import SakinorvaResults, { STNF_TOOLTIP } from "@/app/components/SakinorvaResults";
 import StnfMiniChart from "@/app/components/StnfMiniChart";
 import RatingScaleHeader from "@/app/components/RatingScaleHeader";
+import TypeBadges from "@/app/components/TypeBadges";
 import { deriveTypesFromScores } from "@/lib/mbti";
 
 const MIN_LENGTH = 2;
@@ -71,33 +72,6 @@ const formatDate = (value: string) => {
     return value;
   }
   return parsed.toLocaleString();
-};
-
-const getTypeLetters = (typeValue: string | null) => {
-  if (!typeValue) {
-    return [];
-  }
-  return typeValue
-    .replace(/[^a-zA-Z]/g, "")
-    .toUpperCase()
-    .split("")
-    .filter(Boolean);
-};
-
-const renderTypeCell = (typeValue: string | null) => {
-  const letters = getTypeLetters(typeValue);
-  if (!letters.length) {
-    return <span className="helper">—</span>;
-  }
-  return (
-    <span className="type-badges">
-      {letters.map((letter, index) => (
-        <span key={`${letter}-${index}`} className={`type-letter ${letter.toLowerCase()}`}>
-          {letter}
-        </span>
-      ))}
-    </span>
-  );
 };
 
 const normalizeRedditUsername = (value: string) => value.trim().replace(/^u\//i, "");
@@ -573,7 +547,9 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                             Context
                           </span>
                         </td>
-                        <td>{renderTypeCell(item.grantType)}</td>
+                        <td>
+                          <TypeBadges indicator="grant" functionScores={item.functionScores} />
+                        </td>
                         <td>
                           {stnfValues ? (
                             <StnfMiniChart
@@ -589,10 +565,10 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
                           )}
                         </td>
                         <td>
-                          {renderTypeCell(item.axisType)}
+                          <TypeBadges indicator="axis" functionScores={item.functionScores} />
                         </td>
                         <td>
-                          {renderTypeCell(item.myersType)}
+                          <TypeBadges indicator="myers" functionScores={item.functionScores} />
                         </td>
                         <td>
                           <span

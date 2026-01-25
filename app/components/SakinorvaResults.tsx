@@ -3,6 +3,7 @@
 import { useMemo, type ReactNode } from "react";
 import StnfIndicator from "@/app/components/StnfIndicator";
 import MbtiMapCanvas from "@/app/components/MbtiMapCanvas";
+import TypeBadges, { TypeBadgeLetter } from "@/app/components/TypeBadges";
 
 export const STNF_TOOLTIP =
   "The STNF indicator visualizes cognitive function expression in a more Jungian interpretive lens where we possess the ability to express both introverted and extroverted functions based on situational context.";
@@ -152,21 +153,6 @@ export default function SakinorvaResults({
   } | null;
 }) {
   const sections = useMemo(() => parseResultsFragment(htmlFragment), [htmlFragment]);
-  const renderTypeBadge = (letter: string, key: string) => (
-    <span
-      key={key}
-      className={`type-letter ${letter === "?" ? "unknown" : letter.toLowerCase()}`}
-    >
-      {letter}
-    </span>
-  );
-
-  const renderTypeCode = (typeCode: string, key: string) => (
-    <span className="type-badges" key={key}>
-      {typeCode.split("").map((letter, index) => renderTypeBadge(letter, `${letter}-${index}`))}
-    </span>
-  );
-
   const renderValueWithBadges = (value: string) => {
     const matches = Array.from(value.matchAll(TYPE_CODE_PATTERN));
     const functionMatches = Array.from(value.matchAll(/\b(Te|Ti|Fe|Fi|Ne|Ni|Se|Si)\b/gi));
@@ -193,18 +179,28 @@ export default function SakinorvaResults({
           <span className="type-badges" key={`${token}-${index}`}>
             {token
               .split("")
-              .map((letter, letterIndex) =>
-                renderTypeBadge(letter.toUpperCase(), `${token}-${letter}-${letterIndex}`)
-              )}
+              .map((letter, letterIndex) => (
+                <span
+                  key={`${token}-${letter}-${letterIndex}`}
+                  className={`type-letter ${letter.toLowerCase()}`}
+                >
+                  {letter.toUpperCase()}
+                </span>
+              ))}
           </span>
         );
       } else {
         const letters = token.split("");
         fragments.push(
           <span className="type-badges" key={`${token}-${index}`}>
-            {letters.map((letter, letterIndex) =>
-              renderTypeBadge(letter.toUpperCase(), `${token}-${letter}-${letterIndex}`)
-            )}
+            {letters.map((letter, letterIndex) => (
+              <span
+                key={`${token}-${letter}-${letterIndex}`}
+                className={`type-letter ${letter.toLowerCase()}`}
+              >
+                {letter.toUpperCase()}
+              </span>
+            ))}
           </span>
         );
       }
@@ -396,11 +392,7 @@ export default function SakinorvaResults({
               <div className="sakinorva-row">
                 <div className="sakinorva-row-label">Grant type</div>
                 <div className="sakinorva-row-value">
-                  <span className="type-badges">
-                    {derived.grantType.split("").map((letter, index) =>
-                      renderTypeBadge(letter, `grant-${letter}-${index}`)
-                    )}
-                  </span>
+                  <TypeBadges indicator="grant" functionScores={functionScores} />
                 </div>
               </div>
             </div>
@@ -415,37 +407,82 @@ export default function SakinorvaResults({
               <div className="sakinorva-row">
                 <div className="sakinorva-row-label">E vs I</div>
                 <div className="sakinorva-row-value calc-value">
-                  {renderTypeBadge("E", "axis-e")}
+                  <TypeBadgeLetter
+                    indicator="axis"
+                    letter="E"
+                    letterKey="EI"
+                    functionScores={functionScores}
+                  />
                   <span className="calc-score">{formatScore(derived.sums.sumE)}</span>
                   <span className="calc-divider">vs</span>
-                  {renderTypeBadge("I", "axis-i")}
+                  <TypeBadgeLetter
+                    indicator="axis"
+                    letter="I"
+                    letterKey="EI"
+                    functionScores={functionScores}
+                  />
                   <span className="calc-score">{formatScore(derived.sums.sumI)}</span>
                   <span className="calc-divider">→</span>
-                  {renderTypeBadge(derived.axisLetters.axisEI, "axis-ei")}
+                  <TypeBadgeLetter
+                    indicator="axis"
+                    letter={derived.axisLetters.axisEI}
+                    letterKey="EI"
+                    functionScores={functionScores}
+                  />
                 </div>
               </div>
               <div className="sakinorva-row">
                 <div className="sakinorva-row-label">N vs S</div>
                 <div className="sakinorva-row-value calc-value">
-                  {renderTypeBadge("N", "axis-n")}
+                  <TypeBadgeLetter
+                    indicator="axis"
+                    letter="N"
+                    letterKey="SN"
+                    functionScores={functionScores}
+                  />
                   <span className="calc-score">{formatScore(derived.sums.sumN)}</span>
                   <span className="calc-divider">vs</span>
-                  {renderTypeBadge("S", "axis-s")}
+                  <TypeBadgeLetter
+                    indicator="axis"
+                    letter="S"
+                    letterKey="SN"
+                    functionScores={functionScores}
+                  />
                   <span className="calc-score">{formatScore(derived.sums.sumS)}</span>
                   <span className="calc-divider">→</span>
-                  {renderTypeBadge(derived.axisLetters.axisSN, "axis-sn")}
+                  <TypeBadgeLetter
+                    indicator="axis"
+                    letter={derived.axisLetters.axisSN}
+                    letterKey="SN"
+                    functionScores={functionScores}
+                  />
                 </div>
               </div>
               <div className="sakinorva-row">
                 <div className="sakinorva-row-label">T vs F</div>
                 <div className="sakinorva-row-value calc-value">
-                  {renderTypeBadge("T", "axis-t")}
+                  <TypeBadgeLetter
+                    indicator="axis"
+                    letter="T"
+                    letterKey="TF"
+                    functionScores={functionScores}
+                  />
                   <span className="calc-score">{formatScore(derived.sums.sumT)}</span>
                   <span className="calc-divider">vs</span>
-                  {renderTypeBadge("F", "axis-f")}
+                  <TypeBadgeLetter
+                    indicator="axis"
+                    letter="F"
+                    letterKey="TF"
+                    functionScores={functionScores}
+                  />
                   <span className="calc-score">{formatScore(derived.sums.sumF)}</span>
                   <span className="calc-divider">→</span>
-                  {renderTypeBadge(derived.axisLetters.axisTF, "axis-tf")}
+                  <TypeBadgeLetter
+                    indicator="axis"
+                    letter={derived.axisLetters.axisTF}
+                    letterKey="TF"
+                    functionScores={functionScores}
+                  />
                 </div>
               </div>
               <div className="sakinorva-row">
@@ -453,35 +490,56 @@ export default function SakinorvaResults({
                 <div className="sakinorva-row-value calc-value">
                   {derived.axisLetters.axisEI === "E" ? (
                     <>
-                      {renderTypeBadge("J", "axis-ej")}
+                      <TypeBadgeLetter
+                        indicator="axis"
+                        letter="J"
+                        letterKey="JP"
+                        functionScores={functionScores}
+                      />
                       <span className="calc-score">{formatScore(derived.sums.sumEJudging)}</span>
                       <span className="calc-divider">vs</span>
-                      {renderTypeBadge("P", "axis-ep")}
+                      <TypeBadgeLetter
+                        indicator="axis"
+                        letter="P"
+                        letterKey="JP"
+                        functionScores={functionScores}
+                      />
                       <span className="calc-score">{formatScore(derived.sums.sumEPerceiving)}</span>
                     </>
                   ) : derived.axisLetters.axisEI === "I" ? (
                     <>
-                      {renderTypeBadge("J", "axis-ij")}
+                      <TypeBadgeLetter
+                        indicator="axis"
+                        letter="J"
+                        letterKey="JP"
+                        functionScores={functionScores}
+                      />
                       <span className="calc-score">{formatScore(derived.sums.sumIJudging)}</span>
                       <span className="calc-divider">vs</span>
-                      {renderTypeBadge("P", "axis-ip")}
+                      <TypeBadgeLetter
+                        indicator="axis"
+                        letter="P"
+                        letterKey="JP"
+                        functionScores={functionScores}
+                      />
                       <span className="calc-score">{formatScore(derived.sums.sumIPerceiving)}</span>
                     </>
                   ) : (
                     <span className="helper">E/I tie; J/P undefined.</span>
                   )}
                   <span className="calc-divider">→</span>
-                  {renderTypeBadge(derived.axisLetters.axisJP, "axis-jp")}
+                  <TypeBadgeLetter
+                    indicator="axis"
+                    letter={derived.axisLetters.axisJP}
+                    letterKey="JP"
+                    functionScores={functionScores}
+                  />
                 </div>
               </div>
               <div className="sakinorva-row">
                 <div className="sakinorva-row-label">Axis-based type</div>
                 <div className="sakinorva-row-value">
-                  <span className="type-badges">
-                    {derived.axisType.split("").map((letter, index) =>
-                      renderTypeBadge(letter, `axis-${letter}-${index}`)
-                    )}
-                  </span>
+                  <TypeBadges indicator="axis" functionScores={functionScores} />
                 </div>
               </div>
             </div>
@@ -495,59 +553,115 @@ export default function SakinorvaResults({
               <div className="sakinorva-row">
                 <div className="sakinorva-row-label">E vs I</div>
                 <div className="sakinorva-row-value calc-value">
-                  {renderTypeBadge("E", "myers-e")}
+                  <TypeBadgeLetter
+                    indicator="myers"
+                    letter="E"
+                    letterKey="EI"
+                    functionScores={functionScores}
+                  />
                   <span className="calc-score">{formatScore(derived.sums.sumE)}</span>
                   <span className="calc-divider">vs</span>
-                  {renderTypeBadge("I", "myers-i")}
+                  <TypeBadgeLetter
+                    indicator="myers"
+                    letter="I"
+                    letterKey="EI"
+                    functionScores={functionScores}
+                  />
                   <span className="calc-score">{formatScore(derived.sums.sumI)}</span>
                   <span className="calc-divider">→</span>
-                  {renderTypeBadge(derived.myersLetters.myersEI, "myers-ei")}
+                  <TypeBadgeLetter
+                    indicator="myers"
+                    letter={derived.myersLetters.myersEI}
+                    letterKey="EI"
+                    functionScores={functionScores}
+                  />
                 </div>
               </div>
               <div className="sakinorva-row">
                 <div className="sakinorva-row-label">S vs N</div>
                 <div className="sakinorva-row-value calc-value">
-                  {renderTypeBadge("S", "myers-s")}
+                  <TypeBadgeLetter
+                    indicator="myers"
+                    letter="S"
+                    letterKey="SN"
+                    functionScores={functionScores}
+                  />
                   <span className="calc-score">{formatScore(derived.sums.sumS)}</span>
                   <span className="calc-divider">vs</span>
-                  {renderTypeBadge("N", "myers-n")}
+                  <TypeBadgeLetter
+                    indicator="myers"
+                    letter="N"
+                    letterKey="SN"
+                    functionScores={functionScores}
+                  />
                   <span className="calc-score">{formatScore(derived.sums.sumN)}</span>
                   <span className="calc-divider">→</span>
-                  {renderTypeBadge(derived.myersLetters.myersSN, "myers-sn")}
+                  <TypeBadgeLetter
+                    indicator="myers"
+                    letter={derived.myersLetters.myersSN}
+                    letterKey="SN"
+                    functionScores={functionScores}
+                  />
                 </div>
               </div>
               <div className="sakinorva-row">
                 <div className="sakinorva-row-label">T vs F</div>
                 <div className="sakinorva-row-value calc-value">
-                  {renderTypeBadge("T", "myers-t")}
+                  <TypeBadgeLetter
+                    indicator="myers"
+                    letter="T"
+                    letterKey="TF"
+                    functionScores={functionScores}
+                  />
                   <span className="calc-score">{formatScore(derived.sums.sumT)}</span>
                   <span className="calc-divider">vs</span>
-                  {renderTypeBadge("F", "myers-f")}
+                  <TypeBadgeLetter
+                    indicator="myers"
+                    letter="F"
+                    letterKey="TF"
+                    functionScores={functionScores}
+                  />
                   <span className="calc-score">{formatScore(derived.sums.sumF)}</span>
                   <span className="calc-divider">→</span>
-                  {renderTypeBadge(derived.myersLetters.myersTF, "myers-tf")}
+                  <TypeBadgeLetter
+                    indicator="myers"
+                    letter={derived.myersLetters.myersTF}
+                    letterKey="TF"
+                    functionScores={functionScores}
+                  />
                 </div>
               </div>
               <div className="sakinorva-row">
                 <div className="sakinorva-row-label">J vs P (overall)</div>
                 <div className="sakinorva-row-value calc-value">
-                  {renderTypeBadge("J", "myers-j")}
+                  <TypeBadgeLetter
+                    indicator="myers"
+                    letter="J"
+                    letterKey="JP"
+                    functionScores={functionScores}
+                  />
                   <span className="calc-score">{formatScore(derived.sums.sumJudging)}</span>
                   <span className="calc-divider">vs</span>
-                  {renderTypeBadge("P", "myers-p")}
+                  <TypeBadgeLetter
+                    indicator="myers"
+                    letter="P"
+                    letterKey="JP"
+                    functionScores={functionScores}
+                  />
                   <span className="calc-score">{formatScore(derived.sums.sumPerceiving)}</span>
                   <span className="calc-divider">→</span>
-                  {renderTypeBadge(derived.myersLetters.myersJP, "myers-jp")}
+                  <TypeBadgeLetter
+                    indicator="myers"
+                    letter={derived.myersLetters.myersJP}
+                    letterKey="JP"
+                    functionScores={functionScores}
+                  />
                 </div>
               </div>
               <div className="sakinorva-row">
                 <div className="sakinorva-row-label">Myers type</div>
                 <div className="sakinorva-row-value">
-                  <span className="type-badges">
-                    {derived.myersType.split("").map((letter, index) =>
-                      renderTypeBadge(letter, `myers-${letter}-${index}`)
-                    )}
-                  </span>
+                  <TypeBadges indicator="myers" functionScores={functionScores} />
                 </div>
               </div>
             </div>

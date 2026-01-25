@@ -1,6 +1,7 @@
 "use client";
 
 import StnfMiniChart from "@/app/components/StnfMiniChart";
+import TypeBadges from "@/app/components/TypeBadges";
 
 export type RunItem = {
   id: string;
@@ -24,33 +25,6 @@ const formatDate = (value: string) => {
     return value;
   }
   return parsed.toLocaleString();
-};
-
-const getTypeLetters = (typeValue: string | null) => {
-  if (!typeValue) {
-    return [];
-  }
-  return typeValue
-    .replace(/[^a-zA-Z]/g, "")
-    .toUpperCase()
-    .split("")
-    .filter(Boolean);
-};
-
-const renderTypeCell = (typeValue: string | null) => {
-  const letters = getTypeLetters(typeValue);
-  if (!letters.length) {
-    return <span className="helper">—</span>;
-  }
-  return (
-    <span className="type-badges">
-      {letters.map((letter, index) => (
-        <span key={`${letter}-${index}`} className={`type-letter ${letter.toLowerCase()}`}>
-          {letter}
-        </span>
-      ))}
-    </span>
-  );
 };
 
 const getStnfValues = (scores: Record<string, number> | null) => {
@@ -165,9 +139,15 @@ export default function RunsTable({
                         Context
                       </span>
                     </td>
-                    <td>{renderTypeCell(item.grantType)}</td>
-                    <td>{renderTypeCell(item.axisType)}</td>
-                    <td>{renderTypeCell(item.myersType)}</td>
+                    <td>
+                      <TypeBadges indicator="grant" functionScores={item.functionScores} />
+                    </td>
+                    <td>
+                      <TypeBadges indicator="axis" functionScores={item.functionScores} />
+                    </td>
+                    <td>
+                      <TypeBadges indicator="myers" functionScores={item.functionScores} />
+                    </td>
                     <td>
                       {stnfValues ? (
                         <StnfMiniChart
