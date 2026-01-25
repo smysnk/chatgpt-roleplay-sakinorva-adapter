@@ -35,8 +35,10 @@ export default function SmysnkRunPage({ params }: { params: { slug: string } }) 
 
   useEffect(() => {
     let active = true;
-    const load = async () => {
-      setLoading(true);
+    const load = async (withLoading = false) => {
+      if (withLoading) {
+        setLoading(true);
+      }
       setError(null);
       try {
         const response = await fetch(`/api/smysnk/slug/${params.slug}`);
@@ -54,17 +56,24 @@ export default function SmysnkRunPage({ params }: { params: { slug: string } }) 
         }
       } finally {
         if (active) {
-          setLoading(false);
+          if (withLoading) {
+            setLoading(false);
+          }
         }
       }
     };
 
-    load();
+    load(true);
+    const shouldPoll = data?.state !== "COMPLETED" && data?.state !== "ERROR";
+    const interval = shouldPoll ? setInterval(() => load(false), 5000) : null;
 
     return () => {
       active = false;
+      if (interval) {
+        clearInterval(interval);
+      }
     };
-  }, [params.slug]);
+  }, [params.slug, data?.state]);
 
   const responseMap = useMemo(() => {
     if (!data?.responses?.length) {
@@ -123,6 +132,26 @@ export default function SmysnkRunPage({ params }: { params: { slug: string } }) 
             </div>
           ) : null}
         </div>
+        {data?.runMode === "reddit" && data.redditProfile ? (
+          <div className="app-card">
+            <h2>Psychological profile</h2>
+            <p className="helper" style={{ marginTop: "16px" }}>
+              {data.redditProfile.summary}
+            </p>
+            <div style={{ marginTop: "16px" }}>
+              <h3 style={{ marginBottom: "8px" }}>Persona snapshot</h3>
+              <p className="helper">{data.redditProfile.persona}</p>
+            </div>
+            <div style={{ marginTop: "16px" }}>
+              <h3 style={{ marginBottom: "8px" }}>Traits</h3>
+              <ul className="helper">
+                {data.redditProfile.traits.map((trait, index) => (
+                  <li key={`${trait}-${index}`}>{trait}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        ) : null}
         <div className="app-card">
           <h2>Answers</h2>
           <p className="helper">A 1–5 scale, where 1 is “Disagree” and 5 is “Agree.”</p>
