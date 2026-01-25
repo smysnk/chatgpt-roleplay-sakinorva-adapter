@@ -224,6 +224,12 @@ body {
   }
 }
 
+@media (min-width: 1200px) {
+  .wizard-body {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 main {
   width: min(1100px, 92vw);
   margin: 48px auto 80px;

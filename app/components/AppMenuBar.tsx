@@ -12,6 +12,9 @@ export default function AppMenuBar() {
   const [context, setContext] = useState("");
   const [runError, setRunError] = useState<string | null>(null);
   const [runLoading, setRunLoading] = useState(false);
+  const [redditUsername, setRedditUsername] = useState("");
+  const [redditError, setRedditError] = useState<string | null>(null);
+  const [redditLoading, setRedditLoading] = useState(false);
   const [manualName, setManualName] = useState("");
   const [manualNotes, setManualNotes] = useState("");
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -30,6 +33,7 @@ export default function AppMenuBar() {
 
   const indicatorLabel = currentLabel === "Combined" ? "Indicators" : currentLabel;
   const isIndicatorSelected = currentLabel !== "Combined";
+  const isRedditAvailable = indicator === "sakinorva";
 
   useEffect(() => {
     if (currentLabel === "Sakinorva") {
@@ -37,6 +41,7 @@ export default function AppMenuBar() {
     } else if (currentLabel === "SMYSNK") {
       setIndicator("smysnk");
     }
+    setRedditError(null);
   }, [currentLabel]);
 
   useEffect(() => {
@@ -103,6 +108,38 @@ export default function AppMenuBar() {
     const href = params.toString() ? `${basePath}?${params.toString()}` : basePath;
     setWizardOpen(false);
     router.push(href);
+  };
+
+  const handleRedditRun = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const normalized = redditUsername.trim().replace(/^u\//i, "");
+    if (!/^[a-zA-Z0-9_-]{3,20}$/.test(normalized)) {
+      setRedditError("Reddit username must be 3-20 characters of letters, numbers, underscores, or hyphens.");
+      return;
+    }
+    setRedditError(null);
+    setRedditLoading(true);
+    try {
+      const response = await fetch("/api/run/reddit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ username: normalized })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error ?? "Failed to run the Reddit profile test.");
+      }
+      await response.json();
+      setWizardOpen(false);
+      setRedditUsername("");
+      router.push("/sakinorva-adapter");
+    } catch (err) {
+      setRedditError(err instanceof Error ? err.message : "Unexpected error.");
+    } finally {
+      setRedditLoading(false);
+    }
   };
 
   return (
@@ -325,6 +362,31 @@ export default function AppMenuBar() {
                   Answer questions
                 </button>
               </div>
+              <form className="wizard-column" onSubmit={handleRedditRun}>
+                <h3>From Reddit profile</h3>
+                <label className="label" htmlFor="wizard-reddit-username">
+                  Reddit username
+                </label>
+                <input
+                  id="wizard-reddit-username"
+                  className="input"
+                  value={redditUsername}
+                  onChange={(event) => setRedditUsername(event.target.value)}
+                  placeholder="u/username"
+                  maxLength={25}
+                  required
+                  disabled={!isRedditAvailable}
+                />
+                <p className="helper">
+                  {isRedditAvailable
+                    ? "Uses public Reddit posts and comments to build the profile."
+                    : "Available only for Sakinorva runs."}
+                </p>
+                <button type="submit" className="button" disabled={!isRedditAvailable || redditLoading}>
+                  {redditLoading ? "Running…" : "Run Reddit test"}
+                </button>
+                {redditError ? <div className="error">{redditError}</div> : null}
+              </form>
             </div>
           </div>
         </div>
