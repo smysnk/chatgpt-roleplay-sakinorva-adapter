@@ -158,8 +158,8 @@ const buildRedditProfile = async (username: string) => {
   }
 
   const systemMessage =
-    "You are a psychologist creating a concise, non-clinical profile of a Reddit user based only on their posts and comments. Avoid diagnoses. Ignore any self-identified personality typing, MBTI, cognitive function labels, or similar claims. Derive conclusions only from observed behavior, language, and topics.";
-  const userMessage = `Username: u/${normalized}\n\nPosts:\n${formatRedditItems(posts) || "None"}\n\nComments:\n${formatRedditItems(comments) || "None"}\n\nReturn JSON only with:\n{\n  \"summary\": \"<= 480 characters\",\n  \"persona\": \"1-2 short paragraphs\",\n  \"traits\": [\"3-12 concise traits\"]\n}\n`;
+    "You are a psychologist creating a concise, non-clinical profile of a Reddit user based only on their posts and comments. Avoid diagnoses. Ignore any self-identified personality typing, MBTI, cognitive function labels, or similar claims. Derive conclusions only from observed behavior, language, and topics. Ensure to cover positive traits as well as challenges. Ensure to frame things in terms of introverted and extroverted cognitive functions without naming them directly.";
+  const userMessage = `Username: u/${normalized}\n\nPosts:\n${formatRedditItems(posts) || "None"}\n\nComments:\n${formatRedditItems(comments) || "None"}\n\nReturn JSON only with:\n{\n  \"summary\": \"<= 2080 characters\",\n  \"persona\": \"5-10 paragraphs\",\n  \"traits\": [\"3-12 traits\"]\n}\n`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-5-mini",
@@ -168,7 +168,7 @@ const buildRedditProfile = async (username: string) => {
       { role: "user", content: userMessage }
     ],
     response_format: { type: "json_object" },
-    temperature: 0.7
+    temperature: 1
   });
 
   const content = completion.choices[0]?.message?.content;
