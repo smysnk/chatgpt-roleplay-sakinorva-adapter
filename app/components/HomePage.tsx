@@ -11,6 +11,7 @@ import { deriveTypesFromScores } from "@/lib/mbti";
 
 const MIN_LENGTH = 2;
 const MAX_LENGTH = 80;
+const REDDIT_USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,20}$/;
 
 type RunItem = {
   id: string;
@@ -98,6 +99,8 @@ const renderTypeCell = (typeValue: string | null) => {
   );
 };
 
+const normalizeRedditUsername = (value: string) => value.trim().replace(/^u\//i, "");
+
 
 const getStnfValues = (scores: Record<string, number> | null) => {
   if (!scores) {
@@ -131,8 +134,11 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
   const basePath = "/sakinorva-adapter";
   const [character, setCharacter] = useState("");
   const [context, setContext] = useState("");
+  const [redditUsername, setRedditUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [redditError, setRedditError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [redditSubmitting, setRedditSubmitting] = useState(false);
   const [runs, setRuns] = useState<RunItem[]>([]);
   const [runsError, setRunsError] = useState<string | null>(null);
   const [runsLoading, setRunsLoading] = useState(false);
@@ -328,6 +334,90 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
     }
   };
 
+  const handleRedditSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const normalized = normalizeRedditUsername(redditUsername);
+    if (!REDDIT_USERNAME_PATTERN.test(normalized)) {
+      setRedditError("Reddit username must be 3-20 characters of letters, numbers, underscores, or hyphens.");
+      return;
+    }
+    setRedditError(null);
+    setRedditSubmitting(true);
+
+    const pendingId = `pending-reddit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const pendingItem: RunItem = {
+      id: pendingId,
+      slug: null,
+      character: `u/${normalized}`,
+      context: null,
+      grantType: null,
+      axisType: null,
+      myersType: null,
+      functionScores: null,
+      state: "QUEUED",
+      errors: 0,
+      createdAt: new Date().toISOString(),
+      errorMessage: null
+    };
+
+    setRuns((prev) => [pendingItem, ...prev]);
+
+    try {
+      const response = await fetch("/api/run/reddit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          username: normalized
+        })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error ?? "Failed to run the Reddit profile test.");
+      }
+      const payload = (await response.json()) as ResultsPayload;
+      const derived = payload.functionScores ? deriveTypesFromScores(payload.functionScores) : null;
+      setRuns((prev) =>
+        prev.map((item) =>
+          item.id === pendingId
+            ? {
+                ...item,
+                id: payload.runId.toString(),
+                slug: payload.slug,
+                grantType: derived?.grantType ?? null,
+                axisType: derived?.axisType ?? null,
+                myersType: derived?.myersType ?? null,
+                functionScores: payload.functionScores,
+                createdAt: payload.createdAt,
+                state: payload.state ?? "QUEUED",
+                errors: payload.errors ?? 0,
+                context: payload.context
+              }
+            : item
+        )
+      );
+      setRedditUsername("");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unexpected error.";
+      setRuns((prev) =>
+        prev.map((item) =>
+          item.id === pendingId
+            ? {
+                ...item,
+                state: "ERROR",
+                errors: (item.errors ?? 0) + 1,
+                errorMessage: message
+              }
+            : item
+        )
+      );
+      setRedditError(message);
+    } finally {
+      setRedditSubmitting(false);
+    }
+  };
+
   return (
     <main>
       <div className="stack">
@@ -373,6 +463,38 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
               <span className="helper">OpenAI is called server-side only.</span>
             </div>
             {error ? <div className="error">{error}</div> : null}
+          </form>
+        </div>
+        <div className="app-card">
+          <h2>Run the Sakinorva test from Reddit activity</h2>
+          <p className="helper">
+            Enter a public Reddit username to build a psychological profile from their posts and
+            comments, then run the test in their voice.
+          </p>
+          <form onSubmit={handleRedditSubmit} className="grid" style={{ marginTop: "24px" }}>
+            <div className="form-grid">
+              <div>
+                <label className="label" htmlFor="reddit-username">
+                  Reddit username
+                </label>
+                <input
+                  id="reddit-username"
+                  className="input"
+                  value={redditUsername}
+                  onChange={(event) => setRedditUsername(event.target.value)}
+                  placeholder="u/username"
+                  maxLength={25}
+                  required
+                />
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+              <button type="submit" className="button" disabled={redditSubmitting}>
+                {redditSubmitting ? "Loading…" : "Run Reddit Test"}
+              </button>
+              <span className="helper">Uses public Reddit posts and comments only.</span>
+            </div>
+            {redditError ? <div className="error">{redditError}</div> : null}
           </form>
         </div>
         <div className="app-card">

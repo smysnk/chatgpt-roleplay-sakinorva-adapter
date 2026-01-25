@@ -5,7 +5,7 @@ export class Run extends Model<InferAttributes<Run>, InferCreationAttributes<Run
   declare id: CreationOptional<number>;
   declare slug: string;
   declare indicator: "sakinorva" | "smysnk";
-  declare runMode: "ai" | "user";
+  declare runMode: "ai" | "user" | "reddit";
   declare state: "QUEUED" | "PROCESSING" | "COMPLETED" | "ERROR";
   declare errors: CreationOptional<number>;
   declare subject: string;
