@@ -25,7 +25,7 @@ type IndicatorRun = {
 type IndicatorIndexProps = {
   title: string;
   description: string;
-  mode: "combined" | "sakinorva" | "smysnk";
+  mode: "combined" | "sakinorva" | "smysnk" | "smysnk2";
 };
 
 export default function IndicatorIndex({ title, description, mode }: IndicatorIndexProps) {
@@ -45,11 +45,14 @@ export default function IndicatorIndex({ title, description, mode }: IndicatorIn
           mode === "combined"
             ? [
                 { url: "/api/run", label: "Sakinorva", runBase: "/sakinorva-adapter/run/" },
-                { url: "/api/smysnk", label: "SMYSNK", runBase: "/smysnk/run/" }
+                { url: "/api/smysnk", label: "SMYSNK", runBase: "/smysnk/run/" },
+                { url: "/api/smysnk2", label: "SMYSNK2", runBase: "/smysnk2/run/" }
               ]
             : mode === "sakinorva"
               ? [{ url: "/api/run", label: "Sakinorva", runBase: "/sakinorva-adapter/run/" }]
-              : [{ url: "/api/smysnk", label: "SMYSNK", runBase: "/smysnk/run/" }];
+              : mode === "smysnk"
+                ? [{ url: "/api/smysnk", label: "SMYSNK", runBase: "/smysnk/run/" }]
+                : [{ url: "/api/smysnk2", label: "SMYSNK2", runBase: "/smysnk2/run/" }];
         const responses = await Promise.all(
           endpoints.map(async (endpoint) => {
             const response = await fetch(endpoint.url);
@@ -120,6 +123,16 @@ export default function IndicatorIndex({ title, description, mode }: IndicatorIn
     });
   }, [items]);
 
+  const getIndexPathForLabel = (label: string) => {
+    if (label === "SMYSNK2") {
+      return "/smysnk2";
+    }
+    if (label === "SMYSNK") {
+      return "/smysnk";
+    }
+    return "/sakinorva-adapter";
+  };
+
   return (
     <main>
       <div className="stack">
@@ -165,7 +178,7 @@ export default function IndicatorIndex({ title, description, mode }: IndicatorIn
                 onClick={async () => {
                   await fetch(`/api/runs/retry/${errorRun.slug}`, { method: "POST" });
                   setErrorRun(null);
-                  router.push(errorRun.testLabel === "SMYSNK" ? "/smysnk" : "/sakinorva-adapter");
+                  router.push(getIndexPathForLabel(errorRun.testLabel));
                 }}
               >
                 Retry
@@ -175,7 +188,7 @@ export default function IndicatorIndex({ title, description, mode }: IndicatorIn
                 className="button secondary"
                 onClick={() => {
                   setErrorRun(null);
-                  router.push(errorRun.testLabel === "SMYSNK" ? "/smysnk" : "/sakinorva-adapter");
+                  router.push(getIndexPathForLabel(errorRun.testLabel));
                 }}
               >
                 Return to Index

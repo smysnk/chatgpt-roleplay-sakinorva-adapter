@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { z } from "zod";
-import { SMYSNK_QUESTIONS } from "@/lib/smysnkQuestions";
+import { getSmysnk2Scenarios, parseSmysnk2Mode } from "@/lib/smysnk2Questions";
 import { initializeDatabase } from "@/lib/db";
 import { initializeRunModel, Run } from "@/lib/models/Run";
 import { startRunQueue } from "@/lib/runQueue";
@@ -10,26 +10,29 @@ export const dynamic = "force-dynamic";
 
 const requestSchema = z.object({
   character: z.string().min(2).max(80),
-  context: z.string().max(500).optional().default("")
+  context: z.string().max(500).optional().default(""),
+  mode: z.union([z.string(), z.number()]).optional()
 });
 
 export async function POST(request: Request) {
   try {
     const payload = requestSchema.parse(await request.json());
+    const questionMode = parseSmysnk2Mode(payload.mode);
+    const questionCount = getSmysnk2Scenarios(questionMode).length;
     const slug = crypto.randomUUID();
 
     initializeRunModel();
     await initializeDatabase();
     const run = await Run.create({
       slug,
-      indicator: "smysnk",
+      indicator: "smysnk2",
       runMode: "ai",
       state: "QUEUED",
       errors: 0,
       subject: payload.character,
       context: payload.context || null,
-      questionMode: null,
-      questionCount: SMYSNK_QUESTIONS.length,
+      questionMode: questionMode.toString(),
+      questionCount,
       responses: null,
       functionScores: null,
       answers: null,
@@ -59,7 +62,7 @@ export async function GET() {
   await initializeDatabase();
 
   const runs = await Run.findAll({
-    where: { indicator: "smysnk" },
+    where: { indicator: "smysnk2" },
     order: [["createdAt", "DESC"]],
     attributes: [
       "id",

@@ -4,16 +4,20 @@ import { getSequelize } from "@/lib/db";
 export class Run extends Model<InferAttributes<Run>, InferCreationAttributes<Run>> {
   declare id: CreationOptional<number>;
   declare slug: string;
-  declare indicator: "sakinorva" | "smysnk";
+  declare indicator: "sakinorva" | "smysnk" | "smysnk2";
   declare runMode: "ai" | "user" | "reddit";
   declare state: "QUEUED" | "PROCESSING" | "COMPLETED" | "ERROR";
   declare errors: CreationOptional<number>;
   declare subject: string;
   declare context: CreationOptional<string | null>;
+  declare questionMode: CreationOptional<string | null>;
+  declare questionCount: CreationOptional<number | null>;
   declare redditProfile: CreationOptional<{ summary: string; persona: string; traits: string[] } | null>;
   declare answers: CreationOptional<number[] | null>;
   declare explanations: CreationOptional<string[] | null>;
-  declare responses: CreationOptional<{ questionId: string; answer: number; rationale: string }[] | null>;
+  declare responses: CreationOptional<
+    { questionId: string; answer: number | string; rationale: string }[] | null
+  >;
   declare functionScores: CreationOptional<Record<string, number> | null>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
@@ -61,6 +65,14 @@ export const initializeRunModel = () => {
       },
       context: {
         type: DataTypes.STRING(500),
+        allowNull: true
+      },
+      questionMode: {
+        type: DataTypes.STRING(20),
+        allowNull: true
+      },
+      questionCount: {
+        type: DataTypes.INTEGER,
         allowNull: true
       },
       redditProfile: {

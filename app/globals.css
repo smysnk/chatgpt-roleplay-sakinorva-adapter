@@ -428,6 +428,61 @@ button.rating-pill:focus-visible {
   background: #35b86b;
 }
 
+.scenario-option-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.scenario-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #0b0d12;
+  color: var(--muted);
+  text-align: left;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+button.scenario-option {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button.scenario-option:focus-visible {
+  outline: 2px solid rgba(214, 178, 90, 0.6);
+  outline-offset: 2px;
+}
+
+.scenario-option.active {
+  border-color: rgba(214, 178, 90, 0.75);
+  background: rgba(214, 178, 90, 0.12);
+  color: #f3f4f7;
+}
+
+.scenario-option-key {
+  display: inline-flex;
+  min-width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .scenario-option-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .sakinorva-results {
   position: relative;
   overflow: hidden;

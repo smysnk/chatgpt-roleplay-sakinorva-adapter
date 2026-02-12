@@ -3,11 +3,20 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  INDICATOR_API_BASE,
+  INDICATOR_INDEX_PATH,
+  INDICATOR_LABELS,
+  INDICATOR_QUESTIONS_PATH,
+  type Indicator
+} from "@/lib/indicators";
+import { DEFAULT_SMYSNK2_MODE, SMYSNK2_MODE_LABELS, SMYSNK2_MODES, parseSmysnk2Mode } from "@/lib/smysnk2Questions";
 
 export default function AppMenuBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [indicator, setIndicator] = useState<"sakinorva" | "smysnk">("sakinorva");
+  const [indicator, setIndicator] = useState<Indicator>("sakinorva");
+  const [smysnk2Mode, setSmysnk2Mode] = useState(DEFAULT_SMYSNK2_MODE);
   const [character, setCharacter] = useState("");
   const [context, setContext] = useState("");
   const [runError, setRunError] = useState<string | null>(null);
@@ -21,27 +30,30 @@ export default function AppMenuBar() {
   const pathname = usePathname();
   const router = useRouter();
 
-  const currentLabel = useMemo(() => {
+  const currentIndicator = useMemo<Indicator | null>(() => {
     if (pathname?.startsWith("/sakinorva-adapter")) {
-      return "Sakinorva";
+      return "sakinorva";
+    }
+    if (pathname?.startsWith("/smysnk2")) {
+      return "smysnk2";
     }
     if (pathname?.startsWith("/smysnk")) {
-      return "SMYSNK";
+      return "smysnk";
     }
-    return "Combined";
+    return null;
   }, [pathname]);
+
+  const currentLabel = currentIndicator ? INDICATOR_LABELS[currentIndicator] : "Combined";
 
   const indicatorLabel = currentLabel === "Combined" ? "Indicators" : currentLabel;
   const isIndicatorSelected = currentLabel !== "Combined";
 
   useEffect(() => {
-    if (currentLabel === "Sakinorva") {
-      setIndicator("sakinorva");
-    } else if (currentLabel === "SMYSNK") {
-      setIndicator("smysnk");
+    if (currentIndicator) {
+      setIndicator(currentIndicator);
     }
     setRedditError(null);
-  }, [currentLabel]);
+  }, [currentIndicator]);
 
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
@@ -68,14 +80,15 @@ export default function AppMenuBar() {
     setRunError(null);
     setRunLoading(true);
     try {
-      const response = await fetch(indicator === "sakinorva" ? "/api/run" : "/api/smysnk", {
+      const response = await fetch(INDICATOR_API_BASE[indicator], {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
           character: trimmed,
-          context: context.trim()
+          context: context.trim(),
+          ...(indicator === "smysnk2" ? { mode: smysnk2Mode } : {})
         })
       });
       if (!response.ok) {
@@ -83,7 +96,7 @@ export default function AppMenuBar() {
         throw new Error(payload?.error ?? "Failed to run the indicator.");
       }
       await response.json();
-      const runPath = indicator === "sakinorva" ? "/sakinorva-adapter" : "/smysnk";
+      const runPath = INDICATOR_INDEX_PATH[indicator];
       setWizardOpen(false);
       setCharacter("");
       setContext("");
@@ -103,7 +116,10 @@ export default function AppMenuBar() {
     if (manualNotes.trim()) {
       params.set("notes", manualNotes.trim());
     }
-    const basePath = indicator === "sakinorva" ? "/sakinorva-adapter/questions" : "/smysnk/questions";
+    if (indicator === "smysnk2") {
+      params.set("mode", smysnk2Mode.toString());
+    }
+    const basePath = INDICATOR_QUESTIONS_PATH[indicator];
     const href = params.toString() ? `${basePath}?${params.toString()}` : basePath;
     setWizardOpen(false);
     router.push(href);
@@ -119,16 +135,16 @@ export default function AppMenuBar() {
     setRedditError(null);
     setRedditLoading(true);
     try {
-      const response = await fetch(
-        indicator === "sakinorva" ? "/api/run/reddit" : "/api/smysnk/reddit",
-        {
+      const response = await fetch(`${INDICATOR_API_BASE[indicator]}/reddit`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ username: normalized })
-        }
-      );
+        body: JSON.stringify({
+          username: normalized,
+          ...(indicator === "smysnk2" ? { mode: smysnk2Mode } : {})
+        })
+      });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         throw new Error(payload?.error ?? "Failed to run the Reddit profile test.");
@@ -136,7 +152,7 @@ export default function AppMenuBar() {
       await response.json();
       setWizardOpen(false);
       setRedditUsername("");
-      const runPath = indicator === "sakinorva" ? "/sakinorva-adapter" : "/smysnk";
+      const runPath = INDICATOR_INDEX_PATH[indicator];
       router.push(runPath);
     } catch (err) {
       setRedditError(err instanceof Error ? err.message : "Unexpected error.");
@@ -264,6 +280,27 @@ export default function AppMenuBar() {
                 </span>
                 SMYSNK
               </Link>
+              <Link className="menu-item" href="/smysnk2" role="menuitem">
+                <span className="menu-item-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                    <path
+                      d="M6 6.5h12v4H6zM6 13.5h12v4H6z"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M9 8.5h2m4 0h-2m-4 7h2m4 0h-2"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </span>
+                SMYSNK2
+              </Link>
             </div>
           ) : null}
         </div>
@@ -302,11 +339,31 @@ export default function AppMenuBar() {
                 id="wizard-indicator"
                 className="input"
                 value={indicator}
-                onChange={(event) => setIndicator(event.target.value as "sakinorva" | "smysnk")}
+                onChange={(event) => setIndicator(event.target.value as Indicator)}
               >
                 <option value="sakinorva">Sakinorva</option>
                 <option value="smysnk">SMYSNK</option>
+                <option value="smysnk2">SMYSNK2</option>
               </select>
+              {indicator === "smysnk2" ? (
+                <>
+                  <label className="label" htmlFor="wizard-smysnk2-mode">
+                    Question mode
+                  </label>
+                  <select
+                    id="wizard-smysnk2-mode"
+                    className="input"
+                    value={smysnk2Mode}
+                    onChange={(event) => setSmysnk2Mode(parseSmysnk2Mode(event.target.value))}
+                  >
+                    {SMYSNK2_MODES.map((mode) => (
+                      <option key={mode} value={mode}>
+                        {SMYSNK2_MODE_LABELS[mode]}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              ) : null}
             </div>
             <div className="wizard-body">
               <form className="wizard-column" onSubmit={handleRun}>

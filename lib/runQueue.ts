@@ -4,6 +4,8 @@ import * as cheerio from "cheerio";
 import { QUESTIONS } from "@/lib/questions";
 import { SMYSNK_QUESTIONS } from "@/lib/smysnkQuestions";
 import { calculateSmysnkScores } from "@/lib/smysnkScore";
+import { DEFAULT_SMYSNK2_MODE, getSmysnk2Scenarios, parseSmysnk2Mode } from "@/lib/smysnk2Questions";
+import { calculateSmysnk2Scores, normalizeSmysnk2OptionKey } from "@/lib/smysnk2Score";
 import { initializeRunModel, Run } from "@/lib/models/Run";
 import { initializeDatabase } from "@/lib/db";
 import { extractResultMetadata } from "@/lib/runMetadata";
@@ -19,17 +21,31 @@ const ANSWER_SCHEMA = z.object({
     .length(96)
 });
 
-const SMYSNK_SCHEMA = z.object({
-  responses: z
-    .array(
-      z.object({
-        id: z.string(),
-        answer: z.number().int().min(1).max(5),
-        rationale: z.string().min(1)
-      })
-    )
-    .length(SMYSNK_QUESTIONS.length)
-});
+const buildSmysnkSchema = (length: number) =>
+  z.object({
+    responses: z
+      .array(
+        z.object({
+          id: z.string(),
+          answer: z.number().int().min(1).max(5),
+          rationale: z.string().min(1)
+        })
+      )
+      .length(length)
+  });
+
+const buildSmysnk2Schema = (length: number) =>
+  z.object({
+    responses: z
+      .array(
+        z.object({
+          id: z.string(),
+          answer: z.union([z.string(), z.number()]),
+          rationale: z.string().min(1)
+        })
+      )
+      .length(length)
+  });
 
 const REDDIT_PROFILE_SCHEMA = z.object({
   summary: z.string().min(1),
@@ -54,6 +70,14 @@ const buildQuestionBlock = () =>
 
 const buildSmysnkQuestionBlock = () =>
   SMYSNK_QUESTIONS.map((question) => `${question.id}: ${question.question}`).join("\n");
+
+const buildSmysnk2QuestionBlock = (questionMode: number) =>
+  getSmysnk2Scenarios(parseSmysnk2Mode(questionMode))
+    .map((question) => {
+      const optionLines = question.options.map((option) => `  ${option.key}) ${option.text}`).join("\n");
+      return `${question.id} [${question.contextType}] ${question.scenario}\n${optionLines}`;
+    })
+    .join("\n\n");
 
 const truncateText = (value: string, maxLength: number) => {
   if (value.length <= maxLength) {
@@ -395,7 +419,7 @@ const processRedditSmysnkRun = async (run: Run) => {
     throw new Error("OpenAI response was empty.");
   }
 
-  const parsed = SMYSNK_SCHEMA.safeParse(JSON.parse(content));
+  const parsed = buildSmysnkSchema(SMYSNK_QUESTIONS.length).safeParse(JSON.parse(content));
   if (!parsed.success) {
     throw new Error("OpenAI response failed validation.");
   }
@@ -423,6 +447,7 @@ const processRedditSmysnkRun = async (run: Run) => {
   await run.update({
     responses,
     functionScores: scores,
+    questionCount: SMYSNK_QUESTIONS.length,
     state: "COMPLETED"
   });
 };
@@ -454,7 +479,7 @@ const processSmysnkRun = async (run: Run) => {
     throw new Error("OpenAI response was empty.");
   }
 
-  const parsed = SMYSNK_SCHEMA.safeParse(JSON.parse(content));
+  const parsed = buildSmysnkSchema(SMYSNK_QUESTIONS.length).safeParse(JSON.parse(content));
   if (!parsed.success) {
     throw new Error("OpenAI response failed validation.");
   }
@@ -482,6 +507,165 @@ const processSmysnkRun = async (run: Run) => {
   await run.update({
     responses,
     functionScores: scores,
+    questionCount: SMYSNK_QUESTIONS.length,
+    state: "COMPLETED"
+  });
+};
+
+const processRedditSmysnk2Run = async (run: Run) => {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("Missing OPENAI_API_KEY environment variable.");
+  }
+  const username = normalizeRedditUsername(run.subject);
+  const profile = await buildRedditProfile(username);
+  const summary = truncateText(profile.summary, 480);
+  const nextContext = run.context ?? summary;
+  await run.update({ context: nextContext, redditProfile: profile });
+
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+  });
+
+  const questionMode = parseSmysnk2Mode(run.questionMode ?? run.questionCount ?? DEFAULT_SMYSNK2_MODE);
+  const scenarios = getSmysnk2Scenarios(questionMode);
+  const scenarioMap = new Map(scenarios.map((scenario) => [scenario.id, scenario]));
+  const validIds = new Set(scenarios.map((scenario) => scenario.id));
+
+  const systemMessage =
+    "You are roleplaying as the specified Reddit user. Pick exactly one option (A-H) per scenario and include a brief rationale. Do not answer with numeric scales. Output must match the JSON schema exactly.";
+  const userMessage = `Reddit user: u/${username}\nProfile summary: ${summary}\nPersona: ${profile.persona}\nTraits: ${profile.traits.join(
+    ", "
+  )}\n\nAnswer all SMYSNK2 scenarios. Each answer must be one option key from A-H plus a one-sentence rationale. Return JSON only.\n\nQuestions:\n${buildSmysnk2QuestionBlock(
+    questionMode
+  )}\n\nJSON schema:\n{\n \"responses\": [\n  { \"id\": \"scenario id\", \"answer\": \"A|B|C|D|E|F|G|H\", \"rationale\": string }\n  // exactly ${scenarios.length} objects\n ]\n}\n`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5-mini",
+    messages: [
+      { role: "system", content: systemMessage },
+      { role: "user", content: userMessage }
+    ],
+    response_format: { type: "json_object" },
+    temperature: 1
+  });
+
+  const content = completion.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error("OpenAI response was empty.");
+  }
+
+  const parsed = buildSmysnk2Schema(scenarios.length).safeParse(JSON.parse(content));
+  if (!parsed.success) {
+    throw new Error("OpenAI response failed validation.");
+  }
+
+  const seen = new Set<string>();
+  const responses = parsed.data.responses.map((response) => {
+    if (!validIds.has(response.id)) {
+      throw new Error("OpenAI returned an unknown scenario id.");
+    }
+    if (seen.has(response.id)) {
+      throw new Error("OpenAI returned duplicate scenario ids.");
+    }
+    seen.add(response.id);
+    const answerKey = normalizeSmysnk2OptionKey(response.answer);
+    if (!answerKey) {
+      throw new Error("OpenAI returned an invalid SMYSNK2 option key.");
+    }
+    if (!scenarioMap.get(response.id)?.options.some((option) => option.key === answerKey)) {
+      throw new Error("OpenAI returned an option key that is not available for this scenario.");
+    }
+    return {
+      questionId: response.id,
+      answer: answerKey,
+      rationale: response.rationale
+    };
+  });
+
+  const scores = calculateSmysnk2Scores(
+    responses.map((response) => ({ questionId: response.questionId, answerKey: response.answer }))
+  );
+
+  await run.update({
+    responses,
+    functionScores: scores,
+    questionMode: questionMode.toString(),
+    questionCount: scenarios.length,
+    state: "COMPLETED"
+  });
+};
+
+const processSmysnk2Run = async (run: Run) => {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("Missing OPENAI_API_KEY environment variable.");
+  }
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+  });
+
+  const questionMode = parseSmysnk2Mode(run.questionMode ?? run.questionCount ?? DEFAULT_SMYSNK2_MODE);
+  const scenarios = getSmysnk2Scenarios(questionMode);
+  const scenarioMap = new Map(scenarios.map((scenario) => [scenario.id, scenario]));
+  const validIds = new Set(scenarios.map((scenario) => scenario.id));
+
+  const systemMessage =
+    "You are roleplaying as the specified character. Pick exactly one option (A-H) per scenario and include a brief rationale. Do not use numeric scales. Output must match the JSON schema exactly.";
+  const userMessage = `Character: ${run.subject}\nContext: ${run.context || "(none)"}\n\nAnswer all SMYSNK2 scenarios. Each answer must be one option key from A-H plus a one-sentence rationale. Return JSON only.\n\nQuestions:\n${buildSmysnk2QuestionBlock(
+    questionMode
+  )}\n\nJSON schema:\n{\n \"responses\": [\n  { \"id\": \"scenario id\", \"answer\": \"A|B|C|D|E|F|G|H\", \"rationale\": string }\n  // exactly ${scenarios.length} objects\n ]\n}\n`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5-mini",
+    messages: [
+      { role: "system", content: systemMessage },
+      { role: "user", content: userMessage }
+    ],
+    response_format: { type: "json_object" },
+    temperature: 1
+  });
+
+  const content = completion.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error("OpenAI response was empty.");
+  }
+
+  const parsed = buildSmysnk2Schema(scenarios.length).safeParse(JSON.parse(content));
+  if (!parsed.success) {
+    throw new Error("OpenAI response failed validation.");
+  }
+
+  const seen = new Set<string>();
+  const responses = parsed.data.responses.map((response) => {
+    if (!validIds.has(response.id)) {
+      throw new Error("OpenAI returned an unknown scenario id.");
+    }
+    if (seen.has(response.id)) {
+      throw new Error("OpenAI returned duplicate scenario ids.");
+    }
+    seen.add(response.id);
+    const answerKey = normalizeSmysnk2OptionKey(response.answer);
+    if (!answerKey) {
+      throw new Error("OpenAI returned an invalid SMYSNK2 option key.");
+    }
+    if (!scenarioMap.get(response.id)?.options.some((option) => option.key === answerKey)) {
+      throw new Error("OpenAI returned an option key that is not available for this scenario.");
+    }
+    return {
+      questionId: response.id,
+      answer: answerKey,
+      rationale: response.rationale
+    };
+  });
+
+  const scores = calculateSmysnk2Scores(
+    responses.map((response) => ({ questionId: response.questionId, answerKey: response.answer }))
+  );
+
+  await run.update({
+    responses,
+    functionScores: scores,
+    questionMode: questionMode.toString(),
+    questionCount: scenarios.length,
     state: "COMPLETED"
   });
 };
@@ -526,6 +710,12 @@ const processQueuedRun = async () => {
           await processRedditSakinorvaRun(run);
         } else {
           await processSakinorvaRun(run);
+        }
+      } else if (run.indicator === "smysnk2") {
+        if (run.runMode === "reddit") {
+          await processRedditSmysnk2Run(run);
+        } else {
+          await processSmysnk2Run(run);
         }
       } else if (run.runMode === "reddit") {
         await processRedditSmysnkRun(run);

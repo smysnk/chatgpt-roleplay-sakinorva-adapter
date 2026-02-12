@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { SMYSNK_QUESTIONS } from "@/lib/smysnkQuestions";
+import { getSmysnk2Scenarios, parseSmysnk2Mode } from "@/lib/smysnk2Questions";
 import { initializeDatabase } from "@/lib/db";
 import { initializeRunModel, Run } from "@/lib/models/Run";
 import { startRunQueue } from "@/lib/runQueue";
@@ -8,7 +8,8 @@ import { startRunQueue } from "@/lib/runQueue";
 export const dynamic = "force-dynamic";
 
 const requestSchema = z.object({
-  username: z.string().min(3).max(25)
+  username: z.string().min(3).max(25),
+  mode: z.union([z.string(), z.number()]).optional()
 });
 
 const usernamePattern = /^[a-zA-Z0-9_-]{3,20}$/;
@@ -34,6 +35,9 @@ export async function POST(request: Request) {
       );
     }
 
+    const questionMode = parseSmysnk2Mode(payload.mode);
+    const questionCount = getSmysnk2Scenarios(questionMode).length;
+
     const slugBase = slugify(`reddit-${normalized}`);
     const slug = `${slugBase || "run"}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
@@ -41,14 +45,14 @@ export async function POST(request: Request) {
     await initializeDatabase();
     const run = await Run.create({
       slug,
-      indicator: "smysnk",
+      indicator: "smysnk2",
       runMode: "reddit",
       state: "QUEUED",
       errors: 0,
       subject: `u/${normalized}`,
       context: null,
-      questionMode: null,
-      questionCount: SMYSNK_QUESTIONS.length,
+      questionMode: questionMode.toString(),
+      questionCount,
       responses: null,
       functionScores: null,
       answers: null,

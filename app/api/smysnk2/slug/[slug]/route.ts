@@ -12,7 +12,7 @@ export async function GET(
   await initializeDatabase();
 
   const run = await Run.findOne({
-    where: { slug: params.slug, indicator: "smysnk" }
+    where: { slug: params.slug, indicator: "smysnk2" }
   });
 
   if (!run) {
