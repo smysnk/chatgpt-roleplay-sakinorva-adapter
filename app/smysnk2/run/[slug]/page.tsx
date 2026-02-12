@@ -188,7 +188,7 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                   <div className="answer-row" key={question.id}>
                     <div className="answer-meta" style={{ alignItems: "flex-start" }}>
                       <div className="answer-question">
-                        #{index + 1} [{question.contextType}] {question.scenario}
+                        #{index + 1} {question.scenario}
                       </div>
                     </div>
                     <div className="scenario-option-grid">

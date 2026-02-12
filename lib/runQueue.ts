@@ -75,7 +75,7 @@ const buildSmysnk2QuestionBlock = (questionMode: number) =>
   getSmysnk2Scenarios(parseSmysnk2Mode(questionMode))
     .map((question) => {
       const optionLines = question.options.map((option) => `  ${option.key}) ${option.text}`).join("\n");
-      return `${question.id} [${question.contextType}] ${question.scenario}\n${optionLines}`;
+      return `${question.id} ${question.scenario}\n${optionLines}`;
     })
     .join("\n\n");
 

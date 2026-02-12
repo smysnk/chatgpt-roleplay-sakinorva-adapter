@@ -170,7 +170,7 @@ function Smysnk2QuestionsContent() {
                 <div className="answer-row" key={question.id}>
                   <div className="answer-meta" style={{ alignItems: "flex-start" }}>
                     <div className="answer-question">
-                      #{index + 1} [{question.contextType}] {question.scenario}
+                      #{index + 1} {question.scenario}
                     </div>
                   </div>
                   <div className="scenario-option-grid" role="radiogroup" aria-label={`Answer for ${question.id}`}>
