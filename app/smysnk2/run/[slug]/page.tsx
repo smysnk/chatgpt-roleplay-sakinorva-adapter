@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  SMYSNK2_ARCHETYPE_LABELS,
   SMYSNK2_ARCHETYPE_ORDER,
   getSmysnk2Scenarios,
   parseSmysnk2Mode,
@@ -48,12 +49,23 @@ const getModeLabel = (mode: Smysnk2Mode) => {
   return "32 (balanced)";
 };
 
+const formatRunMode = (runMode: Smysnk2RunPayload["runMode"]) => {
+  if (runMode === "ai") {
+    return "AI roleplay";
+  }
+  if (runMode === "reddit") {
+    return "Reddit profile";
+  }
+  return "Self answer";
+};
+
 const formatPercent = (value: number) => `${value.toFixed(1)}%`;
 const formatPercentInt = (value: number) => `${Math.round(value)}%`;
 
-const formatStack = (stack: string[]) => stack.join(" > ");
-
 type GrantStyle = "IEIE" | "EIEI";
+type HeatmapFunctionKey = "Ni" | "Ne" | "Si" | "Se" | "Ti" | "Te" | "Fi" | "Fe";
+const HEATMAP_FUNCTION_ORDER: HeatmapFunctionKey[] = ["Ni", "Ne", "Si", "Se", "Ti", "Te", "Fi", "Fe"];
+const HEATMAP_BY_FUNCTION_OPTION = "BY_FUNCTION";
 
 const getGrantStyleScore = (
   analysis: {
@@ -83,37 +95,248 @@ const formatTypeWithConfidence = (type: string | null | undefined, confidence: n
   return `${type} ${formatPercentInt(confidence ?? 0)}`;
 };
 
-const getMatchedTypeForFunction = (
-  analysis: {
-    typeMatching: {
-      best: { type: string; confidence: number; stack: string[] } | null;
-      alternatives: { type: string; confidence: number; stack: string[] }[];
-    };
-  },
-  functionKey: string | null
-) => {
-  if (!functionKey) {
-    return "-";
+type TypeMatchOption = {
+  type: string;
+  confidence: number;
+  stack: string[];
+  archetypeHitCount?: number;
+  archetypeOpportunityCount?: number;
+  slotHitVolume?: number;
+};
+
+type TypeMatchingLike = {
+  best: TypeMatchOption | null;
+  alternatives: TypeMatchOption[];
+};
+
+const MBTI_TYPE_OPTIONS = [
+  "ISTJ",
+  "ISFJ",
+  "INFJ",
+  "INTJ",
+  "ISTP",
+  "ISFP",
+  "INFP",
+  "INTP",
+  "ESTP",
+  "ESFP",
+  "ENFP",
+  "ENTP",
+  "ESTJ",
+  "ESFJ",
+  "ENFJ",
+  "ENTJ"
+] as const;
+
+const MBTI_STACKS: Record<string, [HeatmapFunctionKey, HeatmapFunctionKey, HeatmapFunctionKey, HeatmapFunctionKey]> = {
+  INTJ: ["Ni", "Te", "Fi", "Se"],
+  INFJ: ["Ni", "Fe", "Ti", "Se"],
+  ISTJ: ["Si", "Te", "Fi", "Ne"],
+  ISFJ: ["Si", "Fe", "Ti", "Ne"],
+  INTP: ["Ti", "Ne", "Si", "Fe"],
+  INFP: ["Fi", "Ne", "Si", "Te"],
+  ISTP: ["Ti", "Se", "Ni", "Fe"],
+  ISFP: ["Fi", "Se", "Ni", "Te"],
+  ENTJ: ["Te", "Ni", "Se", "Fi"],
+  ENFJ: ["Fe", "Ni", "Se", "Ti"],
+  ESTJ: ["Te", "Si", "Ne", "Fi"],
+  ESFJ: ["Fe", "Si", "Ne", "Ti"],
+  ENTP: ["Ne", "Ti", "Fe", "Si"],
+  ENFP: ["Ne", "Fi", "Te", "Si"],
+  ESTP: ["Se", "Ti", "Fe", "Ni"],
+  ESFP: ["Se", "Fi", "Te", "Ni"]
+};
+
+const CONTEXT_SHORT_LABELS: Record<string, string> = {
+  leisure_with_friends: "Friends",
+  alone_time_relax: "Alone",
+  work_time_constraints: "Timed Work",
+  overwhelming_work_tasks: "Overload",
+  unexpected_interpersonal_conflict: "Conflict",
+  emergency_medical_situation: "Medical",
+  creative_expression_hobby: "Creative"
+};
+const HEATMAP_LABEL_COLUMN_WIDTH = 112;
+
+type HeatmapContextEntry = { key: string; label: string; shortLabel: string };
+type HeatmapCell = { contextKey: string; functionKey: HeatmapFunctionKey; hits: number; intensity: number };
+type HeatmapRow = {
+  archetype: string;
+  archetypeLabel: string;
+  functionKey: HeatmapFunctionKey;
+  cells: HeatmapCell[];
+};
+type HeatmapModel = {
+  selectedType: string;
+  showArchetypeLabel: boolean;
+  contexts: HeatmapContextEntry[];
+  rows: HeatmapRow[];
+  maxHits: number;
+};
+
+const getTypeOptions = (typeMatching: TypeMatchingLike | null | undefined): TypeMatchOption[] => {
+  if (!typeMatching) {
+    return [];
   }
-  const candidates = [
-    analysis.typeMatching.best,
-    ...analysis.typeMatching.alternatives
-  ].filter((candidate): candidate is { type: string; confidence: number; stack: string[] } => Boolean(candidate));
-  if (!candidates.length) {
-    return "-";
+  const raw = [typeMatching.best, ...typeMatching.alternatives].filter(
+    (match): match is TypeMatchOption => Boolean(match)
+  );
+  const unique = new Map<string, TypeMatchOption>();
+  raw.forEach((match) => {
+    if (!unique.has(match.type)) {
+      unique.set(match.type, match);
+    }
+  });
+  return [...unique.values()];
+};
+
+const buildHeatmapModel = (
+  contexts: Smysnk2Analysis["turbulentMode"]["contexts"],
+  selectedType: string
+): HeatmapModel | null => {
+  const contextEntries: HeatmapContextEntry[] = contexts.map((context) => ({
+    key: context.context,
+    label: context.label,
+    shortLabel: CONTEXT_SHORT_LABELS[context.context] ?? context.label
+  }));
+  const hitsByFunction = HEATMAP_FUNCTION_ORDER.reduce(
+    (acc, functionKey) => {
+      acc[functionKey] = contextEntries.reduce(
+        (inner, contextEntry) => {
+          inner[contextEntry.key] = 0;
+          return inner;
+        },
+        {} as Record<string, number>
+      );
+      return acc;
+    },
+    {} as Record<HeatmapFunctionKey, Record<string, number>>
+  );
+
+  contexts.forEach((context) => {
+    context.archetypeBreakdown.forEach((row) => {
+      if (!row || row.total <= 0) {
+        return;
+      }
+      HEATMAP_FUNCTION_ORDER.forEach((functionKey) => {
+        const confidence = row.distribution[functionKey] ?? 0;
+        if (confidence <= 0) {
+          return;
+        }
+        const hits = Math.round((confidence / 100) * row.total);
+        if (hits > 0) {
+          hitsByFunction[functionKey][context.context] += hits;
+        }
+      });
+    });
+  });
+
+  if (selectedType === HEATMAP_BY_FUNCTION_OPTION) {
+    const maxHits = Math.max(
+      0,
+      ...HEATMAP_FUNCTION_ORDER.flatMap((functionKey) =>
+        contextEntries.map((contextEntry) => hitsByFunction[functionKey][contextEntry.key] ?? 0)
+      )
+    );
+    const rows: HeatmapRow[] = HEATMAP_FUNCTION_ORDER.map((functionKey) => ({
+      archetype: `function-${functionKey}`,
+      archetypeLabel: "",
+      functionKey,
+      cells: contextEntries.map((contextEntry) => {
+        const hits = hitsByFunction[functionKey][contextEntry.key] ?? 0;
+        return {
+          contextKey: contextEntry.key,
+          functionKey,
+          hits,
+          intensity: maxHits ? hits / maxHits : 0
+        };
+      })
+    }));
+
+    return {
+      selectedType,
+      showArchetypeLabel: false,
+      contexts: contextEntries,
+      rows,
+      maxHits
+    };
   }
 
-  const ranked = [...candidates].sort((left, right) => {
-    const leftIndex = left.stack.indexOf(functionKey);
-    const rightIndex = right.stack.indexOf(functionKey);
-    const normalizedLeft = leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex;
-    const normalizedRight = rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex;
-    if (normalizedLeft !== normalizedRight) {
-      return normalizedLeft - normalizedRight;
-    }
-    return right.confidence - left.confidence;
+  const stack = MBTI_STACKS[selectedType];
+  if (!stack) {
+    return null;
+  }
+  const shadow = stack.map((functionKey) => flipFunctionAttitude(functionKey)) as [
+    HeatmapFunctionKey,
+    HeatmapFunctionKey,
+    HeatmapFunctionKey,
+    HeatmapFunctionKey
+  ];
+  const expectedByArchetype = new Map(
+    SMYSNK2_ARCHETYPE_ORDER.map((archetype, index) => [
+      archetype,
+      ([...stack, ...shadow][index] ?? stack[0]) as HeatmapFunctionKey
+    ])
+  );
+
+  const hitsByArchetype = SMYSNK2_ARCHETYPE_ORDER.reduce(
+    (acc, archetype) => {
+      acc[archetype] = contextEntries.reduce(
+        (inner, contextEntry) => {
+          inner[contextEntry.key] = 0;
+          return inner;
+        },
+        {} as Record<string, number>
+      );
+      return acc;
+    },
+    {} as Record<(typeof SMYSNK2_ARCHETYPE_ORDER)[number], Record<string, number>>
+  );
+
+  contexts.forEach((context) => {
+    const byArchetype = new Map(context.archetypeBreakdown.map((row) => [row.archetype, row]));
+    SMYSNK2_ARCHETYPE_ORDER.forEach((archetype) => {
+      const row = byArchetype.get(archetype);
+      if (!row || row.total <= 0) {
+        return;
+      }
+      const expectedFunction = expectedByArchetype.get(archetype) ?? stack[0];
+      const confidence = row.distribution[expectedFunction as keyof typeof row.distribution] ?? 0;
+      const hits = Math.round((confidence / 100) * row.total);
+      if (hits > 0) {
+        hitsByArchetype[archetype][context.context] += hits;
+      }
+    });
   });
-  return ranked[0]?.type ?? "-";
+
+  const maxHits = Math.max(
+    0,
+    ...SMYSNK2_ARCHETYPE_ORDER.flatMap((archetype) =>
+      contextEntries.map((contextEntry) => hitsByArchetype[archetype][contextEntry.key] ?? 0)
+    )
+  );
+  const rows: HeatmapRow[] = SMYSNK2_ARCHETYPE_ORDER.map((archetype) => ({
+    archetype,
+    archetypeLabel: SMYSNK2_ARCHETYPE_LABELS[archetype],
+    functionKey: expectedByArchetype.get(archetype) ?? stack[0],
+    cells: contextEntries.map((contextEntry) => {
+      const hits = hitsByArchetype[archetype][contextEntry.key] ?? 0;
+      return {
+        contextKey: contextEntry.key,
+        functionKey: expectedByArchetype.get(archetype) ?? stack[0],
+        hits,
+        intensity: maxHits ? hits / maxHits : 0
+      };
+    })
+  }));
+
+  return {
+    selectedType,
+    showArchetypeLabel: true,
+    contexts: contextEntries,
+    rows,
+    maxHits
+  };
 };
 
 const getTurbulentTopType = (analysis: Smysnk2Analysis) => {
@@ -162,6 +385,8 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
   const [scoringTab, setScoringTab] = useState<"assertive" | "turbulent">("assertive");
   const [manualTabSelection, setManualTabSelection] = useState(false);
   const [selectedAssertiveType, setSelectedAssertiveType] = useState<string | null>(null);
+  const [selectedTurbulentTypes, setSelectedTurbulentTypes] = useState<Record<string, string>>({});
+  const [selectedHeatmapType, setSelectedHeatmapType] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -253,32 +478,8 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
     return fromAssertive ?? analysis.typeMatching;
   }, [data?.analysis]);
 
-  const assertiveTotalResponses = useMemo(() => {
-    const analysis = data?.analysis;
-    if (!analysis) {
-      return 0;
-    }
-    const fromAssertive = (analysis.assertiveMode as { totalResponses?: number } | undefined)?.totalResponses;
-    return typeof fromAssertive === "number" ? fromAssertive : analysis.totalResponses;
-  }, [data?.analysis]);
-
   const assertiveTypeOptions = useMemo(() => {
-    if (!assertiveTypeMatching) {
-      return [];
-    }
-    const raw = [
-      assertiveTypeMatching.best,
-      ...assertiveTypeMatching.alternatives
-    ].filter(
-      (match): match is NonNullable<typeof assertiveTypeMatching.best> => Boolean(match)
-    );
-    const unique = new Map<string, (typeof raw)[number]>();
-    raw.forEach((match) => {
-      if (!unique.has(match.type)) {
-        unique.set(match.type, match);
-      }
-    });
-    return [...unique.values()];
+    return getTypeOptions(assertiveTypeMatching as TypeMatchingLike | null);
   }, [assertiveTypeMatching]);
 
   const selectedAssertiveTypeMatch = useMemo(() => {
@@ -370,6 +571,28 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
     return getTurbulentTopType(data.analysis);
   }, [data?.analysis]);
 
+  const assertivePreferenceSummary = useMemo(() => {
+    const analysis = data?.analysis;
+    if (!analysis) {
+      return null;
+    }
+    const assertiveScore = analysis.summary.assertive;
+    const turbulentScore = analysis.summary.turbulent;
+    const preferred = assertiveScore >= turbulentScore;
+    const reason = preferred ? "preferred" : "not preferred";
+    return `Assertive combines persona and shadow contexts into one stable stack decision. It is ${reason} for this run because Assertive is ${formatPercent(assertiveScore)} versus Turbulent ${formatPercent(turbulentScore)} (persona/shadow delta ${formatPercent(
+      analysis.temperamentConfidence.personaShadowDelta
+    )}, context variance ${formatPercent(analysis.temperamentConfidence.contextVariance)}).`;
+  }, [data?.analysis]);
+
+  const contextHeatmap = useMemo<HeatmapModel | null>(() => {
+    const analysis = data?.analysis;
+    if (!analysis || !selectedHeatmapType) {
+      return null;
+    }
+    return buildHeatmapModel(analysis.turbulentMode.contexts, selectedHeatmapType);
+  }, [data?.analysis, selectedHeatmapType]);
+
   useEffect(() => {
     if (!data?.analysis || manualTabSelection) {
       return;
@@ -388,27 +611,65 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
   }, [assertiveTypeOptions, selectedAssertiveType]);
 
   useEffect(() => {
+    const analysis = data?.analysis;
+    if (!analysis) {
+      setSelectedTurbulentTypes({});
+      return;
+    }
+    setSelectedTurbulentTypes((current) => {
+      const next: Record<string, string> = {};
+      analysis.turbulentMode.contexts.forEach((context) => {
+        const options = getTypeOptions(context.typeMatching as TypeMatchingLike);
+        if (!options.length) {
+          return;
+        }
+        const existing = current[context.context];
+        next[context.context] =
+          existing && options.some((option) => option.type === existing) ? existing : options[0].type;
+      });
+      return next;
+    });
+  }, [data?.analysis]);
+
+  useEffect(() => {
     setManualTabSelection(false);
     setSelectedAssertiveType(null);
+    setSelectedTurbulentTypes({});
+    setSelectedHeatmapType(null);
   }, [params.slug]);
+
+  useEffect(() => {
+    const analysis = data?.analysis;
+    if (!analysis) {
+      setSelectedHeatmapType(null);
+      return;
+    }
+    const fallback =
+      selectedAssertiveTypeMatch?.type ??
+      assertiveTypeMatching?.best?.type ??
+      analysis.typeMatching.best?.type ??
+      MBTI_TYPE_OPTIONS[0];
+    setSelectedHeatmapType((current) => {
+      if (current === HEATMAP_BY_FUNCTION_OPTION || (current && MBTI_STACKS[current])) {
+        return current;
+      }
+      return fallback;
+    });
+  }, [data?.analysis, assertiveTypeMatching?.best?.type, selectedAssertiveTypeMatch?.type]);
 
   return (
     <main>
       <div className="grid two">
         <div className="app-card">
-          <h2>SMYSNK2 results</h2>
+          <h2>{data?.subject?.trim() || "Unnamed run"}</h2>
           {loading ? (
             <p style={{ marginTop: "20px" }}>Loading results...</p>
           ) : error ? (
             <div className="error">{error}</div>
           ) : data ? (
             <div style={{ marginTop: "20px" }}>
-              <p className="helper">
-                {data.subject ? <strong>{data.subject}</strong> : "Unnamed run"}
-                {data.context ? ` - ${data.context}` : ""}
-              </p>
-              <p className="helper">Run mode: {data.runMode === "ai" ? "AI roleplay" : data.runMode === "reddit" ? "Reddit profile" : "Self answer"}</p>
-              <p className="helper">Question mode: {getModeLabel(mode)}</p>
+              {data.context ? <p className="helper">{data.context}</p> : null}
+              <p className="helper">{`SMYSNK2 ${getModeLabel(mode)} | ${formatRunMode(data.runMode)}`}</p>
               <p className="helper">Created: {formatDate(data.createdAt)}</p>
               {data.state === "ERROR" ? (
                 <div className="error" style={{ marginTop: "20px" }}>
@@ -492,73 +753,89 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                             </button>
                           </div>
 
+                          {assertivePreferenceSummary ? (
+                            <p className="helper">{assertivePreferenceSummary}</p>
+                          ) : null}
+
                           {scoringTab === "assertive" ? (
                             <div style={{ display: "grid", gap: "12px" }}>
-                              <div className="answer-row">
-                                <div className="answer-meta">
-                                  <div className="answer-question">
-                                    Assertive mode | {assertiveTotalResponses} responses
+                              <div className="smysnk2-context-grid">
+                                <div className="answer-row smysnk2-context-card">
+                                  <div className="answer-meta">
+                                    <div>
+                                      <div className="answer-question">Assertive</div>
+                                    </div>
                                   </div>
-                                  <div className="badge">
-                                    {formatTypeWithConfidence(
+                                  <p className="helper">
+                                    Selected type {formatTypeWithConfidence(
                                       selectedAssertiveTypeMatch?.type ?? assertiveTypeMatching?.best?.type ?? null,
                                       selectedAssertiveTypeMatch?.confidence ??
                                         assertiveTypeMatching?.best?.confidence ??
                                         0
+                                    )}{" "}
+                                    | Grant style {assertiveTypeMatching?.grantStyles[0]?.style ?? "-"}{" "}
+                                    {formatPercent(assertiveTypeMatching?.grantStyles[0]?.confidence ?? 0)}
+                                  </p>
+                                  <p className="helper">
+                                    Assertive scoring is consolidated into a single MBTI decision using all archetype
+                                    and shadow hits together.
+                                  </p>
+
+                                  {assertiveTypeOptions.length ? (
+                                    <div className="smysnk2-type-chip-row" role="tablist" aria-label="Assertive type view">
+                                      {assertiveTypeOptions.map((match) => (
+                                        <button
+                                          type="button"
+                                          role="tab"
+                                          aria-selected={selectedAssertiveTypeMatch?.type === match.type}
+                                          key={`assertive-type-${match.type}`}
+                                          className={`button secondary smysnk2-type-chip ${
+                                            selectedAssertiveTypeMatch?.type === match.type ? "active" : ""
+                                          }`.trim()}
+                                          onClick={() => setSelectedAssertiveType(match.type)}
+                                        >
+                                          {match.type} {formatPercentInt(match.confidence)}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  ) : null}
+
+                                  <div className="smysnk2-context-chart">
+                                    <div className="smysnk2-context-chart-head">
+                                      <p className="helper">Archetype match chart</p>
+                                      <p className="helper">
+                                        Hits for {selectedAssertiveTypeMatch?.type ?? "selected type"} stack
+                                      </p>
+                                    </div>
+                                    {assertiveArchetypeRows.filter((row) => row.hitsForType > 0).length ? (
+                                      assertiveArchetypeRows
+                                        .filter((row) => row.hitsForType > 0)
+                                        .map((row) => (
+                                          <div className="smysnk2-archetype-row" key={`assertive-${row.archetype}`}>
+                                            <div className="smysnk2-archetype-meta">
+                                              <span className="smysnk2-archetype-name">{row.label}</span>
+                                              <span className="smysnk2-archetype-details">
+                                                {row.expectedFunction} | {row.hitsForType}/{row.total} hits
+                                              </span>
+                                            </div>
+                                            <div
+                                              className="smysnk2-archetype-track"
+                                              role="img"
+                                              aria-label={`${row.label} confidence ${formatPercent(
+                                                row.confidenceForType
+                                              )}`}
+                                            >
+                                              <div
+                                                className="smysnk2-archetype-fill"
+                                                style={{ width: `${row.confidenceForType}%` }}
+                                              />
+                                            </div>
+                                          </div>
+                                        ))
+                                    ) : (
+                                      <p className="helper">No archetype hits recorded for this type yet.</p>
                                     )}
                                   </div>
-                                </div>
-                                <p className="helper">
-                                  Assertive scoring is consolidated into a single MBTI decision using all archetype
-                                  and shadow hits together.
-                                </p>
-                                <p className="helper">
-                                  Grant style: {assertiveTypeMatching?.grantStyles[0]?.style ?? "-"}{" "}
-                                  {formatPercent(assertiveTypeMatching?.grantStyles[0]?.confidence ?? 0)}
-                                </p>
-
-                                {assertiveTypeOptions.length ? (
-                                  <div className="smysnk2-type-chip-row" role="tablist" aria-label="Assertive type view">
-                                    {assertiveTypeOptions.map((match) => (
-                                      <button
-                                        type="button"
-                                        role="tab"
-                                        aria-selected={selectedAssertiveTypeMatch?.type === match.type}
-                                        key={`assertive-type-${match.type}`}
-                                        className={`button secondary smysnk2-type-chip ${
-                                          selectedAssertiveTypeMatch?.type === match.type ? "active" : ""
-                                        }`.trim()}
-                                        onClick={() => setSelectedAssertiveType(match.type)}
-                                      >
-                                        {match.type} {formatPercentInt(match.confidence)}
-                                      </button>
-                                    ))}
-                                  </div>
-                                ) : null}
-
-                                <div className="table-wrapper">
-                                  <table className="data-table">
-                                    <thead>
-                                      <tr>
-                                        <th>Archetype</th>
-                                        <th>Function</th>
-                                        <th>Confidence</th>
-                                        <th>Hits</th>
-                                        <th>Responses</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {assertiveArchetypeRows.map((row) => (
-                                        <tr key={`assertive-${row.archetype}`}>
-                                          <td>{row.label}</td>
-                                          <td>{row.expectedFunction}</td>
-                                          <td>{formatPercent(row.confidenceForType)}</td>
-                                          <td>{row.hitsForType}</td>
-                                          <td>{row.total}</td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
                                 </div>
                               </div>
                             </div>
@@ -566,7 +843,7 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                             <div style={{ display: "grid", gap: "12px" }}>
                               <div className="answer-row">
                                 <div className="answer-meta">
-                                  <div className="answer-question">Turbulent mode</div>
+                                  <div className="answer-question">Turbulent</div>
                                   <div className="badge">
                                     {formatTypeWithConfidence(
                                       turbulentTopType?.type ?? null,
@@ -586,12 +863,42 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                                   const eiei = getGrantStyleScore(context, "EIEI");
                                   const leadingStyleScore = Math.max(ieie, eiei);
                                   const trailingStyleScore = Math.min(ieie, eiei);
-                                  const bestType = context.typeMatching.best;
-                                  const alternatives = context.typeMatching.alternatives
-                                    .slice(0, 2)
-                                    .map((alt) => `${alt.type} ${formatPercent(alt.confidence)}`)
-                                    .join(" | ");
-                                  const archetypeRows = context.archetypeBreakdown.filter((row) => row.total > 0);
+                                  const contextTypeOptions = getTypeOptions(
+                                    context.typeMatching as TypeMatchingLike
+                                  );
+                                  const selectedContextType = selectedTurbulentTypes[context.context];
+                                  const selectedContextTypeMatch =
+                                    contextTypeOptions.find((match) => match.type === selectedContextType) ??
+                                    contextTypeOptions[0] ??
+                                    null;
+                                  const stack = selectedContextTypeMatch?.stack ?? [];
+                                  const shadow = stack.map((functionKey) => flipFunctionAttitude(functionKey));
+                                  const expectedFunctions = [...stack, ...shadow];
+                                  const indexByArchetype = new Map(
+                                    SMYSNK2_ARCHETYPE_ORDER.map((archetype, index) => [archetype, index])
+                                  );
+                                  const archetypeRows = context.archetypeBreakdown
+                                    .filter((row) => row.total > 0)
+                                    .map((row) => {
+                                      const archetypeIndex = indexByArchetype.get(row.archetype) ?? -1;
+                                      const expectedFunction =
+                                        (archetypeIndex >= 0 ? expectedFunctions[archetypeIndex] : null) ??
+                                        row.leadingFunction;
+                                      const confidence =
+                                        expectedFunction && expectedFunction in row.distribution
+                                          ? row.distribution[
+                                              expectedFunction as keyof typeof row.distribution
+                                            ]
+                                          : 0;
+                                      const hits = Math.round((confidence / 100) * row.total);
+                                      return {
+                                        ...row,
+                                        expectedFunction: expectedFunction ?? "-",
+                                        confidenceForType: confidence,
+                                        hitsForType: hits
+                                      };
+                                    })
+                                    .filter((row) => row.hitsForType > 0);
 
                                   return (
                                     <div className="answer-row smysnk2-context-card" key={context.context}>
@@ -602,57 +909,73 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                                             {context.polarity} | {context.totalResponses} responses
                                           </p>
                                         </div>
-                                        <div className="badge">{bestType?.type ?? "-"}</div>
                                       </div>
+                                      <p className="helper">
+                                        Selected type {formatTypeWithConfidence(
+                                          selectedContextTypeMatch?.type ?? context.typeMatching.best?.type ?? null,
+                                          selectedContextTypeMatch?.confidence ??
+                                            context.typeMatching.best?.confidence ??
+                                            0
+                                        )}{" "}
+                                        | Grant split IEIE {formatPercent(ieie)} / EIEI {formatPercent(eiei)} | Delta{" "}
+                                        {formatPercent(Math.abs(leadingStyleScore - trailingStyleScore))}
+                                      </p>
 
-                                      <div className="smysnk2-context-metrics">
-                                        <div className="smysnk2-context-metric">
-                                          <p className="helper">Best type</p>
-                                          <p className="smysnk2-metric-value">{bestType?.type ?? "-"}</p>
-                                          <p className="helper">{formatPercent(bestType?.confidence ?? 0)}</p>
+                                      {contextTypeOptions.length ? (
+                                        <div
+                                          className="smysnk2-type-chip-row"
+                                          role="tablist"
+                                          aria-label={`${context.label} type view`}
+                                        >
+                                          {contextTypeOptions.map((match) => (
+                                            <button
+                                              type="button"
+                                              role="tab"
+                                              aria-selected={selectedContextTypeMatch?.type === match.type}
+                                              key={`${context.context}-${match.type}`}
+                                              className={`button secondary smysnk2-type-chip ${
+                                                selectedContextTypeMatch?.type === match.type ? "active" : ""
+                                              }`.trim()}
+                                              onClick={() =>
+                                                setSelectedTurbulentTypes((current) => ({
+                                                  ...current,
+                                                  [context.context]: match.type
+                                                }))
+                                              }
+                                            >
+                                              {match.type} {formatPercentInt(match.confidence)}
+                                            </button>
+                                          ))}
                                         </div>
-                                        <div className="smysnk2-context-metric">
-                                          <p className="helper">Grant split</p>
-                                          <div className="smysnk2-grant-split">
-                                            <span>IEIE {formatPercent(ieie)}</span>
-                                            <span>EIEI {formatPercent(eiei)}</span>
-                                          </div>
-                                          <div className="smysnk2-grant-track" role="img" aria-label={`IEIE ${formatPercent(ieie)}, EIEI ${formatPercent(eiei)}`}>
-                                            <div className="smysnk2-grant-fill" style={{ width: `${ieie}%` }} />
-                                          </div>
-                                          <p className="helper">
-                                            Delta {formatPercent(Math.abs(leadingStyleScore - trailingStyleScore))}
-                                          </p>
-                                        </div>
-                                      </div>
+                                      ) : null}
 
                                       <div className="smysnk2-context-chart">
                                         <div className="smysnk2-context-chart-head">
                                           <p className="helper">Archetype match chart</p>
-                                          <p className="helper">Matched MBTI by function hit</p>
+                                          <p className="helper">
+                                            Hits for {selectedContextTypeMatch?.type ?? "selected type"} stack
+                                          </p>
                                         </div>
                                         {archetypeRows.length ? (
                                           archetypeRows.map((row) => {
-                                            const rowType = getMatchedTypeForFunction(
-                                              context,
-                                              row.leadingFunction
-                                            );
                                             return (
                                               <div className="smysnk2-archetype-row" key={`${context.context}-${row.archetype}`}>
                                                 <div className="smysnk2-archetype-meta">
                                                   <span className="smysnk2-archetype-name">{row.label}</span>
                                                   <span className="smysnk2-archetype-details">
-                                                    {row.leadingFunction ?? "-"} | {rowType} | {row.total} responses
+                                                    {row.expectedFunction} | {row.hitsForType}/{row.total} hits
                                                   </span>
                                                 </div>
                                                 <div
                                                   className="smysnk2-archetype-track"
                                                   role="img"
-                                                  aria-label={`${row.label} confidence ${formatPercent(row.confidence)}`}
+                                                  aria-label={`${row.label} confidence ${formatPercent(
+                                                    row.confidenceForType
+                                                  )}`}
                                                 >
                                                   <div
                                                     className="smysnk2-archetype-fill"
-                                                    style={{ width: `${row.confidence}%` }}
+                                                    style={{ width: `${row.confidenceForType}%` }}
                                                   />
                                                 </div>
                                               </div>
@@ -663,9 +986,6 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                                         )}
                                       </div>
 
-                                      <p className="helper">
-                                        Next best: {alternatives || "-"}
-                                      </p>
                                     </div>
                                   );
                                 })}
@@ -701,18 +1021,111 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                         </table>
                       </div>
 
-                      {data.analysis?.typeMatching.best ? (
-                        <div className="answer-row">
-                          <div className="answer-meta">
-                            <div className="answer-question">
-                              Overall best match: {data.analysis.typeMatching.best.type}
-                            </div>
-                            <div className="badge">{formatPercent(data.analysis.typeMatching.best.confidence)}</div>
+                      {hasModeScoring && data.analysis ? (
+                        <div style={{ display: "grid", gap: "12px" }}>
+                          <h3 style={{ marginBottom: 0 }}>Context Function Heat Map</h3>
+                          <p className="helper">
+                            Y-axis shows functions and X-axis shows contexts. Brighter yellow cells mean more
+                            archetype hits for that function/context pair.
+                          </p>
+                          <div className="answer-row smysnk2-context-card smysnk2-heatmap-card">
+                            {contextHeatmap && contextHeatmap.contexts.length ? (
+                              <div className="smysnk2-heatmap">
+                                <div className="smysnk2-heatmap-type-picker">
+                                  <select
+                                    id="smysnk2-heatmap-type"
+                                    className="select smysnk2-heatmap-select"
+                                    value={selectedHeatmapType ?? contextHeatmap.selectedType}
+                                    onChange={(event) => setSelectedHeatmapType(event.target.value)}
+                                  >
+                                    <option value={HEATMAP_BY_FUNCTION_OPTION}>By function</option>
+                                    {MBTI_TYPE_OPTIONS.map((type) => (
+                                      <option key={`heatmap-type-${type}`} value={type}>
+                                        {type}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div
+                                  className="smysnk2-heatmap-axis-row"
+                                  style={{
+                                    gridTemplateColumns: `${HEATMAP_LABEL_COLUMN_WIDTH}px repeat(${Math.max(
+                                      contextHeatmap.contexts.length,
+                                      1
+                                    )}, minmax(34px, 1fr))`
+                                  }}
+                                >
+                                  <span />
+                                  <span className="helper smysnk2-heatmap-xaxis">Contexts</span>
+                                </div>
+                                <div
+                                  className="smysnk2-heatmap-head"
+                                  style={{
+                                    gridTemplateColumns: `${HEATMAP_LABEL_COLUMN_WIDTH}px repeat(${Math.max(
+                                      contextHeatmap.contexts.length,
+                                      1
+                                    )}, minmax(34px, 1fr))`
+                                  }}
+                                >
+                                  <span className="smysnk2-heatmap-corner">Function</span>
+                                  {contextHeatmap.contexts.map((contextEntry) => (
+                                    <span
+                                      key={`heatmap-head-${contextEntry.key}`}
+                                      className="smysnk2-heatmap-context-label"
+                                      title={contextEntry.label}
+                                    >
+                                      {contextEntry.shortLabel}
+                                    </span>
+                                  ))}
+                                </div>
+                                {contextHeatmap.rows.map((row) => (
+                                  <div
+                                    className="smysnk2-heatmap-row"
+                                    key={`heatmap-${row.archetype}`}
+                                    style={{
+                                      gridTemplateColumns: `${HEATMAP_LABEL_COLUMN_WIDTH}px repeat(${Math.max(
+                                        contextHeatmap.contexts.length,
+                                        1
+                                      )}, minmax(34px, 1fr))`
+                                    }}
+                                  >
+                                    <span className="smysnk2-heatmap-function-label">
+                                      <span className="smysnk2-heatmap-function">{row.functionKey}</span>
+                                      {contextHeatmap.showArchetypeLabel ? (
+                                        <span className="smysnk2-heatmap-archetype">{row.archetypeLabel}</span>
+                                      ) : null}
+                                    </span>
+                                    {row.cells.map((cell) => {
+                                      const alpha = cell.intensity > 0 ? 0.14 + cell.intensity * 0.78 : 0.05;
+                                      const background = `rgba(240, 201, 106, ${alpha})`;
+                                      return (
+                                        <div
+                                          key={`heatmap-${row.archetype}-${row.functionKey}-${cell.contextKey}`}
+                                          className="smysnk2-heatmap-cell"
+                                          style={{ background }}
+                                          title={`${
+                                            contextHeatmap.showArchetypeLabel
+                                              ? `${row.archetypeLabel} | `
+                                              : ""
+                                          }${row.functionKey} | ${
+                                            contextHeatmap.contexts.find((entry) => entry.key === cell.contextKey)
+                                              ?.label ?? cell.contextKey
+                                          } | ${cell.hits} hits`}
+                                        >
+                                          {cell.hits > 0 ? cell.hits : ""}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="helper">No context hit data available.</p>
+                            )}
                           </div>
-                          <p className="helper">Grant style: {data.analysis.typeMatching.best.grantStyle}</p>
-                          <p className="helper">Stack: {formatStack(data.analysis.typeMatching.best.stack)}</p>
                         </div>
                       ) : null}
+
                     </div>
                   ) : data.state === "COMPLETED" ? (
                     <p className="helper" style={{ marginTop: "24px" }}>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { getTypeBadgeDetails } from "@/app/components/TypeBadges";
 
 const MBTI_TYPES = [
   "ISTJ",
@@ -35,12 +36,8 @@ type MbtiMapCanvasProps = {
 type Point = { x: number; y: number };
 
 const STACK_WEIGHTS = [0.46, 0.26, 0.18, 0.1];
-const STACK_AXIS_MAX = {
-  grant: 0.7,
-  myers: 0.5
-};
-
-const STACK_LAYER_SCALE = 1;
+const GRANT_STACK_AXIS_MAX = 0.7;
+const MYERS_STACK_AXIS_MAX = 0.5;
 
 const BORDER_STYLES: Record<LayerId, number[]> = {
   grant: [],
@@ -65,21 +62,30 @@ const parseMbtiType = (value?: string | null): MbtiType | null => {
   return match ?? null;
 };
 
-const getTypeColor = (type: MbtiType) => {
-  const letters = type.split("");
-  const isIntuitive = letters[1] === "N";
-  const isThinking = letters[2] === "T";
+const parseLooseTypeToken = (value?: string | null) => {
+  if (!value) {
+    return null;
+  }
+  const normalized = value.replace(/[^A-Za-z?]/g, "").toUpperCase();
+  const match = normalized.match(/[EI\?][NS\?][TF\?][JP\?]/);
+  return match?.[0] ?? null;
+};
 
-  if (isIntuitive && isThinking) {
-    return "#f2c94c";
+const resolveMapType = (value?: string | null, fallback?: string | null): MbtiType | null => {
+  const direct = parseMbtiType(value);
+  if (direct) {
+    return direct;
   }
-  if (isIntuitive && !isThinking) {
-    return "#f2994a";
+  const token = parseLooseTypeToken(value);
+  if (!token) {
+    return parseMbtiType(fallback) ?? null;
   }
-  if (!isIntuitive && isThinking) {
-    return "#56ccf2";
-  }
-  return "#6fcf97";
+  const fallbackType = parseMbtiType(fallback) ?? "ISTJ";
+  const filled = token
+    .split("")
+    .map((char, index) => (char === "?" ? fallbackType[index] ?? "I" : char))
+    .join("");
+  return parseMbtiType(filled) ?? parseMbtiType(fallback) ?? null;
 };
 
 const functionVector = (fn: string): Point => {
@@ -242,13 +248,15 @@ const buildBaseCenters = (layer: LayerId) => {
     if (layer === "grant") {
       centers[type] = scalePoint(
         stackCenter(grantStack(type)),
-        (1 / STACK_AXIS_MAX[layer]) * STACK_LAYER_SCALE
+        1 / GRANT_STACK_AXIS_MAX
       );
     } else if (layer === "myers") {
-      centers[type] = scalePoint(
-        stackCenter(myersStack(type)),
-        (1 / STACK_AXIS_MAX[layer]) * STACK_LAYER_SCALE
-      );
+      const base = scalePoint(stackCenter(myersStack(type)), 1 / MYERS_STACK_AXIS_MAX);
+      const isExtraverted = type[0] === "E";
+      centers[type] = {
+        x: base.x,
+        y: isExtraverted ? Math.abs(base.y) : -Math.abs(base.y)
+      };
     } else {
       centers[type] = axisCenter(type);
     }
@@ -421,23 +429,38 @@ export default function MbtiMapCanvas({
   const [rotateInterval, setRotateInterval] = useState(2500);
   const [hovered, setHovered] = useState<{ layer: LayerId; type: MbtiType } | null>(null);
 
+  const derivedTypeDetails = useMemo(
+    () => (functionScores ? getTypeBadgeDetails(functionScores) : null),
+    [functionScores]
+  );
+  const grantFallback = useMemo(
+    () => grantType ?? derivedTypeDetails?.grantType ?? null,
+    [grantType, derivedTypeDetails]
+  );
   const axisFallback = useMemo(() => {
     if (axisType) {
       return axisType;
+    }
+    if (derivedTypeDetails?.axisType) {
+      return derivedTypeDetails.axisType;
     }
     if (!functionScores) {
       return null;
     }
     return axisTypeFromFunctions(functionScores);
-  }, [axisType, functionScores]);
+  }, [axisType, functionScores, derivedTypeDetails]);
+  const myersFallback = useMemo(
+    () => myersType ?? derivedTypeDetails?.myersType ?? null,
+    [myersType, derivedTypeDetails]
+  );
 
   const highlights = useMemo(
     () => ({
-      grant: parseMbtiType(grantType),
-      axis: parseMbtiType(axisFallback),
-      myers: parseMbtiType(myersType)
+      grant: resolveMapType(grantFallback, axisFallback ?? myersFallback),
+      axis: resolveMapType(axisFallback, grantFallback ?? myersFallback),
+      myers: resolveMapType(myersFallback, axisFallback ?? grantFallback)
     }),
-    [grantType, axisFallback, myersType]
+    [grantFallback, axisFallback, myersFallback]
   );
 
   const layers = useMemo(() => {
@@ -505,7 +528,7 @@ export default function MbtiMapCanvas({
       const height = rect.height;
       const centerX = width / 2;
       const centerY = height / 2;
-      const axisLength = Math.min(width, height) * 0.36;
+      const axisLength = Math.min(width, height) * 0.46;
 
       context.clearRect(0, 0, width, height);
       context.fillStyle = "#0b0d12";
@@ -542,86 +565,24 @@ export default function MbtiMapCanvas({
       context.font = "600 16px ui-sans-serif, system-ui, -apple-system, sans-serif";
       context.fillStyle = "rgba(255, 255, 255, 0.8)";
       context.textAlign = "center";
-      context.fillText("Extraverted", centerX, centerY - axisLength - 20);
-      context.fillText("Introverted", centerX, centerY + axisLength + 28);
-      context.textAlign = "left";
-      context.fillText("Intuition", centerX + axisLength + 12, centerY + 6);
-      context.textAlign = "right";
-      context.fillText("Sensing", centerX - axisLength - 12, centerY + 6);
+      context.fillText("Extraverted", centerX, centerY - axisLength - 6);
+      context.fillText("Introverted", centerX, centerY + axisLength + 14);
+      context.save();
+      context.translate(centerX + axisLength + 2, centerY);
+      context.rotate(Math.PI / 2);
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText("Intuition", 0, 0);
+      context.restore();
+      context.save();
+      context.translate(centerX - axisLength - 2, centerY);
+      context.rotate(-Math.PI / 2);
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText("Sensing", 0, 0);
+      context.restore();
 
-      const imageData = context.createImageData(width, height);
-      const data = imageData.data;
       const activeLayers = layers.filter((layer) => layer.id === activeLayer);
-
-      for (let y = 0; y < height; y += 1) {
-        for (let x = 0; x < width; x += 1) {
-          const normX = (x - centerX) / axisLength;
-          const normY = (centerY - y) / axisLength;
-          if (Math.abs(normX) > 1 || Math.abs(normY) > 1) {
-            continue;
-          }
-
-          const candidates: { layer: LayerId; type: MbtiType }[] = [];
-          activeLayers.forEach((layer) => {
-            MBTI_TYPES.forEach((type) => {
-              const bounds = layer.polygonBounds[type];
-              if (!bounds) {
-                return;
-              }
-              if (
-                normX < bounds.minX ||
-                normX > bounds.maxX ||
-                normY < bounds.minY ||
-                normY > bounds.maxY
-              ) {
-                return;
-              }
-              if (pointInPolygon({ x: normX, y: normY }, layer.polygons[type])) {
-                candidates.push({ layer: layer.id, type });
-              }
-            });
-          });
-
-          if (!candidates.length) {
-            continue;
-          }
-
-          let chosen = candidates[0];
-          if (candidates.length > 1) {
-            let bestScore = -Infinity;
-            candidates.forEach((candidate) => {
-              const seed = candidate.layer === "grant" ? 13 : candidate.layer === "axis" ? 37 : 59;
-              const score = gaussianNoise(normX, normY, seed);
-              if (score > bestScore) {
-                bestScore = score;
-                chosen = candidate;
-              }
-            });
-          }
-
-          const color = getTypeColor(chosen.type);
-          const opacity =
-            highlights[chosen.layer] === chosen.type
-              ? 1
-              : hovered && hovered.layer === chosen.layer && hovered.type === chosen.type
-                ? 0.85
-                : 0.5;
-          const rgb = color
-            .replace("#", "")
-            .match(/.{2}/g)
-            ?.map((value) => parseInt(value, 16));
-          if (!rgb) {
-            continue;
-          }
-          const index = (y * width + x) * 4;
-          data[index] = rgb[0];
-          data[index + 1] = rgb[1];
-          data[index + 2] = rgb[2];
-          data[index + 3] = Math.round(opacity * 255);
-        }
-      }
-
-      context.putImageData(imageData, 0, 0);
 
       activeLayers.forEach((layer) => {
         MBTI_TYPES.forEach((type) => {
@@ -681,10 +642,6 @@ export default function MbtiMapCanvas({
         context.restore();
       };
 
-      if (highlights[activeLayer]) {
-        drawMarker(activeLayer, highlights[activeLayer]);
-      }
-
       context.textAlign = "center";
       context.textBaseline = "middle";
       context.font = "600 13px ui-sans-serif, system-ui, -apple-system, sans-serif";
@@ -700,6 +657,10 @@ export default function MbtiMapCanvas({
           context.fillText(type, x, y);
         });
       });
+
+      if (highlights[activeLayer]) {
+        drawMarker(activeLayer, highlights[activeLayer]);
+      }
     };
 
     draw();

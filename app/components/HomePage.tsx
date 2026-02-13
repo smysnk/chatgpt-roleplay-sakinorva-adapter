@@ -44,6 +44,7 @@ type RunDetail = {
   id: number;
   slug: string;
   character: string;
+  runMode: "ai" | "user" | "reddit";
   context: string | null;
   redditProfile: { summary: string; persona: string; traits: string[] } | null;
   answers: number[] | null;
@@ -72,6 +73,16 @@ const formatDate = (value: string) => {
     return value;
   }
   return parsed.toLocaleString();
+};
+
+const formatRunMode = (runMode: "ai" | "user" | "reddit") => {
+  if (runMode === "ai") {
+    return "AI roleplay";
+  }
+  if (runMode === "reddit") {
+    return "Reddit profile";
+  }
+  return "Self answer";
 };
 
 const normalizeRedditUsername = (value: string) => value.trim().replace(/^u\//i, "");
@@ -614,12 +625,12 @@ export default function HomePage({ initialSlug }: { initialSlug?: string | null 
           <div className="modal-card">
             <div className="modal-header">
               <div>
-                <h2>Run</h2>
+                <h2>{runDetail?.character?.trim() || "Unnamed run"}</h2>
                 {runDetail ? (
-                  <p className="helper">
-                    Generated for <strong>{runDetail.character}</strong>
-                    {runDetail.context ? ` — ${runDetail.context}` : ""}
-                  </p>
+                  <>
+                    {runDetail.context ? <p className="helper">{runDetail.context}</p> : null}
+                    <p className="helper">{`Sakinorva | ${formatRunMode(runDetail.runMode)}`}</p>
+                  </>
                 ) : null}
               </div>
               <button type="button" className="button secondary" onClick={handleModalClose}>

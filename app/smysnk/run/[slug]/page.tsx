@@ -27,6 +27,16 @@ const formatDate = (value: string) => {
   return parsed.toLocaleString();
 };
 
+const formatRunMode = (runMode: SmysnkRunPayload["runMode"]) => {
+  if (runMode === "ai") {
+    return "AI roleplay";
+  }
+  if (runMode === "reddit") {
+    return "Reddit profile";
+  }
+  return "Self answer";
+};
+
 
 export default function SmysnkRunPage({ params }: { params: { slug: string } }) {
   const [data, setData] = useState<SmysnkRunPayload | null>(null);
@@ -95,18 +105,15 @@ export default function SmysnkRunPage({ params }: { params: { slug: string } }) 
     <main>
       <div className="grid two">
         <div className="app-card">
-          <h2>SMYSNK results</h2>
+          <h2>{data?.subject?.trim() || "Unnamed run"}</h2>
           {loading ? (
             <p style={{ marginTop: "20px" }}>Loading results…</p>
           ) : error ? (
             <div className="error">{error}</div>
           ) : data ? (
             <div style={{ marginTop: "20px" }}>
-              <p className="helper">
-                {data.subject ? <strong>{data.subject}</strong> : "Unnamed run"}
-                {data.context ? ` — ${data.context}` : ""}
-              </p>
-              <p className="helper">Run mode: {data.runMode === "ai" ? "AI roleplay" : "Self answer"}</p>
+              {data.context ? <p className="helper">{data.context}</p> : null}
+              <p className="helper">{`SMYSNK | ${formatRunMode(data.runMode)}`}</p>
               <p className="helper">Created: {formatDate(data.createdAt)}</p>
               {data.state === "ERROR" ? (
                 <div className="error" style={{ marginTop: "20px" }}>

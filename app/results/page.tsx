@@ -121,11 +121,9 @@ function Page() {
     <main>
       <div className="grid two">
         <div className="app-card">
-          <h2>Results</h2>
-          <p className="helper">
-            Generated for <strong>{character}</strong>
-            {context ? ` — ${context}` : ""}
-          </p>
+          <h2>{character.trim() || "Unnamed run"}</h2>
+          {context ? <p className="helper">{context}</p> : null}
+          <p className="helper">Sakinorva | AI roleplay</p>
           {loading || polling ? (
             <p style={{ marginTop: "20px" }}>
               {data?.state === "ERROR" ? "Run failed to complete." : "Running the test…"}
