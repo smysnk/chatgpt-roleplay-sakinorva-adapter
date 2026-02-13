@@ -53,6 +53,9 @@ export type Smysnk2TypeMatch = {
   grantStyle: GrantStyle;
   confidence: number;
   stack: [FunctionKey, FunctionKey, FunctionKey, FunctionKey];
+  archetypeHitCount: number;
+  archetypeOpportunityCount: number;
+  slotHitVolume: number;
 };
 
 export type Smysnk2TypeMatchingSummary = {
@@ -223,8 +226,12 @@ const computeTypeMatches = ({
   bucketCounts: Record<Smysnk2Archetype, Record<FunctionKey, number>>;
   bucketTotals: Record<Smysnk2Archetype, number>;
 }): Smysnk2TypeMatchingSummary => {
-  const totalResponses = Object.values(bucketTotals).reduce((acc, value) => acc + value, 0);
-  if (!totalResponses) {
+  const activeArchetypes = SMYSNK2_ARCHETYPE_ORDER.filter((archetype) => bucketTotals[archetype] > 0);
+  const activeArchetypeCount = activeArchetypes.length;
+  const archetypeIndex = new Map(
+    SMYSNK2_ARCHETYPE_ORDER.map((archetype, index) => [archetype, index])
+  );
+  if (!activeArchetypeCount) {
     return {
       best: null,
       alternatives: [],
@@ -235,9 +242,7 @@ const computeTypeMatches = ({
     };
   }
 
-  const weights = SMYSNK2_ARCHETYPE_ORDER.map((_, index) => (index < 4 ? 1.25 : 1));
-
-  const matches: Smysnk2TypeMatch[] = Object.entries(TYPE_STACKS)
+  const ranked = Object.entries(TYPE_STACKS)
     .map(([type, stack]) => {
       const shadow: [FunctionKey, FunctionKey, FunctionKey, FunctionKey] = [
         flipAttitude(stack[0]),
@@ -247,36 +252,53 @@ const computeTypeMatches = ({
       ];
       const expected: FunctionKey[] = [...stack, ...shadow];
 
-      let score = 0;
-      let maxScore = 0;
+      let archetypeHitCount = 0;
+      let slotHitVolume = 0;
 
-      SMYSNK2_ARCHETYPE_ORDER.forEach((archetype, index) => {
-        const total = bucketTotals[archetype];
-        const weight = weights[index] ?? 1;
-        maxScore += weight;
-        if (!total) {
+      activeArchetypes.forEach((archetype) => {
+        const index = archetypeIndex.get(archetype) ?? -1;
+        if (index < 0) {
           return;
         }
         const expectedFunction = expected[index];
-        const hits = bucketCounts[archetype][expectedFunction] ?? 0;
-        score += (hits / total) * weight;
+        const slotHits = bucketCounts[archetype][expectedFunction] ?? 0;
+        if (slotHits > 0) {
+          archetypeHitCount += 1;
+          slotHitVolume += slotHits;
+        }
       });
 
-      return {
+      const match: Smysnk2TypeMatch = {
         type,
         grantStyle: getGrantStyle(stack),
-        confidence: maxScore ? round2((score / maxScore) * 100) : 0,
-        stack
+        confidence: round2((archetypeHitCount / activeArchetypeCount) * 100),
+        stack,
+        archetypeHitCount,
+        archetypeOpportunityCount: activeArchetypeCount,
+        slotHitVolume
+      };
+
+      return {
+        match,
+        archetypeHitCount,
+        slotHitVolume
       };
     })
-    .sort((a, b) => b.confidence - a.confidence);
+    .sort(
+      (a, b) =>
+        b.archetypeHitCount - a.archetypeHitCount ||
+        b.slotHitVolume - a.slotHitVolume ||
+        a.match.type.localeCompare(b.match.type)
+    );
+
+  const matches = ranked.map((entry) => entry.match);
 
   const best = matches[0] ?? null;
   const alternatives = matches.slice(1, 4);
 
-  const styleTotals = matches.reduce(
-    (acc, match) => {
-      acc[match.grantStyle] += match.confidence;
+  const styleTotals = ranked.reduce(
+    (acc, entry) => {
+      acc[entry.match.grantStyle] = Math.max(acc[entry.match.grantStyle], entry.archetypeHitCount);
       return acc;
     },
     { IEIE: 0, EIEI: 0 }

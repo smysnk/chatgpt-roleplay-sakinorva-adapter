@@ -117,25 +117,40 @@ const getMatchedTypeForFunction = (
 };
 
 const getTurbulentTopType = (analysis: Smysnk2Analysis) => {
-  const tally = new Map<string, { sum: number; count: number }>();
+  const tally = new Map<string, { contextWins: number; archetypeHits: number; confidenceSum: number }>();
   analysis.turbulentMode.contexts.forEach((context) => {
     const best = context.typeMatching.best;
     if (!best) {
       return;
     }
-    const current = tally.get(best.type) ?? { sum: 0, count: 0 };
-    current.sum += best.confidence;
-    current.count += 1;
+    const activeArchetypes = context.archetypeBreakdown.reduce(
+      (count, row) => count + (row.total > 0 ? 1 : 0),
+      0
+    );
+    const inferredHits = Math.round((best.confidence / 100) * Math.max(activeArchetypes, 1));
+    const hitCount = best.archetypeHitCount ?? inferredHits;
+
+    const current = tally.get(best.type) ?? { contextWins: 0, archetypeHits: 0, confidenceSum: 0 };
+    current.contextWins += 1;
+    current.archetypeHits += hitCount;
+    current.confidenceSum += best.confidence;
     tally.set(best.type, current);
   });
 
   const ranked = [...tally.entries()]
     .map(([type, value]) => ({
       type,
-      confidence: value.count ? value.sum / value.count : 0,
-      count: value.count
+      confidence: value.contextWins ? value.confidenceSum / value.contextWins : 0,
+      count: value.contextWins,
+      hits: value.archetypeHits
     }))
-    .sort((left, right) => right.confidence - left.confidence || right.count - left.count || left.type.localeCompare(right.type));
+    .sort(
+      (left, right) =>
+        right.count - left.count ||
+        right.hits - left.hits ||
+        right.confidence - left.confidence ||
+        left.type.localeCompare(right.type)
+    );
 
   return ranked[0] ?? null;
 };
