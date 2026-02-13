@@ -34,6 +34,9 @@ export default function AppMenuBar() {
     if (pathname?.startsWith("/sakinorva-adapter")) {
       return "sakinorva";
     }
+    if (pathname?.startsWith("/smysnk3")) {
+      return "smysnk3";
+    }
     if (pathname?.startsWith("/smysnk2")) {
       return "smysnk2";
     }
@@ -88,7 +91,7 @@ export default function AppMenuBar() {
         body: JSON.stringify({
           character: trimmed,
           context: context.trim(),
-          ...(indicator === "smysnk2" ? { mode: smysnk2Mode } : {})
+          ...(indicator === "smysnk2" || indicator === "smysnk3" ? { mode: smysnk2Mode } : {})
         })
       });
       if (!response.ok) {
@@ -116,7 +119,7 @@ export default function AppMenuBar() {
     if (manualNotes.trim()) {
       params.set("notes", manualNotes.trim());
     }
-    if (indicator === "smysnk2") {
+    if (indicator === "smysnk2" || indicator === "smysnk3") {
       params.set("mode", smysnk2Mode.toString());
     }
     const basePath = INDICATOR_QUESTIONS_PATH[indicator];
@@ -142,7 +145,7 @@ export default function AppMenuBar() {
         },
         body: JSON.stringify({
           username: normalized,
-          ...(indicator === "smysnk2" ? { mode: smysnk2Mode } : {})
+          ...(indicator === "smysnk2" || indicator === "smysnk3" ? { mode: smysnk2Mode } : {})
         })
       });
       if (!response.ok) {
@@ -301,6 +304,33 @@ export default function AppMenuBar() {
                 </span>
                 SMYSNK2
               </Link>
+              <Link className="menu-item" href="/smysnk3" role="menuitem">
+                <span className="menu-item-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                    <path
+                      d="M6 6.5h12v4H6zM6 13.5h12v4H6z"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M9 8.5h2m4 0h-2m-4 7h2m4 0h-2"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M18.5 5.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm0 8a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    />
+                  </svg>
+                </span>
+                SMYSNK3
+              </Link>
             </div>
           ) : null}
         </div>
@@ -361,8 +391,9 @@ export default function AppMenuBar() {
                 <option value="sakinorva">Sakinorva</option>
                 <option value="smysnk">SMYSNK</option>
                 <option value="smysnk2">SMYSNK2</option>
+                <option value="smysnk3">SMYSNK3</option>
               </select>
-              {indicator === "smysnk2" ? (
+              {indicator === "smysnk2" || indicator === "smysnk3" ? (
                 <>
                   <label className="label" htmlFor="wizard-smysnk2-mode">
                     Question mode

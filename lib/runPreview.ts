@@ -4,7 +4,7 @@ import { initializeDatabase } from "@/lib/db";
 import { initializeRunModel, Run } from "@/lib/models/Run";
 import { getSiteUrl } from "@/lib/siteUrl";
 
-export type RunIndicator = "sakinorva" | "smysnk" | "smysnk2";
+export type RunIndicator = "sakinorva" | "smysnk" | "smysnk2" | "smysnk3";
 
 export type RunPreview = {
   slug: string;
@@ -20,7 +20,8 @@ export type RunPreview = {
 const INDICATOR_LABEL: Record<RunIndicator, string> = {
   sakinorva: "Sakinorva",
   smysnk: "SMYSNK",
-  smysnk2: "SMYSNK2"
+  smysnk2: "SMYSNK2",
+  smysnk3: "SMYSNK3"
 };
 
 const toDateString = (value: string) => {

@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "smysnk3:check": "node scripts/check-smysnk3-content.mjs",
+    "smysnk3:export": "node scripts/export-smysnk3-questions.mjs",
+    "smysnk3:refresh": "npm run smysnk3:check && npm run smysnk3:export"
   },
   "dependencies": {
     "cheerio": "1.0.0-rc.12",

@@ -7,14 +7,14 @@ const siteUrl = getSiteUrl();
 export const metadata: Metadata = {
   title: "Cognitive Function Test Adapter",
   description:
-    "Run and compare Sakinorva, SMYSNK, and SMYSNK2 cognitive-function assessments, save results, and share run links with MBTI-style stack visualizations.",
+    "Run and compare Sakinorva, SMYSNK, SMYSNK2, and SMYSNK3 cognitive-function assessments, save results, and share run links with MBTI-style stack visualizations.",
   alternates: {
     canonical: `${siteUrl}/`
   },
   openGraph: {
     title: "Cognitive Function Test Adapter",
     description:
-      "Run and compare Sakinorva, SMYSNK, and SMYSNK2 assessments, then save and share interpretable cognitive-function results.",
+      "Run and compare Sakinorva, SMYSNK, SMYSNK2, and SMYSNK3 assessments, then save and share interpretable cognitive-function results.",
     type: "website",
     url: `${siteUrl}/`
   },
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     card: "summary",
     title: "Cognitive Function Test Adapter",
     description:
-      "Run and compare Sakinorva, SMYSNK, and SMYSNK2 assessments with shareable cognitive-function result pages."
+      "Run and compare Sakinorva, SMYSNK, SMYSNK2, and SMYSNK3 assessments with shareable cognitive-function result pages."
   }
 };
 

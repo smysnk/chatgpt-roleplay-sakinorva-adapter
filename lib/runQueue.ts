@@ -12,6 +12,14 @@ import {
   type Smysnk2OptionKey
 } from "@/lib/smysnk2Questions";
 import { normalizeSmysnk2OptionKey, scoreSmysnk2Responses } from "@/lib/smysnk2Score";
+import {
+  DEFAULT_SMYSNK3_MODE,
+  getSmysnk3OptionDisplayOrder,
+  getSmysnk3Scenarios,
+  parseSmysnk3Mode,
+  type Smysnk3OptionKey
+} from "@/lib/smysnk3Questions";
+import { normalizeSmysnk3OptionKey, scoreSmysnk3Responses } from "@/lib/smysnk3Score";
 import { initializeRunModel, Run } from "@/lib/models/Run";
 import { initializeDatabase } from "@/lib/db";
 import { extractResultMetadata } from "@/lib/runMetadata";
@@ -78,6 +86,7 @@ const buildSmysnkQuestionBlock = () =>
   SMYSNK_QUESTIONS.map((question) => `${question.id}: ${question.question}`).join("\n");
 
 const SMYSNK2_DISPLAY_OPTION_KEYS: Smysnk2OptionKey[] = ["A", "B", "C", "D", "E", "F", "G", "H"];
+const SMYSNK3_DISPLAY_OPTION_KEYS: Smysnk3OptionKey[] = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
 type Smysnk2PromptScenario = {
   id: string;
@@ -122,6 +131,51 @@ const getSmysnk2PromptOption = (
   promptScenarioMap: Map<string, Smysnk2PromptScenario>,
   scenarioId: string,
   displayKey: Smysnk2OptionKey
+) => promptScenarioMap.get(scenarioId)?.options.find((option) => option.displayKey === displayKey);
+
+type Smysnk3PromptScenario = {
+  id: string;
+  scenario: string;
+  options: Array<{
+    displayKey: Smysnk3OptionKey;
+    originalKey: Smysnk3OptionKey;
+    text: string;
+  }>;
+};
+
+const buildSmysnk3PromptScenarios = (
+  scenarios: ReturnType<typeof getSmysnk3Scenarios>
+): Smysnk3PromptScenario[] =>
+  scenarios.map((question) => {
+    const displayOrder = getSmysnk3OptionDisplayOrder(question.id, question.options.length);
+    return {
+      id: question.id,
+      scenario: question.scenario,
+      options: displayOrder.map((optionIndex, displayIndex) => {
+        const option = question.options[optionIndex];
+        return {
+          displayKey: SMYSNK3_DISPLAY_OPTION_KEYS[displayIndex] ?? option.key,
+          originalKey: option.key,
+          text: option.text
+        };
+      })
+    };
+  });
+
+const buildSmysnk3QuestionBlock = (promptScenarios: Smysnk3PromptScenario[]) =>
+  promptScenarios
+    .map((question) => {
+      const optionLines = question.options
+        .map((option) => `  ${option.displayKey}) ${option.text}`)
+        .join("\n");
+      return `${question.id} ${question.scenario}\n${optionLines}`;
+    })
+    .join("\n\n");
+
+const getSmysnk3PromptOption = (
+  promptScenarioMap: Map<string, Smysnk3PromptScenario>,
+  scenarioId: string,
+  displayKey: Smysnk3OptionKey
 ) => promptScenarioMap.get(scenarioId)?.options.find((option) => option.displayKey === displayKey);
 
 const truncateText = (value: string, maxLength: number) => {
@@ -731,6 +785,180 @@ const processSmysnk2Run = async (run: Run) => {
   });
 };
 
+const processRedditSmysnk3Run = async (run: Run) => {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("Missing OPENAI_API_KEY environment variable.");
+  }
+  const username = normalizeRedditUsername(run.subject);
+  const profile = await buildRedditProfile(username);
+  const summary = truncateText(profile.summary, 480);
+  const nextContext = run.context ?? summary;
+  await run.update({ context: nextContext, redditProfile: profile });
+
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+  });
+
+  const questionMode = parseSmysnk3Mode(run.questionMode ?? run.questionCount ?? DEFAULT_SMYSNK3_MODE);
+  const scenarios = getSmysnk3Scenarios(
+    questionMode,
+    run.questionIds,
+    run.questionIds?.length ? run.slug : null
+  );
+  const promptScenarios = buildSmysnk3PromptScenarios(scenarios);
+  const promptScenarioMap = new Map(promptScenarios.map((scenario) => [scenario.id, scenario]));
+  const validIds = new Set(promptScenarios.map((scenario) => scenario.id));
+
+  const systemMessage =
+    "You are roleplaying as the specified Reddit user. Pick exactly one option (A-H) per scenario and include a brief rationale. Do not answer with numeric scales. Output must match the JSON schema exactly.";
+  const userMessage = `Reddit user: u/${username}\nProfile summary: ${summary}\nPersona: ${profile.persona}\nTraits: ${profile.traits.join(
+    ", "
+  )}\n\nAnswer all SMYSNK3 scenarios. Each answer must be one option key from A-H plus a one-sentence rationale. Return JSON only.\n\nQuestions:\n${buildSmysnk3QuestionBlock(
+    promptScenarios
+  )}\n\nJSON schema:\n{\n \"responses\": [\n  { \"id\": \"scenario id\", \"answer\": \"A|B|C|D|E|F|G|H\", \"rationale\": string }\n  // exactly ${scenarios.length} objects\n ]\n}\n`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5-mini",
+    messages: [
+      { role: "system", content: systemMessage },
+      { role: "user", content: userMessage }
+    ],
+    response_format: { type: "json_object" },
+    temperature: 1
+  });
+
+  const content = completion.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error("OpenAI response was empty.");
+  }
+
+  const parsed = buildSmysnk2Schema(scenarios.length).safeParse(JSON.parse(content));
+  if (!parsed.success) {
+    throw new Error("OpenAI response failed validation.");
+  }
+
+  const seen = new Set<string>();
+  const responses = parsed.data.responses.map((response) => {
+    if (!validIds.has(response.id)) {
+      throw new Error("OpenAI returned an unknown scenario id.");
+    }
+    if (seen.has(response.id)) {
+      throw new Error("OpenAI returned duplicate scenario ids.");
+    }
+    seen.add(response.id);
+    const displayAnswerKey = normalizeSmysnk3OptionKey(response.answer);
+    if (!displayAnswerKey) {
+      throw new Error("OpenAI returned an invalid SMYSNK3 option key.");
+    }
+    const selectedOption = getSmysnk3PromptOption(promptScenarioMap, response.id, displayAnswerKey);
+    if (!selectedOption) {
+      throw new Error("OpenAI returned an option key that is not available for this scenario.");
+    }
+    return {
+      questionId: response.id,
+      answer: selectedOption.originalKey,
+      rationale: response.rationale
+    };
+  });
+
+  const scoring = scoreSmysnk3Responses(
+    responses.map((response) => ({ questionId: response.questionId, answerKey: response.answer }))
+  );
+
+  await run.update({
+    responses,
+    functionScores: scoring.functionScores,
+    analysis: scoring.analysis,
+    questionMode: questionMode.toString(),
+    questionCount: scenarios.length,
+    questionIds: scenarios.map((scenario) => scenario.id),
+    state: "COMPLETED"
+  });
+};
+
+const processSmysnk3Run = async (run: Run) => {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("Missing OPENAI_API_KEY environment variable.");
+  }
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+  });
+
+  const questionMode = parseSmysnk3Mode(run.questionMode ?? run.questionCount ?? DEFAULT_SMYSNK3_MODE);
+  const scenarios = getSmysnk3Scenarios(
+    questionMode,
+    run.questionIds,
+    run.questionIds?.length ? run.slug : null
+  );
+  const promptScenarios = buildSmysnk3PromptScenarios(scenarios);
+  const promptScenarioMap = new Map(promptScenarios.map((scenario) => [scenario.id, scenario]));
+  const validIds = new Set(promptScenarios.map((scenario) => scenario.id));
+
+  const systemMessage =
+    "You are roleplaying as the specified character. Pick exactly one option (A-H) per scenario and include a brief rationale. Do not use numeric scales. Output must match the JSON schema exactly.";
+  const userMessage = `Character: ${run.subject}\nContext: ${run.context || "(none)"}\n\nAnswer all SMYSNK3 scenarios. Each answer must be one option key from A-H plus a one-sentence rationale. Return JSON only.\n\nQuestions:\n${buildSmysnk3QuestionBlock(
+    promptScenarios
+  )}\n\nJSON schema:\n{\n \"responses\": [\n  { \"id\": \"scenario id\", \"answer\": \"A|B|C|D|E|F|G|H\", \"rationale\": string }\n  // exactly ${scenarios.length} objects\n ]\n}\n`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5-mini",
+    messages: [
+      { role: "system", content: systemMessage },
+      { role: "user", content: userMessage }
+    ],
+    response_format: { type: "json_object" },
+    temperature: 1
+  });
+
+  const content = completion.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error("OpenAI response was empty.");
+  }
+
+  const parsed = buildSmysnk2Schema(scenarios.length).safeParse(JSON.parse(content));
+  if (!parsed.success) {
+    throw new Error("OpenAI response failed validation.");
+  }
+
+  const seen = new Set<string>();
+  const responses = parsed.data.responses.map((response) => {
+    if (!validIds.has(response.id)) {
+      throw new Error("OpenAI returned an unknown scenario id.");
+    }
+    if (seen.has(response.id)) {
+      throw new Error("OpenAI returned duplicate scenario ids.");
+    }
+    seen.add(response.id);
+    const displayAnswerKey = normalizeSmysnk3OptionKey(response.answer);
+    if (!displayAnswerKey) {
+      throw new Error("OpenAI returned an invalid SMYSNK3 option key.");
+    }
+    const selectedOption = getSmysnk3PromptOption(promptScenarioMap, response.id, displayAnswerKey);
+    if (!selectedOption) {
+      throw new Error("OpenAI returned an option key that is not available for this scenario.");
+    }
+    return {
+      questionId: response.id,
+      answer: selectedOption.originalKey,
+      rationale: response.rationale
+    };
+  });
+
+  const scoring = scoreSmysnk3Responses(
+    responses.map((response) => ({ questionId: response.questionId, answerKey: response.answer }))
+  );
+
+  await run.update({
+    responses,
+    functionScores: scoring.functionScores,
+    analysis: scoring.analysis,
+    questionMode: questionMode.toString(),
+    questionCount: scenarios.length,
+    questionIds: scenarios.map((scenario) => scenario.id),
+    state: "COMPLETED"
+  });
+};
+
 const processQueuedRun = async () => {
   if (queueRunning) {
     return;
@@ -777,6 +1005,12 @@ const processQueuedRun = async () => {
           await processRedditSmysnk2Run(run);
         } else {
           await processSmysnk2Run(run);
+        }
+      } else if (run.indicator === "smysnk3") {
+        if (run.runMode === "reddit") {
+          await processRedditSmysnk3Run(run);
+        } else {
+          await processSmysnk3Run(run);
         }
       } else if (run.runMode === "reddit") {
         await processRedditSmysnkRun(run);

@@ -25,7 +25,7 @@ type IndicatorRun = {
 type IndicatorIndexProps = {
   title: string;
   description: string;
-  mode: "combined" | "sakinorva" | "smysnk" | "smysnk2";
+  mode: "combined" | "sakinorva" | "smysnk" | "smysnk2" | "smysnk3";
 };
 
 const getIndicatorEndpoints = (mode: IndicatorIndexProps["mode"]) =>
@@ -33,13 +33,16 @@ const getIndicatorEndpoints = (mode: IndicatorIndexProps["mode"]) =>
     ? [
         { url: "/api/run", label: "Sakinorva", runBase: "/sakinorva-adapter/run/" },
         { url: "/api/smysnk", label: "SMYSNK", runBase: "/smysnk/run/" },
-        { url: "/api/smysnk2", label: "SMYSNK2", runBase: "/smysnk2/run/" }
+        { url: "/api/smysnk2", label: "SMYSNK2", runBase: "/smysnk2/run/" },
+        { url: "/api/smysnk3", label: "SMYSNK3", runBase: "/smysnk3/run/" }
       ]
     : mode === "sakinorva"
       ? [{ url: "/api/run", label: "Sakinorva", runBase: "/sakinorva-adapter/run/" }]
       : mode === "smysnk"
         ? [{ url: "/api/smysnk", label: "SMYSNK", runBase: "/smysnk/run/" }]
-        : [{ url: "/api/smysnk2", label: "SMYSNK2", runBase: "/smysnk2/run/" }];
+        : mode === "smysnk2"
+          ? [{ url: "/api/smysnk2", label: "SMYSNK2", runBase: "/smysnk2/run/" }]
+          : [{ url: "/api/smysnk3", label: "SMYSNK3", runBase: "/smysnk3/run/" }];
 
 export default function IndicatorIndex({ title, description, mode }: IndicatorIndexProps) {
   const router = useRouter();
@@ -137,6 +140,9 @@ export default function IndicatorIndex({ title, description, mode }: IndicatorIn
   }, [items]);
 
   const getIndexPathForLabel = (label: string) => {
+    if (label === "SMYSNK3") {
+      return "/smysnk3";
+    }
     if (label === "SMYSNK2") {
       return "/smysnk2";
     }

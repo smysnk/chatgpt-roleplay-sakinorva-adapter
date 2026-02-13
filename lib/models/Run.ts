@@ -4,7 +4,7 @@ import { getSequelize } from "@/lib/db";
 export class Run extends Model<InferAttributes<Run>, InferCreationAttributes<Run>> {
   declare id: CreationOptional<number>;
   declare slug: string;
-  declare indicator: "sakinorva" | "smysnk" | "smysnk2";
+  declare indicator: "sakinorva" | "smysnk" | "smysnk2" | "smysnk3";
   declare runMode: "ai" | "user" | "reddit";
   declare state: "QUEUED" | "PROCESSING" | "COMPLETED" | "ERROR";
   declare errors: CreationOptional<number>;

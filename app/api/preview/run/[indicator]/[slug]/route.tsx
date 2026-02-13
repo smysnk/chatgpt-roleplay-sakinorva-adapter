@@ -7,11 +7,12 @@ export const runtime = "nodejs";
 const INDICATOR_LABEL: Record<RunIndicator, string> = {
   sakinorva: "Sakinorva",
   smysnk: "SMYSNK",
-  smysnk2: "SMYSNK2"
+  smysnk2: "SMYSNK2",
+  smysnk3: "SMYSNK3"
 };
 
 const isIndicator = (value: string): value is RunIndicator =>
-  value === "sakinorva" || value === "smysnk" || value === "smysnk2";
+  value === "sakinorva" || value === "smysnk" || value === "smysnk2" || value === "smysnk3";
 
 const titleForState = (state: string) => {
   if (state === "COMPLETED") {
