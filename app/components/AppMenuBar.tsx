@@ -318,6 +318,23 @@ export default function AppMenuBar() {
           </span>
           Run
         </button>
+        <a
+          className="menu-github"
+          href="https://github.com/smysnk/chatgpt-roleplay-sakinorva-adapter"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Fork on GitHub"
+        >
+          <span className="menu-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+              <path
+                d="M12 2.2A9.8 9.8 0 0 0 2.2 12c0 4.3 2.8 7.9 6.7 9.2.5.1.7-.2.7-.5v-1.8c-2.7.6-3.3-1.2-3.3-1.2-.4-1.1-1-1.4-1-1.4-.8-.5.1-.5.1-.5.9.1 1.4.9 1.4.9.8 1.4 2.2 1 2.7.8.1-.6.3-1 .5-1.3-2.2-.3-4.6-1.1-4.6-5A3.9 3.9 0 0 1 6.4 8c-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1a9.2 9.2 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7a3.9 3.9 0 0 1 1 2.7c0 3.9-2.3 4.7-4.6 5 .4.3.6.9.6 1.9v2.8c0 .3.2.6.7.5A9.8 9.8 0 0 0 21.8 12 9.8 9.8 0 0 0 12 2.2Z"
+                fill="currentColor"
+              />
+            </svg>
+          </span>
+          Fork
+        </a>
       </div>
       {wizardOpen ? (
         <div className="wizard-backdrop" role="dialog" aria-modal="true">

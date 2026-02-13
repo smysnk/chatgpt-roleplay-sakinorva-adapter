@@ -110,7 +110,8 @@ body {
 }
 
 .menu-home,
-.menu-run {
+.menu-run,
+.menu-github {
   background: #efefef;
   border: 1px solid #b5b5b5;
   color: #1b1b1b;
@@ -126,6 +127,15 @@ body {
 .menu-home:focus-visible {
   outline: 2px solid #6aa7ff;
   outline-offset: 2px;
+}
+
+.menu-github:focus-visible {
+  outline: 2px solid #6aa7ff;
+  outline-offset: 2px;
+}
+
+.menu-github {
+  margin-left: auto;
 }
 
 .menu-icon {
