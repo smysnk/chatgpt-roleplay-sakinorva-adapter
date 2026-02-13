@@ -15,7 +15,7 @@ import { DEFAULT_SMYSNK2_MODE, SMYSNK2_MODE_LABELS, SMYSNK2_MODES, parseSmysnk2M
 export default function AppMenuBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [indicator, setIndicator] = useState<Indicator>("sakinorva");
+  const [indicator, setIndicator] = useState<Indicator>("smysnk2");
   const [smysnk2Mode, setSmysnk2Mode] = useState(DEFAULT_SMYSNK2_MODE);
   const [character, setCharacter] = useState("");
   const [context, setContext] = useState("");
