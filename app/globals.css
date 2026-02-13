@@ -1107,29 +1107,6 @@ button.scenario-option:focus-visible {
   font-size: 0.85rem;
 }
 
-.mbti-map-toggle-style {
-  display: inline-flex;
-  align-items: center;
-}
-
-.mbti-map-line {
-  width: 36px;
-  border-top: 2px solid rgba(255, 255, 255, 0.7);
-}
-
-.mbti-map-line.axis {
-  border-top-style: dashed;
-}
-
-.mbti-map-line.myers {
-  border-top-style: dotted;
-}
-
-.mbti-map-line.rotate {
-  border-top-style: solid;
-  border-top-color: rgba(255, 255, 255, 0.4);
-}
-
 .mbti-map-speed {
   display: inline-flex;
   align-items: center;

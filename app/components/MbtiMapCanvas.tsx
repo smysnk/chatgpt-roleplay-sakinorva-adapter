@@ -39,12 +39,6 @@ const STACK_WEIGHTS = [0.46, 0.26, 0.18, 0.1];
 const GRANT_STACK_AXIS_MAX = 0.7;
 const MYERS_STACK_AXIS_MAX = 0.5;
 
-const BORDER_STYLES: Record<LayerId, number[]> = {
-  grant: [],
-  axis: [6, 6],
-  myers: [2, 4]
-};
-
 const AXIS_LAYER_SCALE = 0.5;
 
 const LAYER_LABELS: Record<LayerId, string> = {
@@ -425,7 +419,7 @@ export default function MbtiMapCanvas({
 }: MbtiMapCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [activeLayer, setActiveLayer] = useState<LayerId>("grant");
-  const [autoRotate, setAutoRotate] = useState(false);
+  const [autoRotate, setAutoRotate] = useState(true);
   const [rotateInterval, setRotateInterval] = useState(2500);
   const [hovered, setHovered] = useState<{ layer: LayerId; type: MbtiType } | null>(null);
 
@@ -605,12 +599,11 @@ export default function MbtiMapCanvas({
           const isHighlight = highlights[layer.id] === type;
           const isHover = hovered?.layer === layer.id && hovered.type === type;
           context.lineWidth = isHover ? 3 : isHighlight ? 2.5 : 1;
-          context.setLineDash(BORDER_STYLES[layer.id]);
+          context.setLineDash([]);
           context.strokeStyle = isHighlight
             ? "rgba(255, 255, 255, 0.9)"
             : "rgba(255, 255, 255, 0.35)";
           context.stroke();
-          context.setLineDash([]);
         });
       });
 
@@ -781,9 +774,6 @@ export default function MbtiMapCanvas({
             aria-pressed={activeLayer === layerId}
           >
             <span className="mbti-map-toggle-label">{LAYER_LABELS[layerId]}</span>
-            <span className="mbti-map-toggle-style" aria-hidden="true">
-              <span className={`mbti-map-line ${layerId}`} />
-            </span>
           </button>
         ))}
         <button
@@ -795,9 +785,6 @@ export default function MbtiMapCanvas({
         >
           <span className="mbti-map-toggle-label" aria-hidden="true">
             {autoRotate ? "⏸" : "▶"}
-          </span>
-          <span className="mbti-map-toggle-style" aria-hidden="true">
-            <span className="mbti-map-line rotate" />
           </span>
         </button>
         <label className="mbti-map-speed">
