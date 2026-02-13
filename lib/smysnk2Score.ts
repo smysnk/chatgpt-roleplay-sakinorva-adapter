@@ -1,11 +1,16 @@
 import {
   getSmysnk2ScenarioById,
+  SMYSNK2_ARCHETYPE_LABELS,
+  SMYSNK2_ARCHETYPE_ORDER,
+  type Smysnk2Archetype,
   type Smysnk2OptionKey
 } from "@/lib/smysnk2Questions";
 
 const FUNCTION_KEYS = ["Ni", "Ne", "Si", "Se", "Ti", "Te", "Fi", "Fe"] as const;
 
 type FunctionKey = (typeof FUNCTION_KEYS)[number];
+
+type GrantStyle = "IEIE" | "EIEI";
 
 export type Smysnk2Response = {
   questionId: string;
@@ -21,7 +26,61 @@ export type Smysnk2StackSummary = {
   shadow: [FunctionKey, FunctionKey, FunctionKey, FunctionKey];
 };
 
+export type Smysnk2ArchetypeBreakdown = {
+  archetype: Smysnk2Archetype;
+  label: string;
+  total: number;
+  leadingFunction: FunctionKey | null;
+  leadingCount: number;
+  confidence: number;
+  distribution: Record<FunctionKey, number>;
+};
+
+export type Smysnk2FunctionConfidence = {
+  functionKey: FunctionKey;
+  count: number;
+  percentage: number;
+  archetypeWins: number;
+  confidence: number;
+};
+
+export type Smysnk2TypeMatch = {
+  type: string;
+  grantStyle: GrantStyle;
+  confidence: number;
+  stack: [FunctionKey, FunctionKey, FunctionKey, FunctionKey];
+};
+
+export type Smysnk2TypeMatchingSummary = {
+  best: Smysnk2TypeMatch | null;
+  alternatives: Smysnk2TypeMatch[];
+  grantStyles: { style: GrantStyle; confidence: number }[];
+};
+
+export type Smysnk2Analysis = {
+  totalResponses: number;
+  archetypeBreakdown: Smysnk2ArchetypeBreakdown[];
+  functionConfidence: Smysnk2FunctionConfidence[];
+  typeMatching: Smysnk2TypeMatchingSummary;
+};
+
+export type Smysnk2ScoringResult = {
+  functionScores: Record<FunctionKey, number>;
+  analysis: Smysnk2Analysis;
+};
+
 const OPTION_KEY_SET = new Set<Smysnk2OptionKey>(["A", "B", "C", "D", "E", "F", "G", "H"]);
+
+const EMPTY_FUNCTION_RECORD = () =>
+  FUNCTION_KEYS.reduce(
+    (acc, key) => {
+      acc[key] = 0;
+      return acc;
+    },
+    {} as Record<FunctionKey, number>
+  );
+
+const round2 = (value: number) => Math.round(value * 100) / 100;
 
 const functionKeyFromAnswer = (questionId: string, answerKey: Smysnk2OptionKey) => {
   const question = getSmysnk2ScenarioById(questionId);
@@ -56,6 +115,94 @@ const pickDistinct = (
   }
   used.add(fallback);
   return fallback;
+};
+
+const TYPE_STACKS: Record<string, [FunctionKey, FunctionKey, FunctionKey, FunctionKey]> = {
+  INTJ: ["Ni", "Te", "Fi", "Se"],
+  INFJ: ["Ni", "Fe", "Ti", "Se"],
+  ISTJ: ["Si", "Te", "Fi", "Ne"],
+  ISFJ: ["Si", "Fe", "Ti", "Ne"],
+  INTP: ["Ti", "Ne", "Si", "Fe"],
+  INFP: ["Fi", "Ne", "Si", "Te"],
+  ISTP: ["Ti", "Se", "Ni", "Fe"],
+  ISFP: ["Fi", "Se", "Ni", "Te"],
+  ENTJ: ["Te", "Ni", "Se", "Fi"],
+  ENFJ: ["Fe", "Ni", "Se", "Ti"],
+  ESTJ: ["Te", "Si", "Ne", "Fi"],
+  ESFJ: ["Fe", "Si", "Ne", "Ti"],
+  ENTP: ["Ne", "Ti", "Fe", "Si"],
+  ENFP: ["Ne", "Fi", "Te", "Si"],
+  ESTP: ["Se", "Ti", "Fe", "Ni"],
+  ESFP: ["Se", "Fi", "Te", "Ni"]
+};
+
+const getGrantStyle = (stack: [FunctionKey, FunctionKey, FunctionKey, FunctionKey]): GrantStyle =>
+  stack[0].endsWith("i") ? "IEIE" : "EIEI";
+
+const computeTypeMatches = ({
+  bucketCounts,
+  bucketTotals
+}: {
+  bucketCounts: Record<Smysnk2Archetype, Record<FunctionKey, number>>;
+  bucketTotals: Record<Smysnk2Archetype, number>;
+}): Smysnk2TypeMatchingSummary => {
+  const weights = SMYSNK2_ARCHETYPE_ORDER.map((_, index) => (index < 4 ? 1.25 : 1));
+
+  const matches: Smysnk2TypeMatch[] = Object.entries(TYPE_STACKS)
+    .map(([type, stack]) => {
+      const shadow: [FunctionKey, FunctionKey, FunctionKey, FunctionKey] = [
+        flipAttitude(stack[0]),
+        flipAttitude(stack[1]),
+        flipAttitude(stack[2]),
+        flipAttitude(stack[3])
+      ];
+      const expected: FunctionKey[] = [...stack, ...shadow];
+
+      let score = 0;
+      let maxScore = 0;
+
+      SMYSNK2_ARCHETYPE_ORDER.forEach((archetype, index) => {
+        const total = bucketTotals[archetype];
+        const weight = weights[index] ?? 1;
+        maxScore += weight;
+        if (!total) {
+          return;
+        }
+        const expectedFunction = expected[index];
+        const hits = bucketCounts[archetype][expectedFunction] ?? 0;
+        score += (hits / total) * weight;
+      });
+
+      return {
+        type,
+        grantStyle: getGrantStyle(stack),
+        confidence: maxScore ? round2((score / maxScore) * 100) : 0,
+        stack
+      };
+    })
+    .sort((a, b) => b.confidence - a.confidence);
+
+  const best = matches[0] ?? null;
+  const alternatives = matches.slice(1, 4);
+
+  const styleTotals = matches.reduce(
+    (acc, match) => {
+      acc[match.grantStyle] += match.confidence;
+      return acc;
+    },
+    { IEIE: 0, EIEI: 0 }
+  );
+  const styleSum = styleTotals.IEIE + styleTotals.EIEI || 1;
+
+  const grantStyles = (["IEIE", "EIEI"] as GrantStyle[])
+    .map((style) => ({ style, confidence: round2((styleTotals[style] / styleSum) * 100) }))
+    .sort((a, b) => b.confidence - a.confidence);
+
+  return {
+    best,
+    alternatives,
+    grantStyles
+  };
 };
 
 export const deriveSmysnk2Stack = (scores: Record<string, number>): Smysnk2StackSummary => {
@@ -124,35 +271,115 @@ export const normalizeSmysnk2OptionKey = (value: unknown): Smysnk2OptionKey | nu
   return isSmysnk2OptionKey(upper) ? upper : null;
 };
 
-export const calculateSmysnk2Scores = (responses: Smysnk2Response[]) => {
-  const totals = FUNCTION_KEYS.reduce(
+export const scoreSmysnk2Responses = (responses: Smysnk2Response[]): Smysnk2ScoringResult => {
+  const globalCounts = EMPTY_FUNCTION_RECORD();
+  const bucketTotals = SMYSNK2_ARCHETYPE_ORDER.reduce(
+    (acc, archetype) => {
+      acc[archetype] = 0;
+      return acc;
+    },
+    {} as Record<Smysnk2Archetype, number>
+  );
+  const bucketCounts = SMYSNK2_ARCHETYPE_ORDER.reduce(
+    (acc, archetype) => {
+      acc[archetype] = EMPTY_FUNCTION_RECORD();
+      return acc;
+    },
+    {} as Record<Smysnk2Archetype, Record<FunctionKey, number>>
+  );
+
+  let counted = 0;
+
+  responses.forEach((response) => {
+    const question = getSmysnk2ScenarioById(response.questionId);
+    if (!question) {
+      return;
+    }
+    const key = functionKeyFromAnswer(response.questionId, response.answerKey);
+    if (!key) {
+      return;
+    }
+
+    counted += 1;
+    globalCounts[key] += 1;
+    bucketTotals[question.archetype] += 1;
+    bucketCounts[question.archetype][key] += 1;
+  });
+
+  const archetypeBreakdown: Smysnk2ArchetypeBreakdown[] = SMYSNK2_ARCHETYPE_ORDER.map((archetype) => {
+    const total = bucketTotals[archetype];
+    const ranked = byScoreDesc(bucketCounts[archetype]);
+    const leading = ranked[0] ?? null;
+    const second = ranked[1] ?? null;
+    const leadingCount = leading?.score ?? 0;
+    const secondCount = second?.score ?? 0;
+    const dominance = total ? leadingCount / total : 0;
+    const separation = total ? Math.max(0, leadingCount - secondCount) / total : 0;
+    const confidence = round2((dominance * 0.75 + separation * 0.25) * 100);
+
+    const distribution = FUNCTION_KEYS.reduce(
+      (acc, key) => {
+        acc[key] = total ? round2((bucketCounts[archetype][key] / total) * 100) : 0;
+        return acc;
+      },
+      {} as Record<FunctionKey, number>
+    );
+
+    return {
+      archetype,
+      label: SMYSNK2_ARCHETYPE_LABELS[archetype],
+      total,
+      leadingFunction: leading?.key ?? null,
+      leadingCount,
+      confidence,
+      distribution
+    };
+  });
+
+  const archetypeWins = FUNCTION_KEYS.reduce(
     (acc, key) => {
-      acc[key] = 0;
+      acc[key] = archetypeBreakdown.reduce(
+        (count, archetype) => count + (archetype.leadingFunction === key ? 1 : 0),
+        0
+      );
       return acc;
     },
     {} as Record<FunctionKey, number>
   );
 
-  let counted = 0;
-  responses.forEach((response) => {
-    const key = functionKeyFromAnswer(response.questionId, response.answerKey);
-    if (!key) {
-      return;
-    }
-    counted += 1;
-    totals[key] += 1;
-  });
+  const functionConfidence: Smysnk2FunctionConfidence[] = FUNCTION_KEYS.map((key) => {
+    const count = globalCounts[key];
+    const percentage = counted ? round2((count / counted) * 100) : 0;
+    const archetypeSupport = round2((archetypeWins[key] / SMYSNK2_ARCHETYPE_ORDER.length) * 100);
+    const confidence = round2(percentage * 0.7 + archetypeSupport * 0.3);
+    return {
+      functionKey: key,
+      count,
+      percentage,
+      archetypeWins: archetypeWins[key],
+      confidence
+    };
+  }).sort((a, b) => b.confidence - a.confidence);
 
-  if (!counted) {
-    return totals as Record<string, number>;
-  }
-
-  return FUNCTION_KEYS.reduce(
+  const functionScores = FUNCTION_KEYS.reduce(
     (acc, key) => {
-      // Normalize to 0-40 for compatibility with existing result views.
-      acc[key] = Math.round((totals[key] / counted) * 40 * 100) / 100;
+      acc[key] = counted ? round2((globalCounts[key] / counted) * 40) : 0;
       return acc;
     },
-    {} as Record<string, number>
+    {} as Record<FunctionKey, number>
   );
+
+  const typeMatching = computeTypeMatches({ bucketCounts, bucketTotals });
+
+  return {
+    functionScores,
+    analysis: {
+      totalResponses: counted,
+      archetypeBreakdown,
+      functionConfidence,
+      typeMatching
+    }
+  };
 };
+
+export const calculateSmysnk2Scores = (responses: Smysnk2Response[]) => scoreSmysnk2Responses(responses).functionScores;

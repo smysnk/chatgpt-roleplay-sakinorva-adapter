@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSmysnk2Scenarios, parseSmysnk2Mode, type Smysnk2OptionKey } from "@/lib/smysnk2Questions";
-import { calculateSmysnk2Scores, normalizeSmysnk2OptionKey } from "@/lib/smysnk2Score";
+import {
+  getSmysnk2Scenarios,
+  normalizeSmysnk2QuestionIds,
+  parseSmysnk2Mode,
+  type Smysnk2OptionKey
+} from "@/lib/smysnk2Questions";
+import { normalizeSmysnk2OptionKey, scoreSmysnk2Responses } from "@/lib/smysnk2Score";
 import { initializeDatabase } from "@/lib/db";
 import { initializeRunModel, Run } from "@/lib/models/Run";
 
@@ -37,7 +42,8 @@ export async function POST(
     }
 
     const mode = parseSmysnk2Mode(run.questionMode ?? run.questionCount ?? 32);
-    const scenarios = getSmysnk2Scenarios(mode);
+    const questionIds = normalizeSmysnk2QuestionIds(run.questionIds);
+    const scenarios = getSmysnk2Scenarios(mode, questionIds, questionIds ? run.slug : null);
     const idSet = new Set(scenarios.map((scenario) => scenario.id));
 
     const label = payload.subject ? payload.subject.trim() : run.subject;
@@ -77,7 +83,7 @@ export async function POST(
     }
 
     const orderedResponses = scenarios.map((scenario) => byQuestionId.get(scenario.id) as StoredResponse);
-    const scores = calculateSmysnk2Scores(
+    const scoring = scoreSmysnk2Responses(
       orderedResponses.map((response) => ({ questionId: response.questionId, answerKey: response.answer }))
     );
 
@@ -86,8 +92,10 @@ export async function POST(
       context: typeof payload.context === "string" ? payload.context.trim() || null : run.context,
       questionMode: mode.toString(),
       questionCount: scenarios.length,
+      questionIds: scenarios.map((scenario) => scenario.id),
       responses: orderedResponses,
-      functionScores: scores,
+      functionScores: scoring.functionScores,
+      analysis: scoring.analysis,
       state: "COMPLETED"
     });
 
@@ -98,8 +106,10 @@ export async function POST(
       context: run.context,
       questionMode: run.questionMode,
       questionCount: run.questionCount,
+      questionIds: run.questionIds,
       responses: run.responses,
       scores: run.functionScores,
+      analysis: run.analysis,
       state: run.state,
       errors: run.errors,
       createdAt: run.createdAt,

@@ -85,6 +85,18 @@ export const runRunUpgrades = async () => {
             allowNull: true
           });
         }
+        if (!("questionIds" in runTable)) {
+          await queryInterface.addColumn("runs", "questionIds", {
+            type: DataTypes.JSON,
+            allowNull: true
+          });
+        }
+        if (!("analysis" in runTable)) {
+          await queryInterface.addColumn("runs", "analysis", {
+            type: DataTypes.JSON,
+            allowNull: true
+          });
+        }
       }
 
       const existingRuns = await Run.findAll({ attributes: ["slug"] });
@@ -122,6 +134,8 @@ export const runRunUpgrades = async () => {
               context: interaction.context,
               questionMode: null,
               questionCount: interaction.answers?.length ?? null,
+              questionIds: null,
+              analysis: null,
               answers: interaction.answers,
               explanations: interaction.explanations,
               responses: null,
@@ -149,6 +163,8 @@ export const runRunUpgrades = async () => {
               context: run.context,
               questionMode: null,
               questionCount: run.responses?.length ?? null,
+              questionIds: null,
+              analysis: null,
               answers: null,
               explanations: null,
               responses: run.responses,

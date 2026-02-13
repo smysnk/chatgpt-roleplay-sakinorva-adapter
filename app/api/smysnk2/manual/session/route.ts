@@ -1,7 +1,13 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSmysnk2Scenarios, parseSmysnk2Mode } from "@/lib/smysnk2Questions";
+import {
+  hasBalancedSmysnk2QuestionIds,
+  getSmysnk2Scenarios,
+  normalizeSmysnk2QuestionIds,
+  parseSmysnk2Mode,
+  selectSmysnk2QuestionIds
+} from "@/lib/smysnk2Questions";
 import { initializeDatabase } from "@/lib/db";
 import { initializeRunModel, Run } from "@/lib/models/Run";
 
@@ -10,7 +16,8 @@ export const dynamic = "force-dynamic";
 const requestSchema = z.object({
   subject: z.string().max(80).optional().default("Self"),
   context: z.string().max(500).optional().default(""),
-  mode: z.union([z.string(), z.number()]).optional()
+  mode: z.union([z.string(), z.number()]).optional(),
+  questionIds: z.array(z.string()).optional()
 });
 
 export async function POST(request: Request) {
@@ -25,13 +32,19 @@ export async function POST(request: Request) {
     }
 
     const mode = parseSmysnk2Mode(payload.mode);
-    const scenarios = getSmysnk2Scenarios(mode);
+    const slug = crypto.randomUUID();
+    const requestedIds = normalizeSmysnk2QuestionIds(payload.questionIds);
+    const questionIds =
+      requestedIds && requestedIds.length === mode && hasBalancedSmysnk2QuestionIds(requestedIds, mode)
+        ? requestedIds
+        : selectSmysnk2QuestionIds({ mode, seed: slug });
+    const scenarios = getSmysnk2Scenarios(mode, questionIds);
 
     initializeRunModel();
     await initializeDatabase();
 
     const run = await Run.create({
-      slug: crypto.randomUUID(),
+      slug,
       indicator: "smysnk2",
       runMode: "user",
       state: "PROCESSING",
@@ -40,8 +53,10 @@ export async function POST(request: Request) {
       context: payload.context.trim() || null,
       questionMode: mode.toString(),
       questionCount: scenarios.length,
+      questionIds,
       responses: [],
       functionScores: null,
+      analysis: null,
       answers: null,
       explanations: null
     });
@@ -53,6 +68,7 @@ export async function POST(request: Request) {
       context: run.context,
       questionMode: run.questionMode,
       questionCount: run.questionCount,
+      questionIds: run.questionIds,
       responses: run.responses ?? [],
       answeredCount: 0,
       totalCount: scenarios.length,

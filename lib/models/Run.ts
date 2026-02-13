@@ -12,6 +12,8 @@ export class Run extends Model<InferAttributes<Run>, InferCreationAttributes<Run
   declare context: CreationOptional<string | null>;
   declare questionMode: CreationOptional<string | null>;
   declare questionCount: CreationOptional<number | null>;
+  declare questionIds: CreationOptional<string[] | null>;
+  declare analysis: CreationOptional<Record<string, unknown> | null>;
   declare redditProfile: CreationOptional<{ summary: string; persona: string; traits: string[] } | null>;
   declare answers: CreationOptional<number[] | null>;
   declare explanations: CreationOptional<string[] | null>;
@@ -73,6 +75,14 @@ export const initializeRunModel = () => {
       },
       questionCount: {
         type: DataTypes.INTEGER,
+        allowNull: true
+      },
+      questionIds: {
+        type: DataTypes.JSON,
+        allowNull: true
+      },
+      analysis: {
+        type: DataTypes.JSON,
         allowNull: true
       },
       redditProfile: {

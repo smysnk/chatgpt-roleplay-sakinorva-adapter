@@ -3,6 +3,15 @@ import type { SmysnkFunction, SmysnkOrientation } from "@/lib/smysnkQuestions";
 export type Smysnk2ContextType = "default" | "moderate" | "stress";
 export type Smysnk2OptionKey = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H";
 export type Smysnk2Mode = 16 | 32 | 64;
+export type Smysnk2Archetype =
+  | "hero"
+  | "good_parent"
+  | "child"
+  | "anima_animus"
+  | "opposing_perspective"
+  | "witch"
+  | "trickster"
+  | "demon";
 
 export type Smysnk2ScenarioOption = {
   key: Smysnk2OptionKey;
@@ -16,10 +25,13 @@ export type Smysnk2ScenarioOption = {
 export type Smysnk2Scenario = {
   id: string;
   contextType: Smysnk2ContextType;
+  archetype: Smysnk2Archetype;
   domain: string;
   scenario: string;
   options: Smysnk2ScenarioOption[];
 };
+
+type Smysnk2ScenarioId = string;
 
 const OPTION_KEYS = ["A", "B", "C", "D", "E", "F", "G", "H"] as const;
 
@@ -39,6 +51,7 @@ type OptionTextMap = Record<Smysnk2OptionKey, string>;
 type ScenarioSeed = {
   id: string;
   contextType: Smysnk2ContextType;
+  archetype?: Smysnk2Archetype;
   domain: string;
   scenario: string;
   optionSet?: keyof typeof OPTION_SETS;
@@ -51,6 +64,74 @@ const buildOptions = (texts: OptionTextMap): Smysnk2ScenarioOption[] =>
     text: texts[key],
     score: SCORE_BY_OPTION[key]
   }));
+
+const OPTION_TEXT_VARIANTS: Array<(baseSentence: string, baseClause: string) => string> = [
+  (_baseSentence, baseClause) => `You begin by ${baseClause}.`,
+  (baseSentence) => `First move: ${baseSentence}`,
+  (_baseSentence, baseClause) => `Your initial response is to ${baseClause}.`,
+  (_baseSentence, baseClause) => `At the outset, you ${baseClause}.`,
+  (_baseSentence, baseClause) => `You start by trying to ${baseClause}.`,
+  (_baseSentence, baseClause) => `Your first priority is to ${baseClause}.`,
+  (_baseSentence, baseClause) => `The way you open is to ${baseClause}.`,
+  (baseSentence) => `You lead with this approach: ${baseSentence}`
+];
+
+const withTerminalPeriod = (text: string) => {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+};
+
+const sentenceToClause = (sentence: string) => {
+  const trimmed = sentence.trim().replace(/[.!?]+$/, "");
+  if (!trimmed) {
+    return trimmed;
+  }
+  return `${trimmed.charAt(0).toLowerCase()}${trimmed.slice(1)}`;
+};
+
+const hashString = (value: string) => {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+
+const makeSeededRng = (seed: number) => {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+const buildTemplateOrder = (seedText: string) => {
+  const order = Array.from({ length: OPTION_TEXT_VARIANTS.length }, (_, index) => index);
+  const random = makeSeededRng(hashString(seedText));
+  for (let right = order.length - 1; right > 0; right -= 1) {
+    const left = Math.floor(random() * (right + 1));
+    [order[right], order[left]] = [order[left], order[right]];
+  }
+  return order;
+};
+
+const buildVariantOptionTexts = (seed: ScenarioSeed, baseOptions: OptionTextMap): OptionTextMap => {
+  const templateOrder = buildTemplateOrder(`${seed.id}:${seed.scenario}:${seed.domain}`);
+
+  return OPTION_KEYS.reduce((acc, key, optionIndex) => {
+    const baseSentence = withTerminalPeriod(baseOptions[key]);
+    const baseClause = sentenceToClause(baseSentence);
+    const variant = OPTION_TEXT_VARIANTS[templateOrder[optionIndex] ?? optionIndex];
+    acc[key] = variant(baseSentence, baseClause);
+    return acc;
+  }, {} as OptionTextMap);
+};
 
 const OPTION_SETS = {
   defaultIdea: {
@@ -115,12 +196,34 @@ const OPTION_SETS = {
   }
 } as const;
 
+export const SMYSNK2_ARCHETYPE_ORDER: Smysnk2Archetype[] = [
+  "hero",
+  "good_parent",
+  "child",
+  "anima_animus",
+  "opposing_perspective",
+  "witch",
+  "trickster",
+  "demon"
+];
+
+export const SMYSNK2_ARCHETYPE_LABELS: Record<Smysnk2Archetype, string> = {
+  hero: "Hero",
+  good_parent: "Good Parent",
+  child: "Child",
+  anima_animus: "Anima/Animus",
+  opposing_perspective: "Opposing Perspective",
+  witch: "Witch",
+  trickster: "Trickster",
+  demon: "Demon"
+};
+
 const SCENARIO_SEEDS: ScenarioSeed[] = [
   {
     id: "Q01",
     contextType: "default",
     domain: "personal_time",
-    scenario: "You have a free evening with no obligations. What do you do first?",
+    scenario: "You have a free evening with no obligations, but you want to use it intentionally. What do you do first?",
     options: {
       A: "Think about what this time should ultimately contribute to your life direction.",
       B: "Mentally explore several interesting things you could do and see what sticks.",
@@ -136,7 +239,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q02",
     contextType: "default",
     domain: "learning",
-    scenario: "You are learning a new technical concept.",
+    scenario: "You are learning a new technical concept you may need to explain clearly to someone else.",
     options: {
       A: "Look for the underlying pattern that ties everything together.",
       B: "Explore related ideas and possibilities it connects to.",
@@ -280,7 +383,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q11",
     contextType: "default",
     domain: "planning",
-    scenario: "You are starting a personal project with open scope.",
+    scenario: "You are starting a personal project with open scope and no fixed requirements. What is your first move?",
     optionSet: "defaultIdea"
   },
   {
@@ -301,7 +404,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q14",
     contextType: "default",
     domain: "project_start",
-    scenario: "A vague brief lands in your inbox with no clear owner.",
+    scenario: "A vague brief lands in your inbox and nobody clearly owns it yet.",
     optionSet: "defaultExecution"
   },
   {
@@ -330,7 +433,16 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     contextType: "default",
     domain: "commitment",
     scenario: "You are deciding whether to commit to one idea or keep searching.",
-    optionSet: "defaultIdea"
+    options: {
+      A: "Pause and ask which path best matches the long-term direction you sense.",
+      B: "Keep scanning adjacent possibilities before locking anything in.",
+      C: "Compare the choice with similar decisions that worked for you before.",
+      D: "Prototype one promising direction immediately and learn from the result.",
+      E: "Commit only after the reasoning is internally consistent from end to end.",
+      F: "Pick the option with the clearest implementation plan and measurable payoff.",
+      G: "Choose the direction that feels most personally authentic to you.",
+      H: "Favor the option that is easiest to communicate and coordinate with others."
+    }
   },
   {
     id: "Q19",
@@ -351,7 +463,16 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     contextType: "moderate",
     domain: "boundaries",
     scenario: "A close friend asks for help while your week is already overloaded.",
-    optionSet: "moderateSocial"
+    options: {
+      A: "Step back and gauge what this means for the bigger direction of your week.",
+      B: "Consider multiple ways to help without locking into one approach immediately.",
+      C: "Think of similar times and rely on what has worked before.",
+      D: "Respond to what is most urgent right now and handle it directly.",
+      E: "Sort the request logically and decide what is actually feasible.",
+      F: "Set a clear plan for what you can do and when you can do it.",
+      G: "Check how helping fits with your personal priorities and emotional capacity.",
+      H: "Find a response that supports your friend while keeping the relationship smooth."
+    }
   },
   {
     id: "Q22",
@@ -393,7 +514,16 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     contextType: "stress",
     domain: "execution_failure",
     scenario: "Your execution plan collapses in the middle of delivery.",
-    optionSet: "stressOverload"
+    options: {
+      A: "Step back and identify the one outcome that matters most right now.",
+      B: "Quickly branch through backup approaches before committing to one.",
+      C: "Return to the most reliable process you can execute under pressure.",
+      D: "Get hands-on immediately and stabilize the next concrete step.",
+      E: "Diagnose what broke logically before making more moves.",
+      F: "Rebuild a practical recovery plan and assign immediate actions.",
+      G: "Check what still feels personally right before pushing forward.",
+      H: "Coordinate tone and expectations so the team can re-synchronize."
+    }
   },
   {
     id: "Q28",
@@ -413,7 +543,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q30",
     contextType: "stress",
     domain: "setback",
-    scenario: "An unexpected setback hits while you are already under pressure.",
+    scenario: "Something important goes off track when you are already under pressure.",
     optionSet: "stressFriction"
   },
   {
@@ -653,21 +783,284 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     domain: "deadline_endgame",
     scenario: "In the final hour before a deadline, blockers are still unresolved.",
     optionSet: "stressOverload"
+  },
+  {
+    id: "Q65",
+    contextType: "default",
+    domain: "unscheduled_time",
+    scenario: "Your afternoon unexpectedly opens up with no urgent tasks waiting.",
+    optionSet: "defaultExecution"
+  },
+  {
+    id: "Q66",
+    contextType: "default",
+    domain: "dense_reading",
+    scenario: "You need to absorb a dense article quickly and explain it afterward.",
+    optionSet: "defaultIdea"
+  },
+  {
+    id: "Q67",
+    contextType: "default",
+    domain: "initiative_start",
+    scenario: "You are asked to launch an initiative with only a rough objective.",
+    optionSet: "defaultExecution"
+  },
+  {
+    id: "Q68",
+    contextType: "default",
+    domain: "idea_filtering",
+    scenario: "You have more ideas than time and need to narrow what to pursue.",
+    optionSet: "defaultIdea"
+  },
+  {
+    id: "Q69",
+    contextType: "default",
+    domain: "knowledge_conflict",
+    scenario: "Two experts give opposite advice and both arguments seem strong.",
+    optionSet: "defaultIdea"
+  },
+  {
+    id: "Q70",
+    contextType: "default",
+    domain: "workflow_design",
+    scenario: "You are redesigning your personal workflow for the next quarter.",
+    optionSet: "defaultExecution"
+  },
+  {
+    id: "Q71",
+    contextType: "default",
+    domain: "planning_depth",
+    scenario: "You need to decide how much planning to do before taking action.",
+    optionSet: "defaultExecution"
+  },
+  {
+    id: "Q72",
+    contextType: "default",
+    domain: "concept_testing",
+    scenario: "You have a theory but limited evidence and want to test it quickly.",
+    optionSet: "defaultIdea"
+  },
+  {
+    id: "Q73",
+    contextType: "default",
+    domain: "new_environment",
+    scenario: "You enter a new team where norms are not yet clear.",
+    optionSet: "defaultExecution"
+  },
+  {
+    id: "Q74",
+    contextType: "default",
+    domain: "choice_overload",
+    scenario: "You have several strong opportunities and can only choose one.",
+    optionSet: "defaultIdea"
+  },
+  {
+    id: "Q75",
+    contextType: "default",
+    domain: "discussion_structure",
+    scenario: "A productive discussion starts to splinter into side topics.",
+    optionSet: "defaultExecution"
+  },
+  {
+    id: "Q76",
+    contextType: "default",
+    domain: "long_game",
+    scenario: "You are deciding whether to optimize for immediate gains or long-term leverage.",
+    optionSet: "defaultIdea"
+  },
+  {
+    id: "Q77",
+    contextType: "moderate",
+    domain: "delegation",
+    scenario: "You need to delegate important work but trust is mixed across the team.",
+    optionSet: "moderateDecision"
+  },
+  {
+    id: "Q78",
+    contextType: "moderate",
+    domain: "mixed_feedback",
+    scenario: "You receive mixed feedback from people whose opinions all matter.",
+    optionSet: "moderateSocial"
+  },
+  {
+    id: "Q79",
+    contextType: "moderate",
+    domain: "resource_tradeoff",
+    scenario: "You must choose between speed, quality, and team capacity.",
+    optionSet: "moderateDecision"
+  },
+  {
+    id: "Q80",
+    contextType: "moderate",
+    domain: "relationship_repair",
+    scenario: "A relationship at work is strained but still salvageable.",
+    optionSet: "moderateSocial"
+  },
+  {
+    id: "Q81",
+    contextType: "moderate",
+    domain: "timeline_reset",
+    scenario: "A project timeline slips and everyone looks to you for next steps.",
+    optionSet: "moderateDecision"
+  },
+  {
+    id: "Q82",
+    contextType: "moderate",
+    domain: "social_misalignment",
+    scenario: "Your intent is good, but others are reading your actions negatively.",
+    optionSet: "moderateSocial"
+  },
+  {
+    id: "Q83",
+    contextType: "moderate",
+    domain: "strategy_shift",
+    scenario: "New information forces a strategic shift midstream.",
+    optionSet: "moderateDecision"
+  },
+  {
+    id: "Q84",
+    contextType: "moderate",
+    domain: "hard_no",
+    scenario: "You need to say no to a request without damaging trust.",
+    optionSet: "moderateSocial"
+  },
+  {
+    id: "Q85",
+    contextType: "moderate",
+    domain: "execution_scope",
+    scenario: "You must define a smaller scope that still achieves the core result.",
+    optionSet: "moderateDecision"
+  },
+  {
+    id: "Q86",
+    contextType: "moderate",
+    domain: "alignment_tension",
+    scenario: "A partner team is aligned in words but not in behavior.",
+    optionSet: "moderateSocial"
+  },
+  {
+    id: "Q87",
+    contextType: "stress",
+    domain: "critical_bug",
+    scenario: "A critical bug appears right before a public release.",
+    optionSet: "stressOverload"
+  },
+  {
+    id: "Q88",
+    contextType: "stress",
+    domain: "public_pushback",
+    scenario: "Your recommendation is challenged sharply in front of stakeholders.",
+    optionSet: "stressFriction"
+  },
+  {
+    id: "Q89",
+    contextType: "stress",
+    domain: "task_collision",
+    scenario: "Multiple urgent tasks collide and all of them look time-sensitive.",
+    optionSet: "stressOverload"
+  },
+  {
+    id: "Q90",
+    contextType: "stress",
+    domain: "trust_break",
+    scenario: "Someone you relied on misses a critical commitment.",
+    optionSet: "stressFriction"
+  },
+  {
+    id: "Q91",
+    contextType: "stress",
+    domain: "late_surprise",
+    scenario: "A major constraint appears late and invalidates your original plan.",
+    optionSet: "stressOverload"
+  },
+  {
+    id: "Q92",
+    contextType: "stress",
+    domain: "intense_scrutiny",
+    scenario: "You are placed under intense scrutiny while decisions must be made fast.",
+    optionSet: "stressFriction"
+  },
+  {
+    id: "Q93",
+    contextType: "stress",
+    domain: "capacity_limit",
+    scenario: "You are at capacity and still receive escalating high-priority requests.",
+    optionSet: "stressOverload"
+  },
+  {
+    id: "Q94",
+    contextType: "stress",
+    domain: "communication_breakdown",
+    scenario: "Communication breaks down at the exact moment coordination is essential.",
+    optionSet: "stressFriction"
+  },
+  {
+    id: "Q95",
+    contextType: "stress",
+    domain: "uncertain_crisis",
+    scenario: "You need to act quickly before the full scope of the problem is clear.",
+    optionSet: "stressOverload"
+  },
+  {
+    id: "Q96",
+    contextType: "stress",
+    domain: "high_pressure_handoff",
+    scenario: "A high-pressure handoff is failing and the next team is already waiting.",
+    optionSet: "stressFriction"
   }
 ];
 
 export const SMYSNK2_SCENARIOS: Smysnk2Scenario[] = SCENARIO_SEEDS.map((seed) => {
-  const optionTexts = seed.options ?? (seed.optionSet ? OPTION_SETS[seed.optionSet] : OPTION_SETS.defaultIdea);
+  const optionTexts = seed.options
+    ? seed.options
+    : buildVariantOptionTexts(
+        seed,
+        seed.optionSet ? OPTION_SETS[seed.optionSet] : OPTION_SETS.defaultIdea
+      );
+  const archetype = seed.archetype ??
+    SMYSNK2_ARCHETYPE_ORDER[(Number(seed.id.replace("Q", "")) - 1) % SMYSNK2_ARCHETYPE_ORDER.length];
   return {
     id: seed.id,
     contextType: seed.contextType,
+    archetype,
     domain: seed.domain,
     scenario: seed.scenario,
     options: buildOptions(optionTexts)
   };
 });
 
+const DUPLICATE_OPTION_SETS = (() => {
+  const seen = new Map<string, string>();
+  const duplicates: string[] = [];
+  SMYSNK2_SCENARIOS.forEach((scenario) => {
+    const signature = scenario.options
+      .map((option) => option.text.trim().toLowerCase())
+      .join("||");
+    const existing = seen.get(signature);
+    if (existing) {
+      duplicates.push(`${existing} = ${scenario.id}`);
+      return;
+    }
+    seen.set(signature, scenario.id);
+  });
+  return duplicates;
+})();
+
+if (DUPLICATE_OPTION_SETS.length) {
+  throw new Error(`SMYSNK2 duplicate option sets found: ${DUPLICATE_OPTION_SETS.join(", ")}`);
+}
+
 const SCENARIO_MAP = new Map(SMYSNK2_SCENARIOS.map((question) => [question.id, question]));
+const SCENARIOS_BY_ARCHETYPE = SMYSNK2_ARCHETYPE_ORDER.reduce(
+  (acc, archetype) => {
+    acc[archetype] = [];
+    return acc;
+  },
+  {} as Record<Smysnk2Archetype, Smysnk2Scenario[]>
+);
+SMYSNK2_SCENARIOS.forEach((scenario) => {
+  SCENARIOS_BY_ARCHETYPE[scenario.archetype].push(scenario);
+});
 
 export const SMYSNK2_MODES = [16, 32, 64] as const;
 
@@ -679,10 +1072,95 @@ export const SMYSNK2_MODE_LABELS: Record<Smysnk2Mode, string> = {
   64: "64 questions (high confidence)"
 };
 
-const MODE_IDS: Record<Smysnk2Mode, string[]> = {
-  16: ["Q01", "Q02", "Q04", "Q11", "Q15", "Q18", "Q05", "Q06", "Q21", "Q24", "Q08", "Q09", "Q10", "Q27", "Q30", "Q32"],
+const LEGACY_MODE_IDS: Record<Smysnk2Mode, string[]> = {
+  16: [
+    "Q01",
+    "Q02",
+    "Q04",
+    "Q11",
+    "Q15",
+    "Q18",
+    "Q05",
+    "Q06",
+    "Q21",
+    "Q24",
+    "Q08",
+    "Q09",
+    "Q10",
+    "Q27",
+    "Q30",
+    "Q32"
+  ],
   32: SCENARIO_SEEDS.slice(0, 32).map((seed) => seed.id),
-  64: SCENARIO_SEEDS.map((seed) => seed.id)
+  64: SCENARIO_SEEDS.slice(0, 64).map((seed) => seed.id)
+};
+
+const shuffleBySeed = <T>(items: T[], seedText: string) => {
+  const copy = [...items];
+  const random = makeSeededRng(hashString(seedText));
+  for (let right = copy.length - 1; right > 0; right -= 1) {
+    const left = Math.floor(random() * (right + 1));
+    [copy[right], copy[left]] = [copy[left], copy[right]];
+  }
+  return copy;
+};
+
+export const selectSmysnk2QuestionIds = ({
+  mode,
+  seed
+}: {
+  mode: Smysnk2Mode;
+  seed?: string | null;
+}): Smysnk2ScenarioId[] => {
+  const countPerArchetype = mode / SMYSNK2_ARCHETYPE_ORDER.length;
+  const baseSeed = seed?.trim() || `mode-${mode}`;
+  const selected = SMYSNK2_ARCHETYPE_ORDER.flatMap((archetype) => {
+    const pool = SCENARIOS_BY_ARCHETYPE[archetype];
+    if (pool.length < countPerArchetype) {
+      throw new Error(`Insufficient SMYSNK2 scenarios for archetype ${archetype}.`);
+    }
+    return shuffleBySeed(
+      pool.map((scenario) => scenario.id),
+      `${baseSeed}:${archetype}`
+    ).slice(0, countPerArchetype);
+  });
+
+  return shuffleBySeed(selected, `${baseSeed}:order`);
+};
+
+export const normalizeSmysnk2QuestionIds = (ids: unknown): Smysnk2ScenarioId[] | null => {
+  if (!Array.isArray(ids)) {
+    return null;
+  }
+  const normalized = ids
+    .filter((id): id is string => typeof id === "string")
+    .filter((id, index, list) => list.indexOf(id) === index)
+    .filter((id) => SCENARIO_MAP.has(id));
+  return normalized.length ? normalized : null;
+};
+
+export const hasBalancedSmysnk2QuestionIds = (ids: string[], mode: Smysnk2Mode) => {
+  if (ids.length !== mode) {
+    return false;
+  }
+  const targetPerArchetype = mode / SMYSNK2_ARCHETYPE_ORDER.length;
+  const counts = SMYSNK2_ARCHETYPE_ORDER.reduce(
+    (acc, archetype) => {
+      acc[archetype] = 0;
+      return acc;
+    },
+    {} as Record<Smysnk2Archetype, number>
+  );
+
+  for (const id of ids) {
+    const scenario = SCENARIO_MAP.get(id);
+    if (!scenario) {
+      return false;
+    }
+    counts[scenario.archetype] += 1;
+  }
+
+  return SMYSNK2_ARCHETYPE_ORDER.every((archetype) => counts[archetype] === targetPerArchetype);
 };
 
 export const parseSmysnk2Mode = (value: unknown): Smysnk2Mode => {
@@ -695,18 +1173,39 @@ export const parseSmysnk2Mode = (value: unknown): Smysnk2Mode => {
 
 export const getSmysnk2ScenarioById = (id: string) => SCENARIO_MAP.get(id);
 
-export const getSmysnk2Scenarios = (mode: Smysnk2Mode): Smysnk2Scenario[] =>
-  MODE_IDS[mode]
+export const getSmysnk2ScenariosByIds = (ids: string[]): Smysnk2Scenario[] =>
+  ids
     .map((id) => SCENARIO_MAP.get(id))
     .filter((scenario): scenario is Smysnk2Scenario => Boolean(scenario));
 
-export const getSmysnk2ContextCounts = (mode: Smysnk2Mode) => {
+export const getSmysnk2Scenarios = (
+  mode: Smysnk2Mode,
+  questionIds?: unknown,
+  seed?: string | null
+): Smysnk2Scenario[] => {
+  const normalized = normalizeSmysnk2QuestionIds(questionIds);
+  const expected = mode;
+  if (normalized && normalized.length === expected && hasBalancedSmysnk2QuestionIds(normalized, mode)) {
+    return getSmysnk2ScenariosByIds(normalized);
+  }
+  if (!seed) {
+    return getSmysnk2ScenariosByIds(LEGACY_MODE_IDS[mode]);
+  }
+  const selectedIds = selectSmysnk2QuestionIds({ mode, seed });
+  return getSmysnk2ScenariosByIds(selectedIds);
+};
+
+export const getSmysnk2ContextCounts = (
+  mode: Smysnk2Mode,
+  questionIds?: unknown,
+  seed?: string | null
+) => {
   const counts: Record<Smysnk2ContextType, number> = {
     default: 0,
     moderate: 0,
     stress: 0
   };
-  getSmysnk2Scenarios(mode).forEach((question) => {
+  getSmysnk2Scenarios(mode, questionIds, seed).forEach((question) => {
     counts[question.contextType] += 1;
   });
   return counts;

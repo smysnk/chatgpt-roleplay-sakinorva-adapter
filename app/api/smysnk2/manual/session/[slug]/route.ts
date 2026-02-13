@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
   getSmysnk2Scenarios,
+  normalizeSmysnk2QuestionIds,
   parseSmysnk2Mode,
   type Smysnk2Mode,
   type Smysnk2OptionKey
@@ -28,10 +29,11 @@ type StoredResponse = {
 
 const resolveScenarios = (run: Run) => {
   const mode = parseSmysnk2Mode(run.questionMode ?? run.questionCount ?? 32) as Smysnk2Mode;
-  const scenarios = getSmysnk2Scenarios(mode);
+  const questionIds = normalizeSmysnk2QuestionIds(run.questionIds);
+  const scenarios = getSmysnk2Scenarios(mode, questionIds, questionIds ? run.slug : null);
   const orderedIds = scenarios.map((scenario) => scenario.id);
   const idSet = new Set(orderedIds);
-  return { mode, scenarios, orderedIds, idSet };
+  return { mode, scenarios, orderedIds, idSet, questionIds: orderedIds };
 };
 
 const normalizeStoredResponses = (run: Run, allowedIds: Set<string>): StoredResponse[] => {
@@ -82,7 +84,7 @@ export async function GET(
     return NextResponse.json({ error: "Session not found." }, { status: 404 });
   }
 
-  const { mode, scenarios, orderedIds, idSet } = resolveScenarios(run);
+  const { mode, scenarios, orderedIds, idSet, questionIds } = resolveScenarios(run);
   const responses = sortResponses(normalizeStoredResponses(run, idSet), orderedIds);
 
   return NextResponse.json({
@@ -92,6 +94,7 @@ export async function GET(
     context: run.context,
     questionMode: mode,
     questionCount: scenarios.length,
+    questionIds,
     responses,
     answeredCount: responses.length,
     totalCount: scenarios.length,
@@ -123,7 +126,7 @@ export async function PATCH(
       return NextResponse.json({ error: "This session is already finalized." }, { status: 409 });
     }
 
-    const { mode, scenarios, orderedIds, idSet } = resolveScenarios(run);
+    const { mode, scenarios, orderedIds, idSet, questionIds } = resolveScenarios(run);
     if (!idSet.has(payload.questionId)) {
       return NextResponse.json({ error: "Unknown scenario id for this session." }, { status: 400 });
     }
@@ -157,7 +160,10 @@ export async function PATCH(
       context: typeof payload.context === "string" ? payload.context.trim() || null : run.context,
       questionMode: mode.toString(),
       questionCount: scenarios.length,
+      questionIds,
       responses: sortedResponses,
+      functionScores: null,
+      analysis: null,
       state: "PROCESSING"
     });
 
@@ -167,6 +173,7 @@ export async function PATCH(
       context: run.context,
       questionMode: mode,
       questionCount: scenarios.length,
+      questionIds,
       responses: sortedResponses,
       answeredCount: sortedResponses.length,
       totalCount: scenarios.length,

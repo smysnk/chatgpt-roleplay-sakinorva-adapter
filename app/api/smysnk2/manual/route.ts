@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { z } from "zod";
-import { getSmysnk2Scenarios, parseSmysnk2Mode, type Smysnk2OptionKey } from "@/lib/smysnk2Questions";
-import { calculateSmysnk2Scores, normalizeSmysnk2OptionKey } from "@/lib/smysnk2Score";
+import {
+  hasBalancedSmysnk2QuestionIds,
+  getSmysnk2Scenarios,
+  normalizeSmysnk2QuestionIds,
+  parseSmysnk2Mode,
+  type Smysnk2OptionKey
+} from "@/lib/smysnk2Questions";
+import { normalizeSmysnk2OptionKey, scoreSmysnk2Responses } from "@/lib/smysnk2Score";
 import { initializeDatabase } from "@/lib/db";
 import { initializeRunModel, Run } from "@/lib/models/Run";
 
@@ -12,6 +18,7 @@ const requestSchema = z.object({
   subject: z.string().max(80).optional().default("Self"),
   context: z.string().max(500).optional().default(""),
   mode: z.union([z.string(), z.number()]).optional(),
+  questionIds: z.array(z.string()).optional(),
   responses: z.array(
     z.object({
       questionId: z.string(),
@@ -33,7 +40,14 @@ export async function POST(request: Request) {
     }
 
     const questionMode = parseSmysnk2Mode(payload.mode);
-    const scenarios = getSmysnk2Scenarios(questionMode);
+    const requestedIds = normalizeSmysnk2QuestionIds(payload.questionIds);
+    const questionIds =
+      requestedIds &&
+      requestedIds.length === questionMode &&
+      hasBalancedSmysnk2QuestionIds(requestedIds, questionMode)
+        ? requestedIds
+        : null;
+    const scenarios = getSmysnk2Scenarios(questionMode, questionIds);
     if (payload.responses.length !== scenarios.length) {
       return NextResponse.json(
         { error: `Expected ${scenarios.length} responses for the selected mode.` },
@@ -72,7 +86,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const scores = calculateSmysnk2Scores(
+    const scoring = scoreSmysnk2Responses(
       responses.map((response) => ({ questionId: response.questionId, answerKey: response.answer }))
     );
     const slug = crypto.randomUUID();
@@ -89,8 +103,10 @@ export async function POST(request: Request) {
       context: payload.context || null,
       questionMode: questionMode.toString(),
       questionCount: scenarios.length,
+      questionIds: scenarios.map((scenario) => scenario.id),
       responses,
-      functionScores: scores,
+      functionScores: scoring.functionScores,
+      analysis: scoring.analysis,
       answers: null,
       explanations: null
     });
@@ -102,8 +118,10 @@ export async function POST(request: Request) {
       context: run.context,
       questionMode: run.questionMode,
       questionCount: run.questionCount,
+      questionIds: run.questionIds,
       responses: run.responses,
       scores: run.functionScores,
+      analysis: run.analysis,
       state: run.state,
       errors: run.errors,
       createdAt: run.createdAt

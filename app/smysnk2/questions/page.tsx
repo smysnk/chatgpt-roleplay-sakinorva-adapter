@@ -8,6 +8,7 @@ import {
   getSmysnk2ContextCounts,
   getSmysnk2Scenarios,
   parseSmysnk2Mode,
+  selectSmysnk2QuestionIds,
   type Smysnk2Mode,
   type Smysnk2OptionKey
 } from "@/lib/smysnk2Questions";
@@ -15,6 +16,7 @@ import {
 const MIN_LENGTH = 2;
 const MAX_LENGTH = 80;
 const ACTIVE_SESSION_STORAGE_KEY = "smysnk2-active-session";
+const DISPLAY_OPTION_KEYS: Smysnk2OptionKey[] = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
 type SessionPayload = {
   slug: string;
@@ -23,6 +25,7 @@ type SessionPayload = {
   context: string | null;
   questionMode: number | string | null;
   questionCount: number;
+  questionIds: string[];
   responses: { questionId: string; answer: Smysnk2OptionKey; rationale: string }[];
   answeredCount: number;
   totalCount: number;
@@ -42,6 +45,35 @@ const toAnswerMap = (responses: SessionPayload["responses"]) => {
 const getFirstUnansweredIndex = (ids: string[], answers: Record<string, Smysnk2OptionKey>) => {
   const index = ids.findIndex((id) => !answers[id]);
   return index === -1 ? ids.length - 1 : index;
+};
+
+const makeSeededRng = (seed: number) => {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+const seedFromQuestionId = (questionId: string) => {
+  let hash = 2166136261;
+  for (let index = 0; index < questionId.length; index += 1) {
+    hash ^= questionId.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+
+const buildOptionOrder = (questionId: string, total: number) => {
+  const order = Array.from({ length: total }, (_, index) => index);
+  const random = makeSeededRng(seedFromQuestionId(questionId));
+  for (let right = order.length - 1; right > 0; right -= 1) {
+    const left = Math.floor(random() * (right + 1));
+    [order[right], order[left]] = [order[left], order[right]];
+  }
+  return order;
 };
 
 export default function Smysnk2QuestionsPage() {
@@ -65,6 +97,7 @@ function Smysnk2QuestionsContent() {
   const [answers, setAnswers] = useState<Record<string, Smysnk2OptionKey>>({});
   const [currentIndex, setCurrentIndex] = useState(0);
   const [sessionSlug, setSessionSlug] = useState<string | null>(null);
+  const [sessionQuestionIds, setSessionQuestionIds] = useState<string[] | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [savingAnswer, setSavingAnswer] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
@@ -72,10 +105,26 @@ function Smysnk2QuestionsContent() {
   const [navigatedBack, setNavigatedBack] = useState(false);
 
   const createSessionPromiseRef = useRef<Promise<string | null> | null>(null);
+  const draftPoolSeedRef = useRef<string>(
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`
+  );
 
-  const scenarios = useMemo(() => getSmysnk2Scenarios(mode), [mode]);
+  const draftQuestionIds = useMemo(
+    () => selectSmysnk2QuestionIds({ mode, seed: draftPoolSeedRef.current }),
+    [mode]
+  );
+  const activeQuestionIds = sessionQuestionIds ?? draftQuestionIds;
+  const scenarios = useMemo(
+    () => getSmysnk2Scenarios(mode, activeQuestionIds, draftPoolSeedRef.current),
+    [mode, activeQuestionIds]
+  );
   const scenarioIds = useMemo(() => scenarios.map((scenario) => scenario.id), [scenarios]);
-  const contextCounts = useMemo(() => getSmysnk2ContextCounts(mode), [mode]);
+  const contextCounts = useMemo(
+    () => getSmysnk2ContextCounts(mode, activeQuestionIds, draftPoolSeedRef.current),
+    [mode, activeQuestionIds]
+  );
 
   const answeredCount = useMemo(
     () => scenarioIds.reduce((count, id) => count + (answers[id] ? 1 : 0), 0),
@@ -87,6 +136,26 @@ function Smysnk2QuestionsContent() {
   const percentComplete = totalCount ? Math.round((answeredCount / totalCount) * 100) : 0;
 
   const currentQuestion = scenarios[currentIndex] ?? null;
+
+  const displayedOptions = useMemo(() => {
+    if (!currentQuestion) {
+      return [] as {
+        displayKey: Smysnk2OptionKey;
+        answerKey: Smysnk2OptionKey;
+        text: string;
+      }[];
+    }
+
+    const order = buildOptionOrder(currentQuestion.id, currentQuestion.options.length);
+    return order.map((optionIndex, displayIndex) => {
+      const option = currentQuestion.options[optionIndex];
+      return {
+        displayKey: DISPLAY_OPTION_KEYS[displayIndex] ?? option.key,
+        answerKey: option.key,
+        text: option.text
+      };
+    });
+  }, [currentQuestion]);
 
   const canGoPrev = useMemo(() => {
     if (!currentQuestion || currentIndex < 1) {
@@ -122,11 +191,16 @@ function Smysnk2QuestionsContent() {
 
   const hydrateFromSession = (payload: SessionPayload, sourceSlug: string) => {
     const resolvedMode = parseSmysnk2Mode(payload.questionMode ?? payload.questionCount);
-    const resolvedScenarios = getSmysnk2Scenarios(resolvedMode);
+    const resolvedScenarios = getSmysnk2Scenarios(
+      resolvedMode,
+      payload.questionIds,
+      sourceSlug
+    );
     const resolvedIds = resolvedScenarios.map((scenario) => scenario.id);
     const nextAnswers = toAnswerMap(payload.responses ?? []);
 
     setMode(resolvedMode);
+    setSessionQuestionIds(payload.questionIds ?? resolvedIds);
     setParticipant(payload.subject || "Self");
     setManualContext(payload.context ?? "");
     setAnswers(nextAnswers);
@@ -162,6 +236,7 @@ function Smysnk2QuestionsContent() {
       if (!candidateSlug) {
         if (active) {
           setMode(parseSmysnk2Mode(modeParam));
+          setSessionQuestionIds(null);
           setLoadingSession(false);
         }
         return;
@@ -201,6 +276,7 @@ function Smysnk2QuestionsContent() {
           } catch {
             // ignore storage errors
           }
+          setSessionQuestionIds(null);
           setManualError(error instanceof Error ? error.message : "Unexpected error.");
         }
       } finally {
@@ -241,7 +317,8 @@ function Smysnk2QuestionsContent() {
         body: JSON.stringify({
           subject: label,
           context: manualContext.trim(),
-          mode
+          mode,
+          questionIds: scenarioIds
         })
       });
       if (!response.ok) {
@@ -260,7 +337,13 @@ function Smysnk2QuestionsContent() {
     }
   };
 
-  const handleSelectAnswer = async (answer: Smysnk2OptionKey) => {
+  const handleSelectAnswer = async ({
+    answer,
+    displayKey
+  }: {
+    answer: Smysnk2OptionKey;
+    displayKey: Smysnk2OptionKey;
+  }) => {
     if (!currentQuestion || savingAnswer || loadingSession || finalizing) {
       return;
     }
@@ -284,7 +367,7 @@ function Smysnk2QuestionsContent() {
           context: manualContext.trim(),
           questionId: currentQuestion.id,
           answer,
-          rationale: `User selected ${answer}.`
+          rationale: `User selected ${displayKey}.`
         })
       });
       if (!response.ok) {
@@ -420,7 +503,14 @@ function Smysnk2QuestionsContent() {
               id="smysnk2-mode"
               className="input"
               value={mode}
-              onChange={(event) => setMode(parseSmysnk2Mode(event.target.value))}
+              onChange={(event) => {
+                setMode(parseSmysnk2Mode(event.target.value));
+                if (!sessionSlug) {
+                  setAnswers({});
+                  setCurrentIndex(0);
+                  setNavigatedBack(false);
+                }
+              }}
               disabled={Boolean(sessionSlug) || loadingSession || savingAnswer || finalizing}
             >
               {SMYSNK2_MODES.map((itemMode) => (
@@ -464,18 +554,18 @@ function Smysnk2QuestionsContent() {
               </div>
 
               <div className="scenario-option-grid" role="radiogroup" aria-label={`Answer for ${currentQuestion.id}`}>
-                {currentQuestion.options.map((option) => {
-                  const isSelected = answers[currentQuestion.id] === option.key;
+                {displayedOptions.map((option) => {
+                  const isSelected = answers[currentQuestion.id] === option.answerKey;
                   return (
                     <button
                       type="button"
-                      key={`${currentQuestion.id}-${option.key}`}
+                      key={`${currentQuestion.id}-${option.displayKey}-${option.answerKey}`}
                       className={`scenario-option ${isSelected ? "active" : ""}`.trim()}
-                      onClick={() => handleSelectAnswer(option.key)}
+                      onClick={() => handleSelectAnswer({ answer: option.answerKey, displayKey: option.displayKey })}
                       aria-pressed={isSelected}
                       disabled={savingAnswer || finalizing}
                     >
-                      <span className="scenario-option-key">{option.key}</span>
+                      <span className="scenario-option-key">{option.displayKey}</span>
                       <span>{option.text}</span>
                     </button>
                   );

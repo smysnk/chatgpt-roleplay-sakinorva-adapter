@@ -5,7 +5,7 @@ import { QUESTIONS } from "@/lib/questions";
 import { SMYSNK_QUESTIONS } from "@/lib/smysnkQuestions";
 import { calculateSmysnkScores } from "@/lib/smysnkScore";
 import { DEFAULT_SMYSNK2_MODE, getSmysnk2Scenarios, parseSmysnk2Mode } from "@/lib/smysnk2Questions";
-import { calculateSmysnk2Scores, normalizeSmysnk2OptionKey } from "@/lib/smysnk2Score";
+import { normalizeSmysnk2OptionKey, scoreSmysnk2Responses } from "@/lib/smysnk2Score";
 import { initializeRunModel, Run } from "@/lib/models/Run";
 import { initializeDatabase } from "@/lib/db";
 import { extractResultMetadata } from "@/lib/runMetadata";
@@ -71,8 +71,8 @@ const buildQuestionBlock = () =>
 const buildSmysnkQuestionBlock = () =>
   SMYSNK_QUESTIONS.map((question) => `${question.id}: ${question.question}`).join("\n");
 
-const buildSmysnk2QuestionBlock = (questionMode: number) =>
-  getSmysnk2Scenarios(parseSmysnk2Mode(questionMode))
+const buildSmysnk2QuestionBlock = (scenarios: ReturnType<typeof getSmysnk2Scenarios>) =>
+  scenarios
     .map((question) => {
       const optionLines = question.options.map((option) => `  ${option.key}) ${option.text}`).join("\n");
       return `${question.id} ${question.scenario}\n${optionLines}`;
@@ -527,7 +527,11 @@ const processRedditSmysnk2Run = async (run: Run) => {
   });
 
   const questionMode = parseSmysnk2Mode(run.questionMode ?? run.questionCount ?? DEFAULT_SMYSNK2_MODE);
-  const scenarios = getSmysnk2Scenarios(questionMode);
+  const scenarios = getSmysnk2Scenarios(
+    questionMode,
+    run.questionIds,
+    run.questionIds?.length ? run.slug : null
+  );
   const scenarioMap = new Map(scenarios.map((scenario) => [scenario.id, scenario]));
   const validIds = new Set(scenarios.map((scenario) => scenario.id));
 
@@ -536,7 +540,7 @@ const processRedditSmysnk2Run = async (run: Run) => {
   const userMessage = `Reddit user: u/${username}\nProfile summary: ${summary}\nPersona: ${profile.persona}\nTraits: ${profile.traits.join(
     ", "
   )}\n\nAnswer all SMYSNK2 scenarios. Each answer must be one option key from A-H plus a one-sentence rationale. Return JSON only.\n\nQuestions:\n${buildSmysnk2QuestionBlock(
-    questionMode
+    scenarios
   )}\n\nJSON schema:\n{\n \"responses\": [\n  { \"id\": \"scenario id\", \"answer\": \"A|B|C|D|E|F|G|H\", \"rationale\": string }\n  // exactly ${scenarios.length} objects\n ]\n}\n`;
 
   const completion = await openai.chat.completions.create({
@@ -582,15 +586,17 @@ const processRedditSmysnk2Run = async (run: Run) => {
     };
   });
 
-  const scores = calculateSmysnk2Scores(
+  const scoring = scoreSmysnk2Responses(
     responses.map((response) => ({ questionId: response.questionId, answerKey: response.answer }))
   );
 
   await run.update({
     responses,
-    functionScores: scores,
+    functionScores: scoring.functionScores,
+    analysis: scoring.analysis,
     questionMode: questionMode.toString(),
     questionCount: scenarios.length,
+    questionIds: scenarios.map((scenario) => scenario.id),
     state: "COMPLETED"
   });
 };
@@ -604,14 +610,18 @@ const processSmysnk2Run = async (run: Run) => {
   });
 
   const questionMode = parseSmysnk2Mode(run.questionMode ?? run.questionCount ?? DEFAULT_SMYSNK2_MODE);
-  const scenarios = getSmysnk2Scenarios(questionMode);
+  const scenarios = getSmysnk2Scenarios(
+    questionMode,
+    run.questionIds,
+    run.questionIds?.length ? run.slug : null
+  );
   const scenarioMap = new Map(scenarios.map((scenario) => [scenario.id, scenario]));
   const validIds = new Set(scenarios.map((scenario) => scenario.id));
 
   const systemMessage =
     "You are roleplaying as the specified character. Pick exactly one option (A-H) per scenario and include a brief rationale. Do not use numeric scales. Output must match the JSON schema exactly.";
   const userMessage = `Character: ${run.subject}\nContext: ${run.context || "(none)"}\n\nAnswer all SMYSNK2 scenarios. Each answer must be one option key from A-H plus a one-sentence rationale. Return JSON only.\n\nQuestions:\n${buildSmysnk2QuestionBlock(
-    questionMode
+    scenarios
   )}\n\nJSON schema:\n{\n \"responses\": [\n  { \"id\": \"scenario id\", \"answer\": \"A|B|C|D|E|F|G|H\", \"rationale\": string }\n  // exactly ${scenarios.length} objects\n ]\n}\n`;
 
   const completion = await openai.chat.completions.create({
@@ -657,15 +667,17 @@ const processSmysnk2Run = async (run: Run) => {
     };
   });
 
-  const scores = calculateSmysnk2Scores(
+  const scoring = scoreSmysnk2Responses(
     responses.map((response) => ({ questionId: response.questionId, answerKey: response.answer }))
   );
 
   await run.update({
     responses,
-    functionScores: scores,
+    functionScores: scoring.functionScores,
+    analysis: scoring.analysis,
     questionMode: questionMode.toString(),
     questionCount: scenarios.length,
+    questionIds: scenarios.map((scenario) => scenario.id),
     state: "COMPLETED"
   });
 };

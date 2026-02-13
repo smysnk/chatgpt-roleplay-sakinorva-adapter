@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { z } from "zod";
-import { getSmysnk2Scenarios, parseSmysnk2Mode } from "@/lib/smysnk2Questions";
+import { getSmysnk2Scenarios, parseSmysnk2Mode, selectSmysnk2QuestionIds } from "@/lib/smysnk2Questions";
 import { initializeDatabase } from "@/lib/db";
 import { initializeRunModel, Run } from "@/lib/models/Run";
 import { startRunQueue } from "@/lib/runQueue";
@@ -18,8 +18,9 @@ export async function POST(request: Request) {
   try {
     const payload = requestSchema.parse(await request.json());
     const questionMode = parseSmysnk2Mode(payload.mode);
-    const questionCount = getSmysnk2Scenarios(questionMode).length;
     const slug = crypto.randomUUID();
+    const questionIds = selectSmysnk2QuestionIds({ mode: questionMode, seed: slug });
+    const questionCount = getSmysnk2Scenarios(questionMode, questionIds).length;
 
     initializeRunModel();
     await initializeDatabase();
@@ -33,8 +34,10 @@ export async function POST(request: Request) {
       context: payload.context || null,
       questionMode: questionMode.toString(),
       questionCount,
+      questionIds,
       responses: null,
       functionScores: null,
+      analysis: null,
       answers: null,
       explanations: null
     });
@@ -47,6 +50,7 @@ export async function POST(request: Request) {
       context: run.context,
       questionMode: run.questionMode,
       questionCount: run.questionCount,
+      questionIds: run.questionIds,
       state: run.state,
       errors: run.errors,
       createdAt: run.createdAt
@@ -72,6 +76,7 @@ export async function GET() {
       "functionScores",
       "questionMode",
       "questionCount",
+      "questionIds",
       "state",
       "errors",
       "createdAt"
@@ -87,6 +92,7 @@ export async function GET() {
       functionScores: run.functionScores,
       questionMode: run.questionMode,
       questionCount: run.questionCount,
+      questionIds: run.questionIds,
       state: run.state,
       errors: run.errors,
       createdAt: run.createdAt

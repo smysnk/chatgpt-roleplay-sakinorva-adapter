@@ -26,9 +26,11 @@ export async function GET(
     context: run.context,
     questionMode: run.questionMode,
     questionCount: run.questionCount,
+    questionIds: run.questionIds,
     redditProfile: run.redditProfile,
     responses: run.responses,
     scores: run.functionScores,
+    analysis: run.analysis,
     state: run.state,
     errors: run.errors,
     createdAt: run.createdAt
