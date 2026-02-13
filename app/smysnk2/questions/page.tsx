@@ -5,7 +5,9 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   SMYSNK2_MODE_LABELS,
   SMYSNK2_MODES,
-  getSmysnk2ContextCounts,
+  SMYSNK2_SITUATION_CONTEXT_LABELS,
+  SMYSNK2_SITUATION_CONTEXT_ORDER,
+  getSmysnk2SituationContextCounts,
   getSmysnk2Scenarios,
   parseSmysnk2Mode,
   selectSmysnk2QuestionIds,
@@ -25,7 +27,7 @@ type SessionPayload = {
   context: string | null;
   questionMode: number | string | null;
   questionCount: number;
-  questionIds: string[];
+  questionIds: string[] | null;
   responses: { questionId: string; answer: Smysnk2OptionKey; rationale: string }[];
   answeredCount: number;
   totalCount: number;
@@ -122,7 +124,7 @@ function Smysnk2QuestionsContent() {
   );
   const scenarioIds = useMemo(() => scenarios.map((scenario) => scenario.id), [scenarios]);
   const contextCounts = useMemo(
-    () => getSmysnk2ContextCounts(mode, activeQuestionIds, draftPoolSeedRef.current),
+    () => getSmysnk2SituationContextCounts(mode, activeQuestionIds, draftPoolSeedRef.current),
     [mode, activeQuestionIds]
   );
 
@@ -460,7 +462,10 @@ function Smysnk2QuestionsContent() {
             One scenario at a time. Answers save automatically as you go, and unfinished sessions can be resumed.
           </p>
           <p className="helper" style={{ marginTop: "8px" }}>
-            Mode {mode}: {contextCounts.default} default, {contextCounts.moderate} moderate, {contextCounts.stress} stress.
+            Mode {mode} context coverage:{" "}
+            {SMYSNK2_SITUATION_CONTEXT_ORDER.map(
+              (context) => `${contextCounts[context]} ${SMYSNK2_SITUATION_CONTEXT_LABELS[context]}`
+            ).join(" | ")}
           </p>
         </div>
 

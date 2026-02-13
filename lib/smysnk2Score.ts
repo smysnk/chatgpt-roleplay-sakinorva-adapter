@@ -2,14 +2,18 @@ import {
   getSmysnk2ScenarioById,
   SMYSNK2_ARCHETYPE_LABELS,
   SMYSNK2_ARCHETYPE_ORDER,
+  SMYSNK2_CONTEXT_POLARITY_BY_CONTEXT,
+  SMYSNK2_SITUATION_CONTEXT_LABELS,
+  SMYSNK2_SITUATION_CONTEXT_ORDER,
   type Smysnk2Archetype,
-  type Smysnk2OptionKey
+  type Smysnk2ContextPolarity,
+  type Smysnk2OptionKey,
+  type Smysnk2SituationContext
 } from "@/lib/smysnk2Questions";
 
 const FUNCTION_KEYS = ["Ni", "Ne", "Si", "Se", "Ti", "Te", "Fi", "Fe"] as const;
 
 type FunctionKey = (typeof FUNCTION_KEYS)[number];
-
 type GrantStyle = "IEIE" | "EIEI";
 
 export type Smysnk2Response = {
@@ -57,16 +61,84 @@ export type Smysnk2TypeMatchingSummary = {
   grantStyles: { style: GrantStyle; confidence: number }[];
 };
 
+export type Smysnk2ContextTypeAnalysis = {
+  context: Smysnk2SituationContext;
+  label: string;
+  polarity: Smysnk2ContextPolarity;
+  totalResponses: number;
+  archetypeBreakdown: Smysnk2ArchetypeBreakdown[];
+  typeMatching: Smysnk2TypeMatchingSummary;
+  dominantGrantStyle: GrantStyle | null;
+  dominantGrantStyleConfidence: number;
+};
+
+export type Smysnk2PolarityAnalysis = {
+  polarity: Smysnk2ContextPolarity;
+  label: string;
+  totalResponses: number;
+  archetypeBreakdown: Smysnk2ArchetypeBreakdown[];
+  typeMatching: Smysnk2TypeMatchingSummary;
+  dominantGrantStyle: GrantStyle | null;
+  dominantGrantStyleConfidence: number;
+};
+
+export type Smysnk2AssertiveModeAnalysis = {
+  overallGrantStyle: {
+    style: GrantStyle | null;
+    confidence: number;
+  };
+  totalResponses: number;
+  archetypeBreakdown: Smysnk2ArchetypeBreakdown[];
+  typeMatching: Smysnk2TypeMatchingSummary;
+  dominantGrantStyle: GrantStyle | null;
+  dominantGrantStyleConfidence: number;
+};
+
+export type Smysnk2TurbulentModeAnalysis = {
+  contexts: Smysnk2ContextTypeAnalysis[];
+};
+
+export type Smysnk2TemperamentConfidence = {
+  assertive: number;
+  turbulent: number;
+  leaning: "Assertive" | "Turbulent";
+  personaShadowDelta: number;
+  contextVariance: number;
+  rationale: string;
+};
+
+export type Smysnk2Summary = {
+  bestType: string | null;
+  alternatives: string[];
+  grantStyle: GrantStyle | null;
+  grantStyleConfidence: number;
+  assertive: number;
+  turbulent: number;
+  leaning: "Assertive" | "Turbulent";
+};
+
 export type Smysnk2Analysis = {
   totalResponses: number;
   archetypeBreakdown: Smysnk2ArchetypeBreakdown[];
   functionConfidence: Smysnk2FunctionConfidence[];
   typeMatching: Smysnk2TypeMatchingSummary;
+  assertiveMode: Smysnk2AssertiveModeAnalysis;
+  turbulentMode: Smysnk2TurbulentModeAnalysis;
+  temperamentConfidence: Smysnk2TemperamentConfidence;
+  summary: Smysnk2Summary;
 };
 
 export type Smysnk2ScoringResult = {
   functionScores: Record<FunctionKey, number>;
   analysis: Smysnk2Analysis;
+};
+
+type EvaluatedResponse = {
+  questionId: string;
+  functionKey: FunctionKey;
+  archetype: Smysnk2Archetype;
+  context: Smysnk2SituationContext;
+  polarity: Smysnk2ContextPolarity;
 };
 
 const OPTION_KEY_SET = new Set<Smysnk2OptionKey>(["A", "B", "C", "D", "E", "F", "G", "H"]);
@@ -80,16 +152,25 @@ const EMPTY_FUNCTION_RECORD = () =>
     {} as Record<FunctionKey, number>
   );
 
-const round2 = (value: number) => Math.round(value * 100) / 100;
+const EMPTY_ARCHETYPE_TOTALS = () =>
+  SMYSNK2_ARCHETYPE_ORDER.reduce(
+    (acc, archetype) => {
+      acc[archetype] = 0;
+      return acc;
+    },
+    {} as Record<Smysnk2Archetype, number>
+  );
 
-const functionKeyFromAnswer = (questionId: string, answerKey: Smysnk2OptionKey) => {
-  const question = getSmysnk2ScenarioById(questionId);
-  const option = question?.options.find((item) => item.key === answerKey);
-  if (!option) {
-    return null;
-  }
-  return `${option.score.function}${option.score.orientation === "introverted" ? "i" : "e"}` as FunctionKey;
-};
+const EMPTY_ARCHETYPE_COUNTS = () =>
+  SMYSNK2_ARCHETYPE_ORDER.reduce(
+    (acc, archetype) => {
+      acc[archetype] = EMPTY_FUNCTION_RECORD();
+      return acc;
+    },
+    {} as Record<Smysnk2Archetype, Record<FunctionKey, number>>
+  );
+
+const round2 = (value: number) => Math.round(value * 100) / 100;
 
 const byScoreDesc = (scores: Record<FunctionKey, number>) =>
   [...FUNCTION_KEYS]
@@ -103,11 +184,7 @@ const getCategory = (key: FunctionKey) => (key.startsWith("N") || key.startsWith
 const flipAttitude = (key: FunctionKey): FunctionKey =>
   `${key[0]}${key[1] === "i" ? "e" : "i"}` as FunctionKey;
 
-const pickDistinct = (
-  candidates: FunctionKey[],
-  used: Set<FunctionKey>,
-  fallback: FunctionKey
-) => {
+const pickDistinct = (candidates: FunctionKey[], used: Set<FunctionKey>, fallback: FunctionKey) => {
   const picked = candidates.find((candidate) => !used.has(candidate));
   if (picked) {
     used.add(picked);
@@ -146,6 +223,18 @@ const computeTypeMatches = ({
   bucketCounts: Record<Smysnk2Archetype, Record<FunctionKey, number>>;
   bucketTotals: Record<Smysnk2Archetype, number>;
 }): Smysnk2TypeMatchingSummary => {
+  const totalResponses = Object.values(bucketTotals).reduce((acc, value) => acc + value, 0);
+  if (!totalResponses) {
+    return {
+      best: null,
+      alternatives: [],
+      grantStyles: [
+        { style: "IEIE", confidence: 0 },
+        { style: "EIEI", confidence: 0 }
+      ]
+    };
+  }
+
   const weights = SMYSNK2_ARCHETYPE_ORDER.map((_, index) => (index < 4 ? 1.25 : 1));
 
   const matches: Smysnk2TypeMatch[] = Object.entries(TYPE_STACKS)
@@ -202,6 +291,193 @@ const computeTypeMatches = ({
     best,
     alternatives,
     grantStyles
+  };
+};
+
+const functionKeyFromAnswer = (questionId: string, answerKey: Smysnk2OptionKey) => {
+  const question = getSmysnk2ScenarioById(questionId);
+  const option = question?.options.find((item) => item.key === answerKey);
+  if (!option) {
+    return null;
+  }
+  return `${option.score.function}${option.score.orientation === "introverted" ? "i" : "e"}` as FunctionKey;
+};
+
+const getGrantStyleShare = (typeMatching: Smysnk2TypeMatchingSummary, style: GrantStyle) =>
+  typeMatching.grantStyles.find((item) => item.style === style)?.confidence ?? 0;
+
+const getDominantGrantStyle = (typeMatching: Smysnk2TypeMatchingSummary) => {
+  const top = typeMatching.grantStyles[0];
+  if (!top || top.confidence <= 0) {
+    return { style: null, confidence: 0 };
+  }
+  return { style: top.style as GrantStyle, confidence: top.confidence };
+};
+
+const buildStats = (evaluated: EvaluatedResponse[]) => {
+  const globalCounts = EMPTY_FUNCTION_RECORD();
+  const bucketTotals = EMPTY_ARCHETYPE_TOTALS();
+  const bucketCounts = EMPTY_ARCHETYPE_COUNTS();
+
+  let counted = 0;
+  evaluated.forEach((item) => {
+    counted += 1;
+    globalCounts[item.functionKey] += 1;
+    bucketTotals[item.archetype] += 1;
+    bucketCounts[item.archetype][item.functionKey] += 1;
+  });
+
+  const archetypeBreakdown: Smysnk2ArchetypeBreakdown[] = SMYSNK2_ARCHETYPE_ORDER.map((archetype) => {
+    const total = bucketTotals[archetype];
+    const ranked = byScoreDesc(bucketCounts[archetype]);
+    const leading = ranked[0] ?? null;
+    const second = ranked[1] ?? null;
+    const leadingCount = leading?.score ?? 0;
+    const secondCount = second?.score ?? 0;
+    const dominance = total ? leadingCount / total : 0;
+    const separation = total ? Math.max(0, leadingCount - secondCount) / total : 0;
+    const confidence = round2((dominance * 0.75 + separation * 0.25) * 100);
+
+    const distribution = FUNCTION_KEYS.reduce(
+      (acc, key) => {
+        acc[key] = total ? round2((bucketCounts[archetype][key] / total) * 100) : 0;
+        return acc;
+      },
+      {} as Record<FunctionKey, number>
+    );
+
+    return {
+      archetype,
+      label: SMYSNK2_ARCHETYPE_LABELS[archetype],
+      total,
+      leadingFunction: leading?.key ?? null,
+      leadingCount,
+      confidence,
+      distribution
+    };
+  });
+
+  const archetypeWins = FUNCTION_KEYS.reduce(
+    (acc, key) => {
+      acc[key] = archetypeBreakdown.reduce(
+        (count, archetype) => count + (archetype.leadingFunction === key ? 1 : 0),
+        0
+      );
+      return acc;
+    },
+    {} as Record<FunctionKey, number>
+  );
+
+  const functionConfidence: Smysnk2FunctionConfidence[] = FUNCTION_KEYS.map((key) => {
+    const count = globalCounts[key];
+    const percentage = counted ? round2((count / counted) * 100) : 0;
+    const archetypeSupport = round2((archetypeWins[key] / SMYSNK2_ARCHETYPE_ORDER.length) * 100);
+    const confidence = round2(percentage * 0.7 + archetypeSupport * 0.3);
+    return {
+      functionKey: key,
+      count,
+      percentage,
+      archetypeWins: archetypeWins[key],
+      confidence
+    };
+  }).sort((a, b) => b.confidence - a.confidence);
+
+  const functionScores = FUNCTION_KEYS.reduce(
+    (acc, key) => {
+      acc[key] = counted ? round2((globalCounts[key] / counted) * 40) : 0;
+      return acc;
+    },
+    {} as Record<FunctionKey, number>
+  );
+
+  return {
+    counted,
+    archetypeBreakdown,
+    functionConfidence,
+    functionScores,
+    typeMatching: computeTypeMatches({ bucketCounts, bucketTotals })
+  };
+};
+
+const buildPolarityAnalysis = (
+  polarity: Smysnk2ContextPolarity,
+  evaluated: EvaluatedResponse[]
+): Smysnk2PolarityAnalysis => {
+  const stats = buildStats(evaluated.filter((item) => item.polarity === polarity));
+  const dominant = getDominantGrantStyle(stats.typeMatching);
+  return {
+    polarity,
+    label: polarity === "persona" ? "Persona" : "Shadow",
+    totalResponses: stats.counted,
+    archetypeBreakdown: stats.archetypeBreakdown,
+    typeMatching: stats.typeMatching,
+    dominantGrantStyle: dominant.style,
+    dominantGrantStyleConfidence: dominant.confidence
+  };
+};
+
+const buildContextAnalyses = (evaluated: EvaluatedResponse[]): Smysnk2ContextTypeAnalysis[] =>
+  SMYSNK2_SITUATION_CONTEXT_ORDER.map((context) => {
+    const stats = buildStats(evaluated.filter((item) => item.context === context));
+    const dominant = getDominantGrantStyle(stats.typeMatching);
+    return {
+      context,
+      label: SMYSNK2_SITUATION_CONTEXT_LABELS[context],
+      polarity: SMYSNK2_CONTEXT_POLARITY_BY_CONTEXT[context],
+      totalResponses: stats.counted,
+      archetypeBreakdown: stats.archetypeBreakdown,
+      typeMatching: stats.typeMatching,
+      dominantGrantStyle: dominant.style,
+      dominantGrantStyleConfidence: dominant.confidence
+    };
+  });
+
+const buildTemperamentConfidence = ({
+  persona,
+  shadow,
+  contexts
+}: {
+  persona: Smysnk2PolarityAnalysis;
+  shadow: Smysnk2PolarityAnalysis;
+  contexts: Smysnk2ContextTypeAnalysis[];
+}): Smysnk2TemperamentConfidence => {
+  const personaIEIE = getGrantStyleShare(persona.typeMatching, "IEIE");
+  const shadowIEIE = getGrantStyleShare(shadow.typeMatching, "IEIE");
+  const personaShadowDelta = round2(Math.abs(personaIEIE - shadowIEIE));
+  const sameDirection =
+    (personaIEIE >= 50 && shadowIEIE >= 50) || (personaIEIE < 50 && shadowIEIE < 50);
+  const deltaStability = Math.max(0, 1 - personaShadowDelta / 100);
+
+  const contextShares = contexts
+    .filter((context) => context.totalResponses > 0)
+    .map((context) => getGrantStyleShare(context.typeMatching, "IEIE"));
+  const contextMean =
+    contextShares.length > 0
+      ? contextShares.reduce((acc, value) => acc + value, 0) / contextShares.length
+      : 50;
+  const contextVarianceRaw =
+    contextShares.length > 0
+      ? contextShares.reduce((acc, value) => acc + Math.abs(value - contextMean), 0) /
+        contextShares.length
+      : 0;
+  const contextVariance = round2(contextVarianceRaw);
+  const contextStability = Math.max(0, 1 - contextVariance / 50);
+
+  const assertive = round2(
+    Math.min(100, Math.max(0, ((sameDirection ? 1 : 0) * 0.45 + deltaStability * 0.35 + contextStability * 0.2) * 100))
+  );
+  const turbulent = round2(Math.max(0, 100 - assertive));
+  const leaning = assertive >= turbulent ? "Assertive" : "Turbulent";
+
+  return {
+    assertive,
+    turbulent,
+    leaning,
+    personaShadowDelta,
+    contextVariance,
+    rationale: sameDirection
+      ? "Persona and shadow style signatures are directionally aligned."
+      : "Persona and shadow style signatures diverge across contexts."
   };
 };
 
@@ -272,112 +548,64 @@ export const normalizeSmysnk2OptionKey = (value: unknown): Smysnk2OptionKey | nu
 };
 
 export const scoreSmysnk2Responses = (responses: Smysnk2Response[]): Smysnk2ScoringResult => {
-  const globalCounts = EMPTY_FUNCTION_RECORD();
-  const bucketTotals = SMYSNK2_ARCHETYPE_ORDER.reduce(
-    (acc, archetype) => {
-      acc[archetype] = 0;
-      return acc;
-    },
-    {} as Record<Smysnk2Archetype, number>
-  );
-  const bucketCounts = SMYSNK2_ARCHETYPE_ORDER.reduce(
-    (acc, archetype) => {
-      acc[archetype] = EMPTY_FUNCTION_RECORD();
-      return acc;
-    },
-    {} as Record<Smysnk2Archetype, Record<FunctionKey, number>>
-  );
-
-  let counted = 0;
-
-  responses.forEach((response) => {
+  const evaluated: EvaluatedResponse[] = responses.flatMap((response) => {
     const question = getSmysnk2ScenarioById(response.questionId);
     if (!question) {
-      return;
+      return [];
     }
     const key = functionKeyFromAnswer(response.questionId, response.answerKey);
     if (!key) {
-      return;
+      return [];
     }
-
-    counted += 1;
-    globalCounts[key] += 1;
-    bucketTotals[question.archetype] += 1;
-    bucketCounts[question.archetype][key] += 1;
+    return [
+      {
+        questionId: response.questionId,
+        functionKey: key,
+        archetype: question.archetype,
+        context: question.situationContext,
+        polarity: question.contextPolarity
+      }
+    ];
   });
 
-  const archetypeBreakdown: Smysnk2ArchetypeBreakdown[] = SMYSNK2_ARCHETYPE_ORDER.map((archetype) => {
-    const total = bucketTotals[archetype];
-    const ranked = byScoreDesc(bucketCounts[archetype]);
-    const leading = ranked[0] ?? null;
-    const second = ranked[1] ?? null;
-    const leadingCount = leading?.score ?? 0;
-    const secondCount = second?.score ?? 0;
-    const dominance = total ? leadingCount / total : 0;
-    const separation = total ? Math.max(0, leadingCount - secondCount) / total : 0;
-    const confidence = round2((dominance * 0.75 + separation * 0.25) * 100);
-
-    const distribution = FUNCTION_KEYS.reduce(
-      (acc, key) => {
-        acc[key] = total ? round2((bucketCounts[archetype][key] / total) * 100) : 0;
-        return acc;
-      },
-      {} as Record<FunctionKey, number>
-    );
-
-    return {
-      archetype,
-      label: SMYSNK2_ARCHETYPE_LABELS[archetype],
-      total,
-      leadingFunction: leading?.key ?? null,
-      leadingCount,
-      confidence,
-      distribution
-    };
-  });
-
-  const archetypeWins = FUNCTION_KEYS.reduce(
-    (acc, key) => {
-      acc[key] = archetypeBreakdown.reduce(
-        (count, archetype) => count + (archetype.leadingFunction === key ? 1 : 0),
-        0
-      );
-      return acc;
-    },
-    {} as Record<FunctionKey, number>
-  );
-
-  const functionConfidence: Smysnk2FunctionConfidence[] = FUNCTION_KEYS.map((key) => {
-    const count = globalCounts[key];
-    const percentage = counted ? round2((count / counted) * 100) : 0;
-    const archetypeSupport = round2((archetypeWins[key] / SMYSNK2_ARCHETYPE_ORDER.length) * 100);
-    const confidence = round2(percentage * 0.7 + archetypeSupport * 0.3);
-    return {
-      functionKey: key,
-      count,
-      percentage,
-      archetypeWins: archetypeWins[key],
-      confidence
-    };
-  }).sort((a, b) => b.confidence - a.confidence);
-
-  const functionScores = FUNCTION_KEYS.reduce(
-    (acc, key) => {
-      acc[key] = counted ? round2((globalCounts[key] / counted) * 40) : 0;
-      return acc;
-    },
-    {} as Record<FunctionKey, number>
-  );
-
-  const typeMatching = computeTypeMatches({ bucketCounts, bucketTotals });
+  const overallStats = buildStats(evaluated);
+  const persona = buildPolarityAnalysis("persona", evaluated);
+  const shadow = buildPolarityAnalysis("shadow", evaluated);
+  const contexts = buildContextAnalyses(evaluated);
+  const dominantOverallStyle = getDominantGrantStyle(overallStats.typeMatching);
+  const temperamentConfidence = buildTemperamentConfidence({ persona, shadow, contexts });
 
   return {
-    functionScores,
+    functionScores: overallStats.functionScores,
     analysis: {
-      totalResponses: counted,
-      archetypeBreakdown,
-      functionConfidence,
-      typeMatching
+      totalResponses: overallStats.counted,
+      archetypeBreakdown: overallStats.archetypeBreakdown,
+      functionConfidence: overallStats.functionConfidence,
+      typeMatching: overallStats.typeMatching,
+      assertiveMode: {
+        overallGrantStyle: {
+          style: dominantOverallStyle.style,
+          confidence: dominantOverallStyle.confidence
+        },
+        totalResponses: overallStats.counted,
+        archetypeBreakdown: overallStats.archetypeBreakdown,
+        typeMatching: overallStats.typeMatching,
+        dominantGrantStyle: dominantOverallStyle.style,
+        dominantGrantStyleConfidence: dominantOverallStyle.confidence
+      },
+      turbulentMode: {
+        contexts
+      },
+      temperamentConfidence,
+      summary: {
+        bestType: overallStats.typeMatching.best?.type ?? null,
+        alternatives: overallStats.typeMatching.alternatives.map((item) => item.type),
+        grantStyle: dominantOverallStyle.style,
+        grantStyleConfidence: dominantOverallStyle.confidence,
+        assertive: temperamentConfidence.assertive,
+        turbulent: temperamentConfidence.turbulent,
+        leaning: temperamentConfidence.leaning
+      }
     }
   };
 };

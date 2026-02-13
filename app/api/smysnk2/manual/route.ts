@@ -40,6 +40,7 @@ export async function POST(request: Request) {
     }
 
     const questionMode = parseSmysnk2Mode(payload.mode);
+    const slug = crypto.randomUUID();
     const requestedIds = normalizeSmysnk2QuestionIds(payload.questionIds);
     const questionIds =
       requestedIds &&
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
       hasBalancedSmysnk2QuestionIds(requestedIds, questionMode)
         ? requestedIds
         : null;
-    const scenarios = getSmysnk2Scenarios(questionMode, questionIds);
+    const scenarios = getSmysnk2Scenarios(questionMode, questionIds, slug);
     if (payload.responses.length !== scenarios.length) {
       return NextResponse.json(
         { error: `Expected ${scenarios.length} responses for the selected mode.` },
@@ -89,7 +90,6 @@ export async function POST(request: Request) {
     const scoring = scoreSmysnk2Responses(
       responses.map((response) => ({ questionId: response.questionId, answerKey: response.answer }))
     );
-    const slug = crypto.randomUUID();
 
     initializeRunModel();
     await initializeDatabase();

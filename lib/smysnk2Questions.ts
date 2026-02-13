@@ -1,6 +1,15 @@
 import type { SmysnkFunction, SmysnkOrientation } from "@/lib/smysnkQuestions";
 
 export type Smysnk2ContextType = "default" | "moderate" | "stress";
+export type Smysnk2SituationContext =
+  | "leisure_with_friends"
+  | "alone_time_relax"
+  | "work_time_constraints"
+  | "overwhelming_work_tasks"
+  | "unexpected_interpersonal_conflict"
+  | "emergency_medical_situation"
+  | "creative_expression_hobby";
+export type Smysnk2ContextPolarity = "persona" | "shadow";
 export type Smysnk2OptionKey = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H";
 export type Smysnk2Mode = 16 | 32 | 64;
 export type Smysnk2Archetype =
@@ -25,6 +34,8 @@ export type Smysnk2ScenarioOption = {
 export type Smysnk2Scenario = {
   id: string;
   contextType: Smysnk2ContextType;
+  situationContext: Smysnk2SituationContext;
+  contextPolarity: Smysnk2ContextPolarity;
   archetype: Smysnk2Archetype;
   domain: string;
   scenario: string;
@@ -51,6 +62,7 @@ type OptionTextMap = Record<Smysnk2OptionKey, string>;
 type ScenarioSeed = {
   id: string;
   contextType: Smysnk2ContextType;
+  situationContext?: Smysnk2SituationContext;
   archetype?: Smysnk2Archetype;
   domain: string;
   scenario: string;
@@ -65,7 +77,10 @@ const buildOptions = (texts: OptionTextMap): Smysnk2ScenarioOption[] =>
     score: SCORE_BY_OPTION[key]
   }));
 
-const OPTION_TEXT_VARIANTS: Array<(baseSentence: string, baseClause: string) => string> = [
+type OptionTextVariant = (baseSentence: string, baseClause: string, domainLabel: string) => string;
+type ScenarioTextVariant = (scenarioClause: string) => string;
+
+const GENERIC_OPTION_VARIANTS: OptionTextVariant[] = [
   (_baseSentence, baseClause) => `You begin by ${baseClause}.`,
   (baseSentence) => `First move: ${baseSentence}`,
   (_baseSentence, baseClause) => `Your initial response is to ${baseClause}.`,
@@ -75,6 +90,144 @@ const OPTION_TEXT_VARIANTS: Array<(baseSentence: string, baseClause: string) => 
   (_baseSentence, baseClause) => `The way you open is to ${baseClause}.`,
   (baseSentence) => `You lead with this approach: ${baseSentence}`
 ];
+
+const CONTEXTUAL_OPTION_VARIANTS: Record<Smysnk2SituationContext, OptionTextVariant[]> = {
+  leisure_with_friends: [
+    (_baseSentence, baseClause, domainLabel) => `While out with friends, you ${baseClause} around ${domainLabel}.`,
+    (_baseSentence, baseClause) => `In the group moment, your first move is to ${baseClause}.`,
+    (_baseSentence, baseClause) => `When everyone is deciding together, you start by ${baseClause}.`,
+    (baseSentence) => `Around friends, your opening approach is: ${baseSentence}`,
+    (_baseSentence, baseClause) => `Socially, you lead by ${baseClause}.`,
+    (_baseSentence, baseClause) => `You respond to the group by ${baseClause}.`,
+    (_baseSentence, baseClause) => `Your first shared-step is to ${baseClause}.`,
+    (_baseSentence, baseClause) => `In friend-time decisions, you usually ${baseClause}.`
+  ],
+  alone_time_relax: [
+    (_baseSentence, baseClause, domainLabel) => `During solo downtime, you ${baseClause} about ${domainLabel}.`,
+    (_baseSentence, baseClause) => `When relaxing alone, your first step is to ${baseClause}.`,
+    (_baseSentence, baseClause) => `In private reset time, you start by ${baseClause}.`,
+    (baseSentence) => `Alone, your opening choice is: ${baseSentence}`,
+    (_baseSentence, baseClause) => `Without outside pressure, you begin by ${baseClause}.`,
+    (_baseSentence, baseClause) => `Your self-guided move is to ${baseClause}.`,
+    (_baseSentence, baseClause) => `In quiet time, you naturally ${baseClause}.`,
+    (_baseSentence, baseClause) => `For personal recharge, you first ${baseClause}.`
+  ],
+  work_time_constraints: [
+    (_baseSentence, baseClause, domainLabel) => `With deadline pressure at work, you ${baseClause} on ${domainLabel}.`,
+    (_baseSentence, baseClause) => `Under time constraints, your first action is to ${baseClause}.`,
+    (_baseSentence, baseClause) => `When the clock matters, you open by ${baseClause}.`,
+    (baseSentence) => `In timed work execution, your first move is: ${baseSentence}`,
+    (_baseSentence, baseClause) => `To stay on schedule, you start by ${baseClause}.`,
+    (_baseSentence, baseClause) => `In delivery mode, you lead by ${baseClause}.`,
+    (_baseSentence, baseClause) => `You handle the time-box by ${baseClause}.`,
+    (_baseSentence, baseClause) => `In deadline work, you usually ${baseClause}.`
+  ],
+  overwhelming_work_tasks: [
+    (_baseSentence, baseClause, domainLabel) => `When workload spikes, you ${baseClause} around ${domainLabel}.`,
+    (_baseSentence, baseClause) => `In task overload, your first reaction is to ${baseClause}.`,
+    (_baseSentence, baseClause) => `When everything feels urgent, you start by ${baseClause}.`,
+    (baseSentence) => `Under heavy workload strain, your move is: ${baseSentence}`,
+    (_baseSentence, baseClause) => `To regain control, you begin by ${baseClause}.`,
+    (_baseSentence, baseClause) => `When capacity is maxed, you lead by ${baseClause}.`,
+    (_baseSentence, baseClause) => `Your stabilizing move is to ${baseClause}.`,
+    (_baseSentence, baseClause) => `In overload mode, you usually ${baseClause}.`
+  ],
+  unexpected_interpersonal_conflict: [
+    (_baseSentence, baseClause, domainLabel) => `When conflict flares unexpectedly, you ${baseClause} around ${domainLabel}.`,
+    (_baseSentence, baseClause) => `In social friction, your first move is to ${baseClause}.`,
+    (_baseSentence, baseClause) => `When tension rises suddenly, you start by ${baseClause}.`,
+    (baseSentence) => `In interpersonal conflict, your opening approach is: ${baseSentence}`,
+    (_baseSentence, baseClause) => `To handle the clash, you begin by ${baseClause}.`,
+    (_baseSentence, baseClause) => `In disagreement pressure, you lead by ${baseClause}.`,
+    (_baseSentence, baseClause) => `When relational stakes rise, you ${baseClause}.`,
+    (_baseSentence, baseClause) => `In a sharp social moment, you usually ${baseClause}.`
+  ],
+  emergency_medical_situation: [
+    (_baseSentence, baseClause, domainLabel) => `In a medical emergency, you ${baseClause} around ${domainLabel}.`,
+    (_baseSentence, baseClause) => `When immediate care is needed, your first move is to ${baseClause}.`,
+    (_baseSentence, baseClause) => `With health risk in front of you, you start by ${baseClause}.`,
+    (baseSentence) => `In urgent medical conditions, your opening response is: ${baseSentence}`,
+    (_baseSentence, baseClause) => `To stabilize the situation fast, you begin by ${baseClause}.`,
+    (_baseSentence, baseClause) => `Under emergency pressure, you lead by ${baseClause}.`,
+    (_baseSentence, baseClause) => `When seconds matter, you ${baseClause}.`,
+    (_baseSentence, baseClause) => `In crisis care mode, you usually ${baseClause}.`
+  ],
+  creative_expression_hobby: [
+    (_baseSentence, baseClause, domainLabel) => `While creating for fun, you ${baseClause} around ${domainLabel}.`,
+    (_baseSentence, baseClause) => `In hobby expression, your first move is to ${baseClause}.`,
+    (_baseSentence, baseClause) => `When making something personal, you start by ${baseClause}.`,
+    (baseSentence) => `In a creative flow state, your opening approach is: ${baseSentence}`,
+    (_baseSentence, baseClause) => `To express your style, you begin by ${baseClause}.`,
+    (_baseSentence, baseClause) => `In playful creation mode, you lead by ${baseClause}.`,
+    (_baseSentence, baseClause) => `For creative momentum, you ${baseClause}.`,
+    (_baseSentence, baseClause) => `In a hobby session, you usually ${baseClause}.`
+  ]
+};
+
+const CONTEXTUAL_SCENARIO_VARIANTS: Record<Smysnk2SituationContext, ScenarioTextVariant[]> = {
+  leisure_with_friends: [
+    (scenarioClause) => `While hanging out with friends, ${scenarioClause}.`,
+    (scenarioClause) => `During social downtime with friends, ${scenarioClause}.`,
+    (scenarioClause) => `In a casual group setting, ${scenarioClause}.`
+  ],
+  alone_time_relax: [
+    (scenarioClause) => `During personal recharge time, ${scenarioClause}.`,
+    (scenarioClause) => `When you have quiet time to yourself, ${scenarioClause}.`,
+    (scenarioClause) => `In a solo downtime block, ${scenarioClause}.`
+  ],
+  work_time_constraints: [
+    (scenarioClause) => `During a time-boxed work task, ${scenarioClause}.`,
+    (scenarioClause) => `With a tight work deadline, ${scenarioClause}.`,
+    (scenarioClause) => `When work is on the clock, ${scenarioClause}.`
+  ],
+  overwhelming_work_tasks: [
+    (scenarioClause) => `While overloaded with work demands, ${scenarioClause}.`,
+    (scenarioClause) => `When too many work tasks pile up at once, ${scenarioClause}.`,
+    (scenarioClause) => `During a heavy workload spike, ${scenarioClause}.`
+  ],
+  unexpected_interpersonal_conflict: [
+    (scenarioClause) => `During an unexpected interpersonal clash, ${scenarioClause}.`,
+    (scenarioClause) => `When tension rises suddenly between people, ${scenarioClause}.`,
+    (scenarioClause) => `In a social conflict that catches you off guard, ${scenarioClause}.`
+  ],
+  emergency_medical_situation: [
+    (scenarioClause) => `In an urgent medical situation, ${scenarioClause}.`,
+    (scenarioClause) => `During an emergency care moment, ${scenarioClause}.`,
+    (scenarioClause) => `When immediate health response is needed, ${scenarioClause}.`
+  ],
+  creative_expression_hobby: [
+    (scenarioClause) => `While working on a creative hobby, ${scenarioClause}.`,
+    (scenarioClause) => `During personal creative expression, ${scenarioClause}.`,
+    (scenarioClause) => `In a hobby session where you are creating, ${scenarioClause}.`
+  ]
+};
+
+const CONTEXT_SCENARIO_HINTS: Record<Smysnk2SituationContext, RegExp[]> = {
+  leisure_with_friends: [/friend/i, /hangout/i, /group/i, /social/i, /weekend/i, /casual/i],
+  alone_time_relax: [/alone/i, /quiet/i, /solo/i, /relax/i, /free evening/i, /downtime/i, /recharge/i],
+  work_time_constraints: [
+    /deadline/i,
+    /timeline/i,
+    /milestone/i,
+    /handoff/i,
+    /stakeholder/i,
+    /workflow/i,
+    /process/i,
+    /project/i,
+    /\bteam\b/i,
+    /\bwork\b/i,
+    /implementation/i,
+    /status update/i,
+    /inbox/i,
+    /bug/i,
+    /release/i,
+    /outage/i
+  ],
+  overwhelming_work_tasks: [/overload/i, /overwhelmed/i, /capacity/i, /pile/i, /workload/i, /escalating/i, /urgent/i],
+  unexpected_interpersonal_conflict: [/conflict/i, /disagree/i, /friction/i, /tension/i, /relationship/i, /confronted/i, /pushback/i],
+  emergency_medical_situation: [/medical/i, /emergency/i, /triage/i, /care/i, /health/i],
+  creative_expression_hobby: [/creative/i, /hobby/i, /craft/i, /expression/i, /outline/i, /writing/i, /brainstorm/i]
+};
 
 const withTerminalPeriod = (text: string) => {
   const trimmed = text.trim();
@@ -111,8 +264,8 @@ const makeSeededRng = (seed: number) => {
   };
 };
 
-const buildTemplateOrder = (seedText: string) => {
-  const order = Array.from({ length: OPTION_TEXT_VARIANTS.length }, (_, index) => index);
+const buildTemplateOrder = (seedText: string, length: number) => {
+  const order = Array.from({ length }, (_, index) => index);
   const random = makeSeededRng(hashString(seedText));
   for (let right = order.length - 1; right > 0; right -= 1) {
     const left = Math.floor(random() * (right + 1));
@@ -121,14 +274,50 @@ const buildTemplateOrder = (seedText: string) => {
   return order;
 };
 
-const buildVariantOptionTexts = (seed: ScenarioSeed, baseOptions: OptionTextMap): OptionTextMap => {
-  const templateOrder = buildTemplateOrder(`${seed.id}:${seed.scenario}:${seed.domain}`);
+const findCuedScenarioContext = (scenario: string): Smysnk2SituationContext | null =>
+  SMYSNK2_SITUATION_CONTEXT_ORDER.find((context) =>
+    CONTEXT_SCENARIO_HINTS[context].some((hint) => hint.test(scenario))
+  ) ?? null;
+
+const shouldPrefixScenarioWithContext = (scenario: string, context: Smysnk2SituationContext) => {
+  const cuedContext = findCuedScenarioContext(scenario);
+  if (cuedContext && cuedContext !== context) {
+    return false;
+  }
+  return !CONTEXT_SCENARIO_HINTS[context].some((hint) => hint.test(scenario));
+};
+
+const shouldUseContextualOptionWording = (scenario: string, context: Smysnk2SituationContext) => {
+  const cuedContext = findCuedScenarioContext(scenario);
+  return !cuedContext || cuedContext === context;
+};
+
+const buildVariantScenarioText = (seed: ScenarioSeed, context: Smysnk2SituationContext) => {
+  const normalized = withTerminalPeriod(seed.scenario);
+  if (!shouldPrefixScenarioWithContext(normalized, context)) {
+    return normalized;
+  }
+
+  const variants = CONTEXTUAL_SCENARIO_VARIANTS[context];
+  const variantOrder = buildTemplateOrder(`${seed.id}:${seed.domain}:scenario`, variants.length);
+  const variant = variants[variantOrder[0] ?? 0];
+  return variant(sentenceToClause(normalized));
+};
+
+const buildVariantOptionTexts = (
+  seed: ScenarioSeed,
+  baseOptions: OptionTextMap,
+  context: Smysnk2SituationContext,
+  useContextualWording: boolean
+): OptionTextMap => {
+  const variants = useContextualWording ? CONTEXTUAL_OPTION_VARIANTS[context] : GENERIC_OPTION_VARIANTS;
+  const templateOrder = buildTemplateOrder(`${seed.id}:${seed.scenario}:${seed.domain}:options`, variants.length);
 
   return OPTION_KEYS.reduce((acc, key, optionIndex) => {
     const baseSentence = withTerminalPeriod(baseOptions[key]);
     const baseClause = sentenceToClause(baseSentence);
-    const variant = OPTION_TEXT_VARIANTS[templateOrder[optionIndex] ?? optionIndex];
-    acc[key] = variant(baseSentence, baseClause);
+    const variant = variants[templateOrder[optionIndex] ?? optionIndex] ?? variants[optionIndex % variants.length];
+    acc[key] = variant(baseSentence, baseClause, seed.domain.replace(/_/g, " "));
     return acc;
   }, {} as OptionTextMap);
 };
@@ -160,7 +349,7 @@ const OPTION_SETS = {
     C: "Use precedent as a stabilizing baseline.",
     D: "Handle the most immediately concrete constraint.",
     E: "Break claims apart and check consistency line by line.",
-    F: "Set a decision threshold and move to implementation.",
+    F: "Set a decision threshold and move to action.",
     G: "Keep to what feels non-negotiable internally.",
     H: "Reduce relational friction while deciding."
   },
@@ -185,14 +374,14 @@ const OPTION_SETS = {
     H: "Track emotional pressure and adapt to it."
   },
   stressFriction: {
-    A: "Interpret the event as a signal about the bigger trajectory.",
-    B: "Mentally branch into multiple explanations at once.",
-    C: "Recall how similar pressure events unfolded before.",
+    A: "Interpret the moment as a signal about what matters most right now.",
+    B: "Mentally branch into multiple explanations and next moves.",
+    C: "Recall how similar high-pressure moments unfolded before.",
     D: "Ground attention in immediate sensory facts.",
-    E: "Test whether the criticism or demand is logically valid.",
-    F: "Move straight to damage control and output recovery.",
-    G: "Feel the conflict personally and guard your line.",
-    H: "Monitor others' reactions and adjust behavior."
+    E: "Test whether incoming claims are logically consistent.",
+    F: "Move straight to stabilizing actions and outcome recovery.",
+    G: "Notice your internal line on what feels right and hold to it.",
+    H: "Monitor emotional tone around you and adjust your approach."
   }
 } as const;
 
@@ -218,6 +407,101 @@ export const SMYSNK2_ARCHETYPE_LABELS: Record<Smysnk2Archetype, string> = {
   demon: "Demon"
 };
 
+export const SMYSNK2_SITUATION_CONTEXT_ORDER: Smysnk2SituationContext[] = [
+  "leisure_with_friends",
+  "alone_time_relax",
+  "work_time_constraints",
+  "overwhelming_work_tasks",
+  "unexpected_interpersonal_conflict",
+  "emergency_medical_situation",
+  "creative_expression_hobby"
+];
+
+export const SMYSNK2_SITUATION_CONTEXT_LABELS: Record<Smysnk2SituationContext, string> = {
+  leisure_with_friends: "Leisure time hanging out with friends",
+  alone_time_relax: "Alone time to relax",
+  work_time_constraints: "Work tasks with time constraints",
+  overwhelming_work_tasks: "Overwhelming work tasks",
+  unexpected_interpersonal_conflict: "Unexpected interpersonal conflict",
+  emergency_medical_situation: "Emergency medical situation",
+  creative_expression_hobby: "Creative expression via a hobby"
+};
+
+export const SMYSNK2_CONTEXT_POLARITY_BY_CONTEXT: Record<Smysnk2SituationContext, Smysnk2ContextPolarity> = {
+  leisure_with_friends: "persona",
+  alone_time_relax: "persona",
+  work_time_constraints: "persona",
+  creative_expression_hobby: "persona",
+  overwhelming_work_tasks: "shadow",
+  unexpected_interpersonal_conflict: "shadow",
+  emergency_medical_situation: "shadow"
+};
+
+const resolveSituationContext = (seed: ScenarioSeed, index: number): Smysnk2SituationContext => {
+  if (seed.situationContext) {
+    return seed.situationContext;
+  }
+
+  if (seed.domain.includes("medical")) {
+    return "emergency_medical_situation";
+  }
+
+  if (seed.contextType === "default") {
+    const personaRotation: Smysnk2SituationContext[] = [
+      "leisure_with_friends",
+      "alone_time_relax",
+      "creative_expression_hobby",
+      "work_time_constraints"
+    ];
+    return personaRotation[index % personaRotation.length];
+  }
+
+  if (seed.contextType === "moderate") {
+    const socialModerateDomains = new Set([
+      "social",
+      "boundaries",
+      "alignment",
+      "feedback",
+      "mediation",
+      "interruption",
+      "tense_meeting",
+      "alignment_tension",
+      "relationship_repair",
+      "social_misalignment",
+      "hard_no"
+    ]);
+    return socialModerateDomains.has(seed.domain)
+      ? "unexpected_interpersonal_conflict"
+      : "work_time_constraints";
+  }
+
+  const stressConflictDomains = new Set([
+    "social_friction",
+    "public_confrontation",
+    "emotional_overflow",
+    "trust_break",
+    "communication_breakdown",
+    "intense_scrutiny",
+    "high_pressure_handoff"
+  ]);
+  const medicalStressDomains = new Set([
+    "duress_call",
+    "ambiguous_urgency",
+    "decision_delay",
+    "medical_triage",
+    "medical_response",
+    "late_surprise",
+    "critical_bug"
+  ]);
+  if (stressConflictDomains.has(seed.domain)) {
+    return "unexpected_interpersonal_conflict";
+  }
+  if (medicalStressDomains.has(seed.domain)) {
+    return "emergency_medical_situation";
+  }
+  return "overwhelming_work_tasks";
+};
+
 const SCENARIO_SEEDS: ScenarioSeed[] = [
   {
     id: "Q01",
@@ -239,7 +523,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q02",
     contextType: "default",
     domain: "learning",
-    scenario: "You are learning a new technical concept you may need to explain clearly to someone else.",
+    scenario: "You are learning a new concept you may need to explain clearly to someone else.",
     options: {
       A: "Look for the underlying pattern that ties everything together.",
       B: "Explore related ideas and possibilities it connects to.",
@@ -404,7 +688,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q14",
     contextType: "default",
     domain: "project_start",
-    scenario: "A vague brief lands in your inbox and nobody clearly owns it yet.",
+    scenario: "A vague request lands in front of you and nobody clearly owns it yet.",
     optionSet: "defaultExecution"
   },
   {
@@ -425,7 +709,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q17",
     contextType: "default",
     domain: "knowledge_work",
-    scenario: "You notice an intermittent bug that is hard to reproduce.",
+    scenario: "You notice a recurring issue that is hard to pin down.",
     optionSet: "defaultIdea"
   },
   {
@@ -439,7 +723,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
       C: "Compare the choice with similar decisions that worked for you before.",
       D: "Prototype one promising direction immediately and learn from the result.",
       E: "Commit only after the reasoning is internally consistent from end to end.",
-      F: "Pick the option with the clearest implementation plan and measurable payoff.",
+      F: "Pick the option with the clearest action plan and measurable payoff.",
       G: "Choose the direction that feels most personally authentic to you.",
       H: "Favor the option that is easiest to communicate and coordinate with others."
     }
@@ -455,7 +739,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q20",
     contextType: "moderate",
     domain: "leadership",
-    scenario: "Your team asks you to lead a project with an unclear deadline.",
+    scenario: "Your group asks you to lead an effort with an unclear deadline.",
     optionSet: "moderateDecision"
   },
   {
@@ -478,7 +762,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q22",
     contextType: "moderate",
     domain: "alignment",
-    scenario: "A project stalls because people want different directions.",
+    scenario: "A shared effort stalls because people want different directions.",
     optionSet: "moderateSocial"
   },
   {
@@ -492,7 +776,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q24",
     contextType: "moderate",
     domain: "feedback",
-    scenario: "You must give difficult feedback to a skilled but defensive teammate.",
+    scenario: "You must give difficult feedback to a capable but defensive person.",
     optionSet: "moderateSocial"
   },
   {
@@ -529,7 +813,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q28",
     contextType: "stress",
     domain: "social_friction",
-    scenario: "Conflict escalates in a group channel and you are pulled in.",
+    scenario: "Conflict escalates in a group conversation and you are pulled in.",
     optionSet: "stressFriction"
   },
   {
@@ -571,7 +855,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q34",
     contextType: "default",
     domain: "learning_policy",
-    scenario: "You are learning a policy framework you have never used before.",
+    scenario: "You are learning a new set of rules and guidelines you have never used before.",
     optionSet: "defaultIdea"
   },
   {
@@ -592,14 +876,14 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q37",
     contextType: "default",
     domain: "tooling",
-    scenario: "You need to choose tooling for a new workflow.",
+    scenario: "You and your friends want to start a recurring activity, and you need to decide how to structure it.",
     optionSet: "defaultExecution"
   },
   {
     id: "Q38",
     contextType: "default",
     domain: "pattern_detection",
-    scenario: "You notice the same pattern repeating across unrelated projects.",
+    scenario: "You notice the same pattern repeating across unrelated situations.",
     optionSet: "defaultIdea"
   },
   {
@@ -627,7 +911,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q42",
     contextType: "default",
     domain: "success_definition",
-    scenario: "Your team asks what success should look like before starting.",
+    scenario: "People ask what success should look like before starting.",
     optionSet: "defaultExecution"
   },
   {
@@ -655,7 +939,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q46",
     contextType: "moderate",
     domain: "missed_milestone",
-    scenario: "A teammate misses a milestone for the first time this quarter.",
+    scenario: "Someone misses an important milestone for the first time this quarter.",
     optionSet: "moderateSocial"
   },
   {
@@ -676,21 +960,21 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q49",
     contextType: "moderate",
     domain: "status_pressure",
-    scenario: "A stakeholder wants a status update while key facts are still uncertain.",
+    scenario: "A key decision-maker asks for an update while key facts are still uncertain.",
     optionSet: "moderateDecision"
   },
   {
     id: "Q50",
     contextType: "moderate",
     domain: "timeline_conflict",
-    scenario: "You disagree with the implementation plan but the timeline is fixed.",
+    scenario: "You disagree with the current plan but the timeline is fixed.",
     optionSet: "moderateDecision"
   },
   {
     id: "Q51",
     contextType: "moderate",
     domain: "project_inheritance",
-    scenario: "You inherit a messy project structure and must stabilize quickly.",
+    scenario: "You inherit a disorganized set of responsibilities and must stabilize quickly.",
     optionSet: "moderateDecision"
   },
   {
@@ -718,7 +1002,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q55",
     contextType: "stress",
     domain: "outage",
-    scenario: "A production outage hits and incoming information is inconsistent.",
+    scenario: "A major disruption hits and incoming information is inconsistent.",
     optionSet: "stressOverload"
   },
   {
@@ -746,7 +1030,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q59",
     contextType: "stress",
     domain: "public_confrontation",
-    scenario: "You are confronted angrily in a public channel.",
+    scenario: "You are confronted angrily in a public setting.",
     optionSet: "stressFriction"
   },
   {
@@ -823,7 +1107,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q70",
     contextType: "default",
     domain: "workflow_design",
-    scenario: "You are redesigning your personal workflow for the next quarter.",
+    scenario: "You are redesigning your personal routine for the next quarter.",
     optionSet: "defaultExecution"
   },
   {
@@ -872,7 +1156,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q77",
     contextType: "moderate",
     domain: "delegation",
-    scenario: "You need to delegate important work but trust is mixed across the team.",
+    scenario: "You need to share important responsibilities but trust is mixed across the group.",
     optionSet: "moderateDecision"
   },
   {
@@ -886,21 +1170,21 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q79",
     contextType: "moderate",
     domain: "resource_tradeoff",
-    scenario: "You must choose between speed, quality, and team capacity.",
+    scenario: "You must choose between speed, quality, and group capacity.",
     optionSet: "moderateDecision"
   },
   {
     id: "Q80",
     contextType: "moderate",
     domain: "relationship_repair",
-    scenario: "A relationship at work is strained but still salvageable.",
+    scenario: "A key relationship is strained but still salvageable.",
     optionSet: "moderateSocial"
   },
   {
     id: "Q81",
     contextType: "moderate",
     domain: "timeline_reset",
-    scenario: "A project timeline slips and everyone looks to you for next steps.",
+    scenario: "An important timeline slips and everyone looks to you for next steps.",
     optionSet: "moderateDecision"
   },
   {
@@ -921,7 +1205,7 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q84",
     contextType: "moderate",
     domain: "hard_no",
-    scenario: "You need to say no to a request without damaging trust.",
+    scenario: "You have to decline a request from someone important while preserving trust.",
     optionSet: "moderateSocial"
   },
   {
@@ -935,21 +1219,21 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
     id: "Q86",
     contextType: "moderate",
     domain: "alignment_tension",
-    scenario: "A partner team is aligned in words but not in behavior.",
+    scenario: "Another group is aligned in words but not in behavior.",
     optionSet: "moderateSocial"
   },
   {
     id: "Q87",
     contextType: "stress",
     domain: "critical_bug",
-    scenario: "A critical bug appears right before a public release.",
+    scenario: "A major problem appears right before an important launch.",
     optionSet: "stressOverload"
   },
   {
     id: "Q88",
     contextType: "stress",
     domain: "public_pushback",
-    scenario: "Your recommendation is challenged sharply in front of stakeholders.",
+    scenario: "Your recommendation is challenged sharply in front of key decision-makers.",
     optionSet: "stressFriction"
   },
   {
@@ -976,8 +1260,9 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
   {
     id: "Q92",
     contextType: "stress",
-    domain: "intense_scrutiny",
-    scenario: "You are placed under intense scrutiny while decisions must be made fast.",
+    situationContext: "emergency_medical_situation",
+    domain: "medical_triage",
+    scenario: "You are first to respond in a medical emergency and must triage quickly.",
     optionSet: "stressFriction"
   },
   {
@@ -997,8 +1282,9 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
   {
     id: "Q95",
     contextType: "stress",
-    domain: "uncertain_crisis",
-    scenario: "You need to act quickly before the full scope of the problem is clear.",
+    situationContext: "emergency_medical_situation",
+    domain: "medical_response",
+    scenario: "You must make urgent choices while emergency care is still en route.",
     optionSet: "stressOverload"
   },
   {
@@ -1010,21 +1296,31 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
   }
 ];
 
-export const SMYSNK2_SCENARIOS: Smysnk2Scenario[] = SCENARIO_SEEDS.map((seed) => {
-  const optionTexts = seed.options
+export const SMYSNK2_SCENARIOS: Smysnk2Scenario[] = SCENARIO_SEEDS.map((seed, index) => {
+  const situationContext = resolveSituationContext(seed, index);
+  const useContextualOptionWording = shouldUseContextualOptionWording(seed.scenario, situationContext);
+  const baseOptionTexts = seed.options
     ? seed.options
-    : buildVariantOptionTexts(
-        seed,
-        seed.optionSet ? OPTION_SETS[seed.optionSet] : OPTION_SETS.defaultIdea
-      );
+    : seed.optionSet
+      ? OPTION_SETS[seed.optionSet]
+      : OPTION_SETS.defaultIdea;
+  const optionTexts = buildVariantOptionTexts(
+    seed,
+    baseOptionTexts,
+    situationContext,
+    useContextualOptionWording
+  );
   const archetype = seed.archetype ??
     SMYSNK2_ARCHETYPE_ORDER[(Number(seed.id.replace("Q", "")) - 1) % SMYSNK2_ARCHETYPE_ORDER.length];
+  const contextPolarity = SMYSNK2_CONTEXT_POLARITY_BY_CONTEXT[situationContext];
   return {
     id: seed.id,
     contextType: seed.contextType,
+    situationContext,
+    contextPolarity,
     archetype,
     domain: seed.domain,
-    scenario: seed.scenario,
+    scenario: buildVariantScenarioText(seed, situationContext),
     options: buildOptions(optionTexts)
   };
 });
@@ -1061,7 +1357,6 @@ const SCENARIOS_BY_ARCHETYPE = SMYSNK2_ARCHETYPE_ORDER.reduce(
 SMYSNK2_SCENARIOS.forEach((scenario) => {
   SCENARIOS_BY_ARCHETYPE[scenario.archetype].push(scenario);
 });
-
 export const SMYSNK2_MODES = [16, 32, 64] as const;
 
 export const DEFAULT_SMYSNK2_MODE: Smysnk2Mode = 32;
@@ -1105,6 +1400,37 @@ const shuffleBySeed = <T>(items: T[], seedText: string) => {
   return copy;
 };
 
+const getContextTargets = (mode: Smysnk2Mode, seedText: string) => {
+  const base = Math.floor(mode / SMYSNK2_SITUATION_CONTEXT_ORDER.length);
+  const remainder = mode % SMYSNK2_SITUATION_CONTEXT_ORDER.length;
+  const contextOrder = shuffleBySeed([...SMYSNK2_SITUATION_CONTEXT_ORDER], `${seedText}:context-target-order`);
+  return contextOrder.reduce(
+    (acc, context, index) => {
+      acc[context] = base + (index < remainder ? 1 : 0);
+      return acc;
+    },
+    {} as Record<Smysnk2SituationContext, number>
+  );
+};
+
+const getSituationContextCountsByIds = (ids: string[]) =>
+  ids.reduce(
+    (acc, id) => {
+      const scenario = SCENARIO_MAP.get(id);
+      if (scenario) {
+        acc[scenario.situationContext] += 1;
+      }
+      return acc;
+    },
+    SMYSNK2_SITUATION_CONTEXT_ORDER.reduce(
+      (counts, context) => {
+        counts[context] = 0;
+        return counts;
+      },
+      {} as Record<Smysnk2SituationContext, number>
+    )
+  );
+
 export const selectSmysnk2QuestionIds = ({
   mode,
   seed
@@ -1114,17 +1440,109 @@ export const selectSmysnk2QuestionIds = ({
 }): Smysnk2ScenarioId[] => {
   const countPerArchetype = mode / SMYSNK2_ARCHETYPE_ORDER.length;
   const baseSeed = seed?.trim() || `mode-${mode}`;
-  const selected = SMYSNK2_ARCHETYPE_ORDER.flatMap((archetype) => {
-    const pool = SCENARIOS_BY_ARCHETYPE[archetype];
+
+  const contextTargets = getContextTargets(mode, baseSeed);
+  const remainingContexts = { ...contextTargets };
+  const selectedByArchetype = SMYSNK2_ARCHETYPE_ORDER.reduce(
+    (acc, archetype) => {
+      acc[archetype] = [];
+      return acc;
+    },
+    {} as Record<Smysnk2Archetype, Smysnk2ScenarioId[]>
+  );
+  const selectedSet = new Set<Smysnk2ScenarioId>();
+
+  SMYSNK2_ARCHETYPE_ORDER.forEach((archetype, archetypeIndex) => {
+    const pool = shuffleBySeed(SCENARIOS_BY_ARCHETYPE[archetype], `${baseSeed}:${archetype}:pool`);
     if (pool.length < countPerArchetype) {
       throw new Error(`Insufficient SMYSNK2 scenarios for archetype ${archetype}.`);
     }
-    return shuffleBySeed(
-      pool.map((scenario) => scenario.id),
-      `${baseSeed}:${archetype}`
-    ).slice(0, countPerArchetype);
+
+    for (let pickIndex = 0; pickIndex < countPerArchetype; pickIndex += 1) {
+      const remainingPool = pool.filter((scenario) => !selectedSet.has(scenario.id));
+      if (!remainingPool.length) {
+        throw new Error(`Insufficient SMYSNK2 scenarios while selecting ${archetype}.`);
+      }
+      const sortedCandidates = shuffleBySeed(
+        remainingPool,
+        `${baseSeed}:${archetypeIndex}:${pickIndex}:candidate-order`
+      ).sort(
+        (left, right) =>
+          (remainingContexts[right.situationContext] ?? 0) - (remainingContexts[left.situationContext] ?? 0)
+      );
+      const picked = sortedCandidates[0];
+      selectedSet.add(picked.id);
+      selectedByArchetype[archetype].push(picked.id);
+      remainingContexts[picked.situationContext] -= 1;
+    }
   });
 
+  let rebalancePass = 0;
+  while (rebalancePass < mode * 3) {
+    rebalancePass += 1;
+    const deficitContexts = SMYSNK2_SITUATION_CONTEXT_ORDER
+      .filter((context) => remainingContexts[context] > 0)
+      .sort((left, right) => remainingContexts[right] - remainingContexts[left]);
+    if (!deficitContexts.length) {
+      break;
+    }
+
+    let swapped = false;
+    for (const deficitContext of deficitContexts) {
+      const surplusContexts = SMYSNK2_SITUATION_CONTEXT_ORDER
+        .filter((context) => remainingContexts[context] < 0)
+        .sort((left, right) => remainingContexts[left] - remainingContexts[right]);
+      if (!surplusContexts.length) {
+        continue;
+      }
+
+      for (const archetype of shuffleBySeed(SMYSNK2_ARCHETYPE_ORDER, `${baseSeed}:${deficitContext}:archetype-order`)) {
+        const selectedIds = selectedByArchetype[archetype];
+        for (const selectedId of shuffleBySeed(selectedIds, `${baseSeed}:${archetype}:${deficitContext}:selected-order`)) {
+          const selectedScenario = SCENARIO_MAP.get(selectedId);
+          if (!selectedScenario) {
+            continue;
+          }
+          if (remainingContexts[selectedScenario.situationContext] >= 0) {
+            continue;
+          }
+
+          const replacementPool = shuffleBySeed(
+            SCENARIOS_BY_ARCHETYPE[archetype].filter(
+              (scenario) =>
+                scenario.situationContext === deficitContext && !selectedSet.has(scenario.id)
+            ),
+            `${baseSeed}:${selectedId}:${deficitContext}:replacement-order`
+          );
+          const replacement = replacementPool[0];
+          if (!replacement) {
+            continue;
+          }
+
+          selectedSet.delete(selectedId);
+          selectedSet.add(replacement.id);
+          selectedByArchetype[archetype] = selectedIds.map((id) => (id === selectedId ? replacement.id : id));
+          remainingContexts[selectedScenario.situationContext] += 1;
+          remainingContexts[deficitContext] -= 1;
+          swapped = true;
+          break;
+        }
+        if (swapped) {
+          break;
+        }
+      }
+
+      if (swapped) {
+        break;
+      }
+    }
+
+    if (!swapped) {
+      break;
+    }
+  }
+
+  const selected = SMYSNK2_ARCHETYPE_ORDER.flatMap((archetype) => selectedByArchetype[archetype]);
   return shuffleBySeed(selected, `${baseSeed}:order`);
 };
 
@@ -1195,18 +1613,10 @@ export const getSmysnk2Scenarios = (
   return getSmysnk2ScenariosByIds(selectedIds);
 };
 
-export const getSmysnk2ContextCounts = (
+export const getSmysnk2SituationContextCounts = (
   mode: Smysnk2Mode,
   questionIds?: unknown,
   seed?: string | null
 ) => {
-  const counts: Record<Smysnk2ContextType, number> = {
-    default: 0,
-    moderate: 0,
-    stress: 0
-  };
-  getSmysnk2Scenarios(mode, questionIds, seed).forEach((question) => {
-    counts[question.contextType] += 1;
-  });
-  return counts;
+  return getSituationContextCountsByIds(getSmysnk2Scenarios(mode, questionIds, seed).map((scenario) => scenario.id));
 };
