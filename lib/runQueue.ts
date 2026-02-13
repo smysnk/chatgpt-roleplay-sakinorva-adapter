@@ -4,7 +4,13 @@ import * as cheerio from "cheerio";
 import { QUESTIONS } from "@/lib/questions";
 import { SMYSNK_QUESTIONS } from "@/lib/smysnkQuestions";
 import { calculateSmysnkScores } from "@/lib/smysnkScore";
-import { DEFAULT_SMYSNK2_MODE, getSmysnk2Scenarios, parseSmysnk2Mode } from "@/lib/smysnk2Questions";
+import {
+  DEFAULT_SMYSNK2_MODE,
+  getSmysnk2OptionDisplayOrder,
+  getSmysnk2Scenarios,
+  parseSmysnk2Mode,
+  type Smysnk2OptionKey
+} from "@/lib/smysnk2Questions";
 import { normalizeSmysnk2OptionKey, scoreSmysnk2Responses } from "@/lib/smysnk2Score";
 import { initializeRunModel, Run } from "@/lib/models/Run";
 import { initializeDatabase } from "@/lib/db";
@@ -71,13 +77,52 @@ const buildQuestionBlock = () =>
 const buildSmysnkQuestionBlock = () =>
   SMYSNK_QUESTIONS.map((question) => `${question.id}: ${question.question}`).join("\n");
 
-const buildSmysnk2QuestionBlock = (scenarios: ReturnType<typeof getSmysnk2Scenarios>) =>
-  scenarios
+const SMYSNK2_DISPLAY_OPTION_KEYS: Smysnk2OptionKey[] = ["A", "B", "C", "D", "E", "F", "G", "H"];
+
+type Smysnk2PromptScenario = {
+  id: string;
+  scenario: string;
+  options: Array<{
+    displayKey: Smysnk2OptionKey;
+    originalKey: Smysnk2OptionKey;
+    text: string;
+  }>;
+};
+
+const buildSmysnk2PromptScenarios = (
+  scenarios: ReturnType<typeof getSmysnk2Scenarios>
+): Smysnk2PromptScenario[] =>
+  scenarios.map((question) => {
+    const displayOrder = getSmysnk2OptionDisplayOrder(question.id, question.options.length);
+    return {
+      id: question.id,
+      scenario: question.scenario,
+      options: displayOrder.map((optionIndex, displayIndex) => {
+        const option = question.options[optionIndex];
+        return {
+          displayKey: SMYSNK2_DISPLAY_OPTION_KEYS[displayIndex] ?? option.key,
+          originalKey: option.key,
+          text: option.text
+        };
+      })
+    };
+  });
+
+const buildSmysnk2QuestionBlock = (promptScenarios: Smysnk2PromptScenario[]) =>
+  promptScenarios
     .map((question) => {
-      const optionLines = question.options.map((option) => `  ${option.key}) ${option.text}`).join("\n");
+      const optionLines = question.options
+        .map((option) => `  ${option.displayKey}) ${option.text}`)
+        .join("\n");
       return `${question.id} ${question.scenario}\n${optionLines}`;
     })
     .join("\n\n");
+
+const getSmysnk2PromptOption = (
+  promptScenarioMap: Map<string, Smysnk2PromptScenario>,
+  scenarioId: string,
+  displayKey: Smysnk2OptionKey
+) => promptScenarioMap.get(scenarioId)?.options.find((option) => option.displayKey === displayKey);
 
 const truncateText = (value: string, maxLength: number) => {
   if (value.length <= maxLength) {
@@ -532,15 +577,16 @@ const processRedditSmysnk2Run = async (run: Run) => {
     run.questionIds,
     run.questionIds?.length ? run.slug : null
   );
-  const scenarioMap = new Map(scenarios.map((scenario) => [scenario.id, scenario]));
-  const validIds = new Set(scenarios.map((scenario) => scenario.id));
+  const promptScenarios = buildSmysnk2PromptScenarios(scenarios);
+  const promptScenarioMap = new Map(promptScenarios.map((scenario) => [scenario.id, scenario]));
+  const validIds = new Set(promptScenarios.map((scenario) => scenario.id));
 
   const systemMessage =
     "You are roleplaying as the specified Reddit user. Pick exactly one option (A-H) per scenario and include a brief rationale. Do not answer with numeric scales. Output must match the JSON schema exactly.";
   const userMessage = `Reddit user: u/${username}\nProfile summary: ${summary}\nPersona: ${profile.persona}\nTraits: ${profile.traits.join(
     ", "
   )}\n\nAnswer all SMYSNK2 scenarios. Each answer must be one option key from A-H plus a one-sentence rationale. Return JSON only.\n\nQuestions:\n${buildSmysnk2QuestionBlock(
-    scenarios
+    promptScenarios
   )}\n\nJSON schema:\n{\n \"responses\": [\n  { \"id\": \"scenario id\", \"answer\": \"A|B|C|D|E|F|G|H\", \"rationale\": string }\n  // exactly ${scenarios.length} objects\n ]\n}\n`;
 
   const completion = await openai.chat.completions.create({
@@ -572,16 +618,17 @@ const processRedditSmysnk2Run = async (run: Run) => {
       throw new Error("OpenAI returned duplicate scenario ids.");
     }
     seen.add(response.id);
-    const answerKey = normalizeSmysnk2OptionKey(response.answer);
-    if (!answerKey) {
+    const displayAnswerKey = normalizeSmysnk2OptionKey(response.answer);
+    if (!displayAnswerKey) {
       throw new Error("OpenAI returned an invalid SMYSNK2 option key.");
     }
-    if (!scenarioMap.get(response.id)?.options.some((option) => option.key === answerKey)) {
+    const selectedOption = getSmysnk2PromptOption(promptScenarioMap, response.id, displayAnswerKey);
+    if (!selectedOption) {
       throw new Error("OpenAI returned an option key that is not available for this scenario.");
     }
     return {
       questionId: response.id,
-      answer: answerKey,
+      answer: selectedOption.originalKey,
       rationale: response.rationale
     };
   });
@@ -615,13 +662,14 @@ const processSmysnk2Run = async (run: Run) => {
     run.questionIds,
     run.questionIds?.length ? run.slug : null
   );
-  const scenarioMap = new Map(scenarios.map((scenario) => [scenario.id, scenario]));
-  const validIds = new Set(scenarios.map((scenario) => scenario.id));
+  const promptScenarios = buildSmysnk2PromptScenarios(scenarios);
+  const promptScenarioMap = new Map(promptScenarios.map((scenario) => [scenario.id, scenario]));
+  const validIds = new Set(promptScenarios.map((scenario) => scenario.id));
 
   const systemMessage =
     "You are roleplaying as the specified character. Pick exactly one option (A-H) per scenario and include a brief rationale. Do not use numeric scales. Output must match the JSON schema exactly.";
   const userMessage = `Character: ${run.subject}\nContext: ${run.context || "(none)"}\n\nAnswer all SMYSNK2 scenarios. Each answer must be one option key from A-H plus a one-sentence rationale. Return JSON only.\n\nQuestions:\n${buildSmysnk2QuestionBlock(
-    scenarios
+    promptScenarios
   )}\n\nJSON schema:\n{\n \"responses\": [\n  { \"id\": \"scenario id\", \"answer\": \"A|B|C|D|E|F|G|H\", \"rationale\": string }\n  // exactly ${scenarios.length} objects\n ]\n}\n`;
 
   const completion = await openai.chat.completions.create({
@@ -653,16 +701,17 @@ const processSmysnk2Run = async (run: Run) => {
       throw new Error("OpenAI returned duplicate scenario ids.");
     }
     seen.add(response.id);
-    const answerKey = normalizeSmysnk2OptionKey(response.answer);
-    if (!answerKey) {
+    const displayAnswerKey = normalizeSmysnk2OptionKey(response.answer);
+    if (!displayAnswerKey) {
       throw new Error("OpenAI returned an invalid SMYSNK2 option key.");
     }
-    if (!scenarioMap.get(response.id)?.options.some((option) => option.key === answerKey)) {
+    const selectedOption = getSmysnk2PromptOption(promptScenarioMap, response.id, displayAnswerKey);
+    if (!selectedOption) {
       throw new Error("OpenAI returned an option key that is not available for this scenario.");
     }
     return {
       questionId: response.id,
-      answer: answerKey,
+      answer: selectedOption.originalKey,
       rationale: response.rationale
     };
   });

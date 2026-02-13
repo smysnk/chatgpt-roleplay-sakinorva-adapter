@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import RunsTable, { type RunItem } from "@/app/components/RunsTable";
 import { deriveTypesFromScores } from "@/lib/mbti";
@@ -28,31 +28,33 @@ type IndicatorIndexProps = {
   mode: "combined" | "sakinorva" | "smysnk" | "smysnk2";
 };
 
+const getIndicatorEndpoints = (mode: IndicatorIndexProps["mode"]) =>
+  mode === "combined"
+    ? [
+        { url: "/api/run", label: "Sakinorva", runBase: "/sakinorva-adapter/run/" },
+        { url: "/api/smysnk", label: "SMYSNK", runBase: "/smysnk/run/" },
+        { url: "/api/smysnk2", label: "SMYSNK2", runBase: "/smysnk2/run/" }
+      ]
+    : mode === "sakinorva"
+      ? [{ url: "/api/run", label: "Sakinorva", runBase: "/sakinorva-adapter/run/" }]
+      : mode === "smysnk"
+        ? [{ url: "/api/smysnk", label: "SMYSNK", runBase: "/smysnk/run/" }]
+        : [{ url: "/api/smysnk2", label: "SMYSNK2", runBase: "/smysnk2/run/" }];
+
 export default function IndicatorIndex({ title, description, mode }: IndicatorIndexProps) {
   const router = useRouter();
   const [items, setItems] = useState<IndicatorRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [errorRun, setErrorRun] = useState<RunItem | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      setLoading(true);
+  const loadRuns = useCallback(
+    async ({ withLoading = false }: { withLoading?: boolean } = {}) => {
+      if (withLoading) {
+        setLoading(true);
+      }
       setError(null);
       try {
-        const endpoints =
-          mode === "combined"
-            ? [
-                { url: "/api/run", label: "Sakinorva", runBase: "/sakinorva-adapter/run/" },
-                { url: "/api/smysnk", label: "SMYSNK", runBase: "/smysnk/run/" },
-                { url: "/api/smysnk2", label: "SMYSNK2", runBase: "/smysnk2/run/" }
-              ]
-            : mode === "sakinorva"
-              ? [{ url: "/api/run", label: "Sakinorva", runBase: "/sakinorva-adapter/run/" }]
-              : mode === "smysnk"
-                ? [{ url: "/api/smysnk", label: "SMYSNK", runBase: "/smysnk/run/" }]
-                : [{ url: "/api/smysnk2", label: "SMYSNK2", runBase: "/smysnk2/run/" }];
+        const endpoints = getIndicatorEndpoints(mode);
         const responses = await Promise.all(
           endpoints.map(async (endpoint) => {
             const response = await fetch(endpoint.url);
@@ -77,30 +79,41 @@ export default function IndicatorIndex({ title, description, mode }: IndicatorIn
             }));
           })
         );
-        if (!active) {
-          return;
-        }
         const combined = responses
           .flat()
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setItems(combined);
       } catch (err) {
-        if (active) {
-          setError(err instanceof Error ? err.message : "Unexpected error.");
-        }
+        setError(err instanceof Error ? err.message : "Unexpected error.");
       } finally {
-        if (active) {
+        if (withLoading) {
           setLoading(false);
         }
       }
-    };
+    },
+    [mode]
+  );
 
-    load();
+  useEffect(() => {
+    void loadRuns({ withLoading: true });
+  }, [loadRuns]);
 
+  const hasPendingRuns = useMemo(
+    () => items.some((item) => item.state === "QUEUED" || item.state === "PROCESSING"),
+    [items]
+  );
+
+  useEffect(() => {
+    if (!hasPendingRuns) {
+      return;
+    }
+    const interval = setInterval(() => {
+      void loadRuns();
+    }, 4000);
     return () => {
-      active = false;
+      clearInterval(interval);
     };
-  }, [mode]);
+  }, [hasPendingRuns, loadRuns]);
 
   const tableItems = useMemo(() => {
     return items.map((item) => {

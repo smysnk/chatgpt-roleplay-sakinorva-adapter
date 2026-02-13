@@ -292,16 +292,35 @@ const shouldUseContextualOptionWording = (scenario: string, context: Smysnk2Situ
   return !cuedContext || cuedContext === context;
 };
 
-const buildVariantScenarioText = (seed: ScenarioSeed, context: Smysnk2SituationContext) => {
+const withArchetypeCue = (scenarioText: string, archetype: Smysnk2Archetype) => {
+  const cue = ARCHETYPE_SCENARIO_CUES[archetype];
+  if (!cue) {
+    return scenarioText;
+  }
+  const normalizedScenario = withTerminalPeriod(scenarioText);
+  const lower = normalizedScenario.toLowerCase();
+  const cueLower = cue.toLowerCase();
+  if (lower.includes(cueLower.replace(/[.!?]+$/, ""))) {
+    return normalizedScenario;
+  }
+  return `${normalizedScenario} ${cue}`;
+};
+
+const buildVariantScenarioText = (
+  seed: ScenarioSeed,
+  context: Smysnk2SituationContext,
+  archetype: Smysnk2Archetype
+) => {
   const normalized = withTerminalPeriod(seed.scenario);
+  const withCue = withArchetypeCue(normalized, archetype);
   if (!shouldPrefixScenarioWithContext(normalized, context)) {
-    return normalized;
+    return withCue;
   }
 
   const variants = CONTEXTUAL_SCENARIO_VARIANTS[context];
   const variantOrder = buildTemplateOrder(`${seed.id}:${seed.domain}:scenario`, variants.length);
   const variant = variants[variantOrder[0] ?? 0];
-  return variant(sentenceToClause(normalized));
+  return withArchetypeCue(variant(sentenceToClause(normalized)), archetype);
 };
 
 const buildVariantOptionTexts = (
@@ -384,6 +403,100 @@ const OPTION_SETS = {
     H: "Monitor emotional tone around you and adjust your approach."
   }
 } as const;
+
+const ARCHETYPE_SCENARIO_CUES: Record<Smysnk2Archetype, string> = {
+  hero: "You are expected to take clear ownership.",
+  good_parent: "Others are relying on you for steady support.",
+  child: "Part of you wants this to feel energizing, not just correct.",
+  anima_animus: "Relational trust and authenticity are on the line.",
+  opposing_perspective: "You feel pushed and need to protect your position.",
+  witch: "You need to correct what has drifted off course.",
+  trickster: "The situation feels like a double bind that needs reframing.",
+  demon: "The moment feels make-or-break."
+};
+
+const ARCHETYPE_OPTION_BASES: Record<Smysnk2Archetype, OptionTextMap> = {
+  hero: {
+    A: "Commit to the underlying trajectory and set direction.",
+    B: "Open multiple possibilities, then choose a forward lane.",
+    C: "Anchor to proven precedent before moving.",
+    D: "Act immediately on concrete facts in front of you.",
+    E: "Define governing logic before committing.",
+    F: "Set priorities and drive execution now.",
+    G: "Hold to what feels personally non-negotiable.",
+    H: "Align people quickly around a workable path."
+  },
+  good_parent: {
+    A: "Anticipate where this may lead and guide accordingly.",
+    B: "Offer several constructive routes and give people room.",
+    C: "Provide familiar structure people can rely on.",
+    D: "Step in with practical help right away.",
+    E: "Clarify reasoning so your guidance is coherent.",
+    F: "Organize responsibilities so support becomes actionable.",
+    G: "Protect individual needs that might be overlooked.",
+    H: "Maintain rapport and keep everyone emotionally settled."
+  },
+  child: {
+    A: "Follow the thread that feels most intriguing and meaningful.",
+    B: "Play with new possibilities to keep energy alive.",
+    C: "Return to what feels familiar and comforting.",
+    D: "Chase what feels vivid and immediately engaging.",
+    E: "Pick apart how it works out of curiosity.",
+    F: "Try a quick plan that makes progress feel tangible.",
+    G: "Choose what feels authentic in the moment.",
+    H: "Pull others in so the moment feels shared."
+  },
+  anima_animus: {
+    A: "Pause and ask what deeper meaning this points to.",
+    B: "Explore different ways connection could evolve from here.",
+    C: "Lean on trusted relational patterns that have felt safe.",
+    D: "Read immediate cues and respond with direct presence.",
+    E: "Sort mixed signals until the dynamic makes sense.",
+    F: "Name a concrete next step to repair or deepen trust.",
+    G: "Reveal what feels personally true, even if vulnerable.",
+    H: "Adjust tone and timing to keep connection open."
+  },
+  opposing_perspective: {
+    A: "Reframe the pressure as a long-game signal before reacting.",
+    B: "Counter by opening alternate interpretations of the situation.",
+    C: "Push back using prior agreements and precedent.",
+    D: "Hold your ground with concrete facts on the spot.",
+    E: "Challenge weak assumptions in the other position.",
+    F: "Set hard constraints and force a workable decision.",
+    G: "Refuse options that violate your internal line.",
+    H: "Defuse escalation while still protecting your stance."
+  },
+  witch: {
+    A: "Call out the pattern creating avoidable friction.",
+    B: "Offer sharp alternatives that expose better paths.",
+    C: "Reassert the process that should have been followed.",
+    D: "Intervene directly where behavior is off track.",
+    E: "Pinpoint inconsistency and correct the standard.",
+    F: "Set enforceable rules and immediate accountability.",
+    G: "Name the values being compromised.",
+    H: "Reset social expectations so trust can recover."
+  },
+  trickster: {
+    A: "Untangle the contradiction by spotting the hidden pattern.",
+    B: "Escape the bind by generating unconventional options.",
+    C: "Use old lessons to avoid getting cornered again.",
+    D: "Break paralysis by acting on what is concretely real.",
+    E: "Separate false dilemmas from valid constraints.",
+    F: "Redesign the setup so progress becomes possible.",
+    G: "Protect your inner coherence when choices feel rigged.",
+    H: "Shift the social frame so the deadlock loosens."
+  },
+  demon: {
+    A: "Strip everything to one existential priority and commit.",
+    B: "Scan radical alternatives when normal paths collapse.",
+    C: "Cling to what has kept you safe before.",
+    D: "Take immediate action to secure control.",
+    E: "Reduce the crisis to first principles and eliminate noise.",
+    F: "Command execution to prevent total failure.",
+    G: "Defend your core identity boundary at all costs.",
+    H: "Track emotional volatility to prevent rupture."
+  }
+};
 
 export const SMYSNK2_ARCHETYPE_ORDER: Smysnk2Archetype[] = [
   "hero",
@@ -1297,21 +1410,20 @@ const SCENARIO_SEEDS: ScenarioSeed[] = [
 ];
 
 export const SMYSNK2_SCENARIOS: Smysnk2Scenario[] = SCENARIO_SEEDS.map((seed, index) => {
+  const archetype = seed.archetype ??
+    SMYSNK2_ARCHETYPE_ORDER[(Number(seed.id.replace("Q", "")) - 1) % SMYSNK2_ARCHETYPE_ORDER.length];
   const situationContext = resolveSituationContext(seed, index);
   const useContextualOptionWording = shouldUseContextualOptionWording(seed.scenario, situationContext);
   const baseOptionTexts = seed.options
     ? seed.options
-    : seed.optionSet
-      ? OPTION_SETS[seed.optionSet]
-      : OPTION_SETS.defaultIdea;
+    : ARCHETYPE_OPTION_BASES[archetype] ??
+      (seed.optionSet ? OPTION_SETS[seed.optionSet] : OPTION_SETS.defaultIdea);
   const optionTexts = buildVariantOptionTexts(
     seed,
     baseOptionTexts,
     situationContext,
     useContextualOptionWording
   );
-  const archetype = seed.archetype ??
-    SMYSNK2_ARCHETYPE_ORDER[(Number(seed.id.replace("Q", "")) - 1) % SMYSNK2_ARCHETYPE_ORDER.length];
   const contextPolarity = SMYSNK2_CONTEXT_POLARITY_BY_CONTEXT[situationContext];
   return {
     id: seed.id,
@@ -1320,7 +1432,7 @@ export const SMYSNK2_SCENARIOS: Smysnk2Scenario[] = SCENARIO_SEEDS.map((seed, in
     contextPolarity,
     archetype,
     domain: seed.domain,
-    scenario: buildVariantScenarioText(seed, situationContext),
+    scenario: buildVariantScenarioText(seed, situationContext, archetype),
     options: buildOptions(optionTexts)
   };
 });
@@ -1365,6 +1477,16 @@ export const SMYSNK2_MODE_LABELS: Record<Smysnk2Mode, string> = {
   16: "16 questions (fast)",
   32: "32 questions (balanced)",
   64: "64 questions (high confidence)"
+};
+
+export const getSmysnk2OptionDisplayOrder = (questionId: string, totalOptions: number) => {
+  const order = Array.from({ length: totalOptions }, (_, index) => index);
+  const random = makeSeededRng(hashString(questionId));
+  for (let right = order.length - 1; right > 0; right -= 1) {
+    const left = Math.floor(random() * (right + 1));
+    [order[right], order[left]] = [order[left], order[right]];
+  }
+  return order;
 };
 
 const LEGACY_MODE_IDS: Record<Smysnk2Mode, string[]> = {

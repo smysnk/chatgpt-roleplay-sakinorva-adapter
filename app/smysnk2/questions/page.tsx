@@ -7,6 +7,7 @@ import {
   SMYSNK2_MODES,
   SMYSNK2_SITUATION_CONTEXT_LABELS,
   SMYSNK2_SITUATION_CONTEXT_ORDER,
+  getSmysnk2OptionDisplayOrder,
   getSmysnk2SituationContextCounts,
   getSmysnk2Scenarios,
   parseSmysnk2Mode,
@@ -47,35 +48,6 @@ const toAnswerMap = (responses: SessionPayload["responses"]) => {
 const getFirstUnansweredIndex = (ids: string[], answers: Record<string, Smysnk2OptionKey>) => {
   const index = ids.findIndex((id) => !answers[id]);
   return index === -1 ? ids.length - 1 : index;
-};
-
-const makeSeededRng = (seed: number) => {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) | 0;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-};
-
-const seedFromQuestionId = (questionId: string) => {
-  let hash = 2166136261;
-  for (let index = 0; index < questionId.length; index += 1) {
-    hash ^= questionId.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-};
-
-const buildOptionOrder = (questionId: string, total: number) => {
-  const order = Array.from({ length: total }, (_, index) => index);
-  const random = makeSeededRng(seedFromQuestionId(questionId));
-  for (let right = order.length - 1; right > 0; right -= 1) {
-    const left = Math.floor(random() * (right + 1));
-    [order[right], order[left]] = [order[left], order[right]];
-  }
-  return order;
 };
 
 export default function Smysnk2QuestionsPage() {
@@ -148,7 +120,7 @@ function Smysnk2QuestionsContent() {
       }[];
     }
 
-    const order = buildOptionOrder(currentQuestion.id, currentQuestion.options.length);
+    const order = getSmysnk2OptionDisplayOrder(currentQuestion.id, currentQuestion.options.length);
     return order.map((optionIndex, displayIndex) => {
       const option = currentQuestion.options[optionIndex];
       return {
