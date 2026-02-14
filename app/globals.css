@@ -415,6 +415,26 @@ a {
   padding: 16px;
 }
 
+.answer-row.result-themed-card,
+.answer-row.smysnk2-context-card {
+  background: #0b0d12;
+  border-color: var(--border);
+}
+
+.result-card-title {
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.result-card-subtitle {
+  color: var(--accent);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+}
+
 .smysnk2-mode-tabs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -463,6 +483,14 @@ a {
 }
 
 .smysnk2-heatmap-card {
+  display: grid;
+  gap: 8px;
+}
+
+.smysnk2-heatmap-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 8px;
 }
 
@@ -491,9 +519,9 @@ a {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 4px;
-  margin-bottom: 2px;
+  margin: 0;
 }
 
 .smysnk2-heatmap-select {
@@ -1141,7 +1169,7 @@ button.scenario-option:focus-visible {
 
 .help-modal-copy {
   display: grid;
-  gap: 0;
+  gap: 10px;
 }
 
 .help-modal-copy .helper {

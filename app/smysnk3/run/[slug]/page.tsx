@@ -722,9 +722,9 @@ export default function Smysnk3RunPage({ params }: { params: { slug: string } })
                       <p className="helper">Based on {data.analysis?.totalResponses ?? 0} answered scenarios.</p>
                       {hasModeScoring && data.analysis ? (
                         <>
-                          <div className="answer-row">
+                          <div className="answer-row result-themed-card">
                             <div className="answer-meta">
-                              <div className="answer-question">
+                              <div className="answer-question result-card-title">
                                 {data.analysis.summary.bestType
                                   ? `Best fit ${data.analysis.summary.bestType}`
                                   : "Best fit unresolved"}
@@ -817,7 +817,7 @@ export default function Smysnk3RunPage({ params }: { params: { slug: string } })
                                 <div className="answer-row smysnk2-context-card">
                                   <div className="answer-meta">
                                     <div>
-                                      <div className="answer-question">
+                                      <div className="answer-question result-card-title">
                                         <GlossaryTerm term="Assertive">Assertive</GlossaryTerm>
                                       </div>
                                     </div>
@@ -864,7 +864,7 @@ export default function Smysnk3RunPage({ params }: { params: { slug: string } })
 
                                   <div className="smysnk2-context-chart">
                                     <div className="smysnk2-context-chart-head">
-                                      <p className="helper">Archetype match chart</p>
+                                      <p className="helper result-card-subtitle">Archetype match chart</p>
                                       <p className="helper">
                                         Hits for {selectedAssertiveTypeMatch?.type ?? "selected type"} stack
                                       </p>
@@ -908,9 +908,9 @@ export default function Smysnk3RunPage({ params }: { params: { slug: string } })
                             </div>
                           ) : (
                             <div style={{ display: "grid", gap: "12px" }}>
-                              <div className="answer-row">
+                              <div className="answer-row result-themed-card">
                                 <div className="answer-meta">
-                                  <div className="answer-question">
+                                  <div className="answer-question result-card-title">
                                     <GlossaryTerm term="Turbulent">Turbulent</GlossaryTerm>
                                   </div>
                                   <div className="badge">
@@ -972,7 +972,7 @@ export default function Smysnk3RunPage({ params }: { params: { slug: string } })
                                     <div className="answer-row smysnk2-context-card" key={context.context}>
                                       <div className="answer-meta">
                                         <div>
-                                          <div className="answer-question">{context.label}</div>
+                                          <div className="answer-question result-card-title">{context.label}</div>
                                           <p className="helper" style={{ marginTop: "4px" }}>
                                             {context.polarity} | {context.totalResponses} responses
                                           </p>
@@ -1021,7 +1021,7 @@ export default function Smysnk3RunPage({ params }: { params: { slug: string } })
 
                                       <div className="smysnk2-context-chart">
                                         <div className="smysnk2-context-chart-head">
-                                          <p className="helper">Archetype match chart</p>
+                                          <p className="helper result-card-subtitle">Archetype match chart</p>
                                           <p className="helper">
                                             Hits for {selectedContextTypeMatch?.type ?? "selected type"} stack
                                           </p>
@@ -1070,41 +1070,66 @@ export default function Smysnk3RunPage({ params }: { params: { slug: string } })
                         </>
                       ) : null}
 
-                      <h3 style={{ marginBottom: 0 }}>Overall function confidence</h3>
-                      <div className="table-wrapper">
-                        <table className="data-table">
-                          <thead>
-                            <tr>
-                              <th>Function</th>
-                              <th>Confidence</th>
-                              <th>Selection share</th>
-                              <th>Count</th>
-                              <th>Archetype wins</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {orderedFunctionConfidence.map((row) => (
-                              <tr key={row.functionKey}>
-                                <td>
-                                  <GlossaryTerm term={row.functionKey}>{row.functionKey}</GlossaryTerm>
-                                </td>
-                                <td>{formatPercent(row.confidence)}</td>
-                                <td>{formatPercent(row.percentage)}</td>
-                                <td>{row.count}</td>
-                                <td>{row.archetypeWins}</td>
+                      <div className="answer-row result-themed-card smysnk2-context-card">
+                        <div className="sakinorva-section-title">Overall Function Confidence</div>
+                        <div className="table-wrapper">
+                          <table className="data-table">
+                            <thead>
+                              <tr>
+                                <th>Function</th>
+                                <th>Confidence</th>
+                                <th>Selection share</th>
+                                <th>Count</th>
+                                <th>Archetype wins</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody>
+                              {orderedFunctionConfidence.map((row) => (
+                                <tr key={row.functionKey}>
+                                  <td>
+                                    <GlossaryTerm term={row.functionKey}>{row.functionKey}</GlossaryTerm>
+                                  </td>
+                                  <td>{formatPercent(row.confidence)}</td>
+                                  <td>{formatPercent(row.percentage)}</td>
+                                  <td>{row.count}</td>
+                                  <td>{row.archetypeWins}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
 
                       {hasModeScoring && data.analysis ? (
-                        <div style={{ display: "grid", gap: "12px" }}>
-                          <h3 style={{ marginBottom: 0 }}>Context Function Heat Map</h3>
-                          <p className="helper">
+                        <div className="answer-row result-themed-card smysnk2-context-card">
+                          <div className="sakinorva-section-title">Context Function Heat Map</div>
+                          <p className="helper result-card-subtext">
                             <GlossaryText text="Y-axis shows functions and X-axis shows contexts. Brighter yellow cells mean more archetype hits for that function/context pair." />
                           </p>
-                          <div className="answer-row smysnk2-context-card smysnk2-heatmap-card">
+                          <div className="smysnk2-heatmap-card">
+                            <div className="smysnk2-heatmap-card-head">
+                              <span className="smysnk2-heatmap-type-picker">
+                                {contextHeatmap ? (
+                                  <select
+                                    id="smysnk2-heatmap-type"
+                                    className="select smysnk2-heatmap-select"
+                                    value={selectedHeatmapType ?? contextHeatmap.selectedType}
+                                    onChange={(event) => setSelectedHeatmapType(event.target.value)}
+                                  >
+                                    <option value={HEATMAP_BY_FUNCTION_OPTION}>By function</option>
+                                    {MBTI_TYPE_OPTIONS.map((type) => (
+                                      <option key={`heatmap-type-${type}`} value={type}>
+                                        {type}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : null}
+                              </span>
+                              <HelpIconButton
+                                label="How context function heat map scoring works"
+                                onClick={() => setActiveHelpTopic("heatmap")}
+                              />
+                            </div>
                             {contextHeatmap && contextHeatmap.contexts.length ? (
                               <div className="smysnk2-heatmap">
                                 <div
@@ -1130,25 +1155,6 @@ export default function Smysnk3RunPage({ params }: { params: { slug: string } })
                                 >
                                   <span className="smysnk2-heatmap-corner">
                                     <span className="smysnk2-heatmap-corner-label">Function</span>
-                                    <span className="smysnk2-heatmap-corner-controls">
-                                      <select
-                                        id="smysnk2-heatmap-type"
-                                        className="select smysnk2-heatmap-select"
-                                        value={selectedHeatmapType ?? contextHeatmap.selectedType}
-                                        onChange={(event) => setSelectedHeatmapType(event.target.value)}
-                                      >
-                                        <option value={HEATMAP_BY_FUNCTION_OPTION}>By function</option>
-                                        {MBTI_TYPE_OPTIONS.map((type) => (
-                                          <option key={`heatmap-type-${type}`} value={type}>
-                                            {type}
-                                          </option>
-                                        ))}
-                                      </select>
-                                      <HelpIconButton
-                                        label="How context function heat map scoring works"
-                                        onClick={() => setActiveHelpTopic("heatmap")}
-                                      />
-                                    </span>
                                   </span>
                                   {contextHeatmap.contexts.map((contextEntry) => (
                                     <span

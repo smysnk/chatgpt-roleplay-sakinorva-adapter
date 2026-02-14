@@ -3,8 +3,9 @@ import "./globals.css";
 import AppMenuBar from "@/app/components/AppMenuBar";
 
 export const metadata: Metadata = {
-  title: "Sakinorva Character Adapter",
-  description: "Run the Sakinorva cognitive functions test as a fictional or historical character."
+  title: "Jungian Cognitive Function Tests",
+  description:
+    "Take and compare Jungian cognitive function tests, review stack-based results, and share interpretable profile pages."
 };
 
 export default function RootLayout({

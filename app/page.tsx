@@ -5,24 +5,24 @@ import { getSiteUrl } from "@/lib/siteUrl";
 const siteUrl = getSiteUrl();
 
 export const metadata: Metadata = {
-  title: "Cognitive Function Test Adapter",
+  title: "Jungian Cognitive Function Tests",
   description:
-    "Run and compare Sakinorva, SMYSNK, SMYSNK2, and SMYSNK3 cognitive-function assessments, save results, and share run links with MBTI-style stack visualizations.",
+    "Take and compare Sakinorva, SMYSNK, SMYSNK2, and SMYSNK3 Jungian cognitive function assessments, then review and share stack-based results.",
   alternates: {
     canonical: `${siteUrl}/`
   },
   openGraph: {
-    title: "Cognitive Function Test Adapter",
+    title: "Jungian Cognitive Function Tests",
     description:
-      "Run and compare Sakinorva, SMYSNK, SMYSNK2, and SMYSNK3 assessments, then save and share interpretable cognitive-function results.",
+      "Take and compare Jungian cognitive function assessments and share stack-based results pages.",
     type: "website",
     url: `${siteUrl}/`
   },
   twitter: {
     card: "summary",
-    title: "Cognitive Function Test Adapter",
+    title: "Jungian Cognitive Function Tests",
     description:
-      "Run and compare Sakinorva, SMYSNK, SMYSNK2, and SMYSNK3 assessments with shareable cognitive-function result pages."
+      "Compare Jungian cognitive function tests and share interpretable stack-based results."
   }
 };
 

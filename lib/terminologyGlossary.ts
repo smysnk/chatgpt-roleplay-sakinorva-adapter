@@ -183,7 +183,7 @@ export const GLOSSARY_ENTRIES: Record<GlossaryKey, GlossaryEntry> = {
 export const HELP_TOPICS: Record<HelpTopicId, HelpTopic> = {
   grant_card: {
     id: "grant_card",
-    title: "Grant Card",
+    title: "Grant",
     paragraphs: [
       "The Grant view follows a function-stack interpretation where dominant and auxiliary functions drive the predicted type shape.",
       "This card uses absolute function scores to build a stack (dominant through inferior), then derives the MBTI letters from that stack orientation."
@@ -196,7 +196,7 @@ export const HELP_TOPICS: Record<HelpTopicId, HelpTopic> = {
   },
   axis_card: {
     id: "axis_card",
-    title: "Axis Card",
+    title: "Axis",
     paragraphs: [
       "The Axis view compares totals across E/I, N/S, and T/F axes before resolving J/P from attitude-weighted judging/perceiving totals.",
       "This emphasizes directional axis balance rather than strict stack assembly."
@@ -209,7 +209,7 @@ export const HELP_TOPICS: Record<HelpTopicId, HelpTopic> = {
   },
   myers_card: {
     id: "myers_card",
-    title: "Myers Card",
+    title: "Myers",
     paragraphs: [
       "The Myers view uses dichotomy totals directly (E/I, S/N, T/F, J/P) from absolute function scores.",
       "It is a dichotomy-style readout and does not require a full Grant stack assumption."
