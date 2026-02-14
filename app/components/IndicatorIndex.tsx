@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import RunsTable, { type RunItem } from "@/app/components/RunsTable";
 import { deriveTypesFromScores } from "@/lib/mbti";
+import { INDICATOR_API_BASE, INDICATOR_LABELS, INDICATOR_RUN_BASE, type Indicator } from "@/lib/indicators";
 
 type IndicatorRun = {
   id: string;
@@ -28,21 +29,49 @@ type IndicatorIndexProps = {
   mode: "combined" | "sakinorva" | "smysnk" | "smysnk2" | "smysnk3";
 };
 
+type IndicatorOnlyMode = Exclude<IndicatorIndexProps["mode"], "combined">;
+
+type RunCreatedEventDetail = {
+  indicator: IndicatorOnlyMode;
+  slug: string;
+  subject?: string | null;
+  character?: string | null;
+  context?: string | null;
+  state?: IndicatorRun["state"];
+  errors?: number;
+  createdAt?: string;
+};
+
+const ENDPOINTS_BY_INDICATOR: Record<Indicator, { url: string; label: string; runBase: string }> = {
+  sakinorva: {
+    url: INDICATOR_API_BASE.sakinorva,
+    label: INDICATOR_LABELS.sakinorva,
+    runBase: INDICATOR_RUN_BASE.sakinorva
+  },
+  smysnk: {
+    url: INDICATOR_API_BASE.smysnk,
+    label: INDICATOR_LABELS.smysnk,
+    runBase: INDICATOR_RUN_BASE.smysnk
+  },
+  smysnk2: {
+    url: INDICATOR_API_BASE.smysnk2,
+    label: INDICATOR_LABELS.smysnk2,
+    runBase: INDICATOR_RUN_BASE.smysnk2
+  },
+  smysnk3: {
+    url: INDICATOR_API_BASE.smysnk3,
+    label: INDICATOR_LABELS.smysnk3,
+    runBase: INDICATOR_RUN_BASE.smysnk3
+  }
+};
+
+const sortByCreatedAtDesc = (runs: IndicatorRun[]) =>
+  [...runs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
 const getIndicatorEndpoints = (mode: IndicatorIndexProps["mode"]) =>
   mode === "combined"
-    ? [
-        { url: "/api/run", label: "Sakinorva", runBase: "/sakinorva-adapter/run/" },
-        { url: "/api/smysnk", label: "SMYSNK", runBase: "/smysnk/run/" },
-        { url: "/api/smysnk2", label: "SMYSNK2", runBase: "/smysnk2/run/" },
-        { url: "/api/smysnk3", label: "SMYSNK3", runBase: "/smysnk3/run/" }
-      ]
-    : mode === "sakinorva"
-      ? [{ url: "/api/run", label: "Sakinorva", runBase: "/sakinorva-adapter/run/" }]
-      : mode === "smysnk"
-        ? [{ url: "/api/smysnk", label: "SMYSNK", runBase: "/smysnk/run/" }]
-        : mode === "smysnk2"
-          ? [{ url: "/api/smysnk2", label: "SMYSNK2", runBase: "/smysnk2/run/" }]
-          : [{ url: "/api/smysnk3", label: "SMYSNK3", runBase: "/smysnk3/run/" }];
+    ? Object.values(ENDPOINTS_BY_INDICATOR)
+    : [ENDPOINTS_BY_INDICATOR[mode]];
 
 export default function IndicatorIndex({ title, description, mode }: IndicatorIndexProps) {
   const router = useRouter();
@@ -100,6 +129,43 @@ export default function IndicatorIndex({ title, description, mode }: IndicatorIn
   useEffect(() => {
     void loadRuns({ withLoading: true });
   }, [loadRuns]);
+
+  useEffect(() => {
+    const onRunCreated = (event: Event) => {
+      const detail = (event as CustomEvent<RunCreatedEventDetail>).detail;
+      if (!detail?.indicator || !detail?.slug) {
+        return;
+      }
+      if (mode !== "combined" && mode !== detail.indicator) {
+        return;
+      }
+      const indicatorMeta = ENDPOINTS_BY_INDICATOR[detail.indicator];
+      if (!indicatorMeta) {
+        return;
+      }
+      const optimisticRun: IndicatorRun = {
+        id: `pending-${detail.slug}`,
+        slug: detail.slug,
+        subject: detail.subject ?? detail.character ?? "Self",
+        context: detail.context ?? null,
+        createdAt: detail.createdAt ?? new Date().toISOString(),
+        functionScores: null,
+        grantType: null,
+        axisType: null,
+        myersType: null,
+        state: detail.state ?? "QUEUED",
+        errors: detail.errors ?? 0,
+        testLabel: indicatorMeta.label,
+        runPath: `${indicatorMeta.runBase}${detail.slug}`
+      };
+      setItems((current) => sortByCreatedAtDesc([optimisticRun, ...current.filter((item) => item.slug !== detail.slug)]));
+    };
+
+    window.addEventListener("indicator-run-created", onRunCreated);
+    return () => {
+      window.removeEventListener("indicator-run-created", onRunCreated);
+    };
+  }, [mode]);
 
   const hasPendingRuns = useMemo(
     () => items.some((item) => item.state === "QUEUED" || item.state === "PROCESSING"),

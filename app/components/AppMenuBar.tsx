@@ -73,6 +73,45 @@ export default function AppMenuBar() {
     };
   }, []);
 
+  const emitRunCreatedEvent = ({
+    payload,
+    fallbackSubject,
+    fallbackContext
+  }: {
+    payload: unknown;
+    fallbackSubject: string;
+    fallbackContext: string | null;
+  }) => {
+    if (typeof window === "undefined" || typeof payload !== "object" || !payload) {
+      return;
+    }
+    const data = payload as Record<string, unknown>;
+    const slug = typeof data.slug === "string" ? data.slug : null;
+    if (!slug) {
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent("indicator-run-created", {
+        detail: {
+          indicator,
+          slug,
+          subject:
+            (typeof data.subject === "string" ? data.subject : null) ??
+            (typeof data.character === "string" ? data.character : null) ??
+            fallbackSubject,
+          context: (typeof data.context === "string" ? data.context : null) ?? fallbackContext,
+          state:
+            typeof data.state === "string" &&
+            ["QUEUED", "PROCESSING", "COMPLETED", "ERROR"].includes(data.state)
+              ? data.state
+              : "QUEUED",
+          errors: typeof data.errors === "number" ? data.errors : 0,
+          createdAt: typeof data.createdAt === "string" ? data.createdAt : new Date().toISOString()
+        }
+      })
+    );
+  };
+
   const handleRun = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmed = character.trim();
@@ -98,7 +137,12 @@ export default function AppMenuBar() {
         const payload = await response.json().catch(() => ({}));
         throw new Error(payload?.error ?? "Failed to run the indicator.");
       }
-      await response.json();
+      const result = await response.json();
+      emitRunCreatedEvent({
+        payload: result,
+        fallbackSubject: trimmed,
+        fallbackContext: context.trim() || null
+      });
       const runPath = INDICATOR_INDEX_PATH[indicator];
       setWizardOpen(false);
       setCharacter("");
@@ -152,7 +196,12 @@ export default function AppMenuBar() {
         const payload = await response.json().catch(() => ({}));
         throw new Error(payload?.error ?? "Failed to run the Reddit profile test.");
       }
-      await response.json();
+      const result = await response.json();
+      emitRunCreatedEvent({
+        payload: result,
+        fallbackSubject: `u/${normalized}`,
+        fallbackContext: null
+      });
       setWizardOpen(false);
       setRedditUsername("");
       const runPath = INDICATOR_INDEX_PATH[indicator];
