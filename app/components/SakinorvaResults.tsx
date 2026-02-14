@@ -1,9 +1,14 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import GlossaryTerm from "@/app/components/GlossaryTerm";
+import GlossaryText from "@/app/components/GlossaryText";
+import HelpIconButton from "@/app/components/HelpIconButton";
+import HelpModal from "@/app/components/HelpModal";
 import StnfIndicator from "@/app/components/StnfIndicator";
 import MbtiMapCanvas from "@/app/components/MbtiMapCanvas";
 import TypeBadges, { TypeBadgeLetter } from "@/app/components/TypeBadges";
+import type { HelpTopicId } from "@/lib/terminologyGlossary";
 
 export const STNF_TOOLTIP =
   "The STNF indicator visualizes cognitive function expression in a more Jungian interpretive lens where we possess the ability to express both introverted and extroverted functions based on situational context.";
@@ -153,6 +158,7 @@ export default function SakinorvaResults({
   } | null;
 }) {
   const sections = useMemo(() => parseResultsFragment(htmlFragment), [htmlFragment]);
+  const [activeHelpTopic, setActiveHelpTopic] = useState<HelpTopicId | null>(null);
   const renderValueWithBadges = (value: string) => {
     const matches = Array.from(value.matchAll(TYPE_CODE_PATTERN));
     const functionMatches = Array.from(value.matchAll(/\b(Te|Ti|Fe|Fi|Ne|Ni|Se|Si)\b/gi));
@@ -176,18 +182,9 @@ export default function SakinorvaResults({
       const token = match[0];
       if (/^(Te|Ti|Fe|Fi|Ne|Ni|Se|Si)$/i.test(token)) {
         fragments.push(
-          <span className="type-badges" key={`${token}-${index}`}>
-            {token
-              .split("")
-              .map((letter, letterIndex) => (
-                <span
-                  key={`${token}-${letter}-${letterIndex}`}
-                  className={`type-letter ${letter.toLowerCase()}`}
-                >
-                  {letter.toUpperCase()}
-                </span>
-              ))}
-          </span>
+          <GlossaryTerm key={`${token}-${index}`} term={token}>
+            {token}
+          </GlossaryTerm>
         );
       } else {
         const letters = token.split("");
@@ -343,8 +340,14 @@ export default function SakinorvaResults({
       {derived ? (
         <>
           <div className="sakinorva-section">
-            <div className="sakinorva-section-title">Grant (Absolute)</div>
-            <p className="helper" style={{ marginTop: "-8px" }}>
+            <div className="sakinorva-section-heading">
+              <div className="sakinorva-section-title">Grant (Absolute)</div>
+              <HelpIconButton
+                label="How Grant scoring works"
+                onClick={() => setActiveHelpTopic("grant_card")}
+              />
+            </div>
+            <p className="helper result-card-subtext">
               Uses the highest absolute function scores to assemble the Grant stack (dominant → inferior)
               and derive the MBTI letters.
             </p>
@@ -354,7 +357,7 @@ export default function SakinorvaResults({
                 <div className="sakinorva-row-value calc-value">
                   {derived.sorted.slice(0, 4).map((entry) => (
                     <span key={entry.key} className="function-badge">
-                      {entry.key} {formatScore(entry.score)}
+                      <GlossaryTerm term={entry.key}>{entry.key}</GlossaryTerm> {formatScore(entry.score)}
                     </span>
                   ))}
                 </div>
@@ -363,7 +366,8 @@ export default function SakinorvaResults({
                 <div className="sakinorva-row-label">Dominant</div>
                 <div className="sakinorva-row-value calc-value">
                   <span className="function-badge">
-                    {derived.dominant.key} {formatScore(derived.dominant.score)}
+                    <GlossaryTerm term={derived.dominant.key}>{derived.dominant.key}</GlossaryTerm>{" "}
+                    {formatScore(derived.dominant.score)}
                   </span>
                 </div>
               </div>
@@ -372,7 +376,8 @@ export default function SakinorvaResults({
                 <div className="sakinorva-row-value calc-value">
                   {derived.auxiliary ? (
                     <span className="function-badge">
-                      {derived.auxiliary.key} {formatScore(derived.auxiliary.score)}
+                      <GlossaryTerm term={derived.auxiliary.key}>{derived.auxiliary.key}</GlossaryTerm>{" "}
+                      {formatScore(derived.auxiliary.score)}
                     </span>
                   ) : (
                     <span className="helper">Unavailable</span>
@@ -384,7 +389,7 @@ export default function SakinorvaResults({
                 <div className="sakinorva-row-value calc-value">
                   {derived.grantStack.map((fn, index) => (
                     <span key={`${fn}-${index}`} className="function-badge">
-                      {fn}
+                      <GlossaryTerm term={fn}>{fn}</GlossaryTerm>
                     </span>
                   ))}
                 </div>
@@ -398,8 +403,14 @@ export default function SakinorvaResults({
             </div>
           </div>
           <div className="sakinorva-section">
-            <div className="sakinorva-section-title">Axis-Based (Absolute)</div>
-            <p className="helper" style={{ marginTop: "-8px" }}>
+            <div className="sakinorva-section-heading">
+              <div className="sakinorva-section-title">Axis-Based (Absolute)</div>
+              <HelpIconButton
+                label="How Axis scoring works"
+                onClick={() => setActiveHelpTopic("axis_card")}
+              />
+            </div>
+            <p className="helper result-card-subtext">
               Compares extroverted vs. introverted totals for each axis, and sets J/P from the dominant
               attitude.
             </p>
@@ -545,8 +556,14 @@ export default function SakinorvaResults({
             </div>
           </div>
           <div className="sakinorva-section">
-            <div className="sakinorva-section-title">Myers (Absolute)</div>
-            <p className="helper" style={{ marginTop: "-8px" }}>
+            <div className="sakinorva-section-heading">
+              <div className="sakinorva-section-title">Myers (Absolute)</div>
+              <HelpIconButton
+                label="How Myers scoring works"
+                onClick={() => setActiveHelpTopic("myers_card")}
+              />
+            </div>
+            <p className="helper result-card-subtext">
               Uses dichotomy totals (E/I, S/N, T/F, J/P) from absolute function scores.
             </p>
             <div className="sakinorva-section-body">
@@ -694,7 +711,7 @@ export default function SakinorvaResults({
                     ) : shouldRenderBadges(row.value) ? (
                       renderValueWithBadges(row.value)
                     ) : (
-                      row.value
+                      <GlossaryText text={row.value} />
                     )}
                   </div>
                 </div>
@@ -703,9 +720,15 @@ export default function SakinorvaResults({
           </div>
           {hasMbtiPanel && isRelativeSection(section.title) ? (
             <div className="sakinorva-section">
-              <div className="sakinorva-section-title">MBTI axis map</div>
+              <div className="sakinorva-section-heading">
+                <div className="sakinorva-section-title">MBTI Axis Map</div>
+                <HelpIconButton
+                  label="How MBTI Axis Map scoring works"
+                  onClick={() => setActiveHelpTopic("mbti_axis_map")}
+                />
+              </div>
               <div className="sakinorva-section-body">
-                <p className="helper">
+                <p className="helper result-card-subtext">
                   Toggle layers to compare Grant, Axis, and Myers polygons. Hover a region to
                   emphasize the label.
                 </p>
@@ -720,6 +743,7 @@ export default function SakinorvaResults({
           ) : null}
         </div>
       ))}
+      <HelpModal topicId={activeHelpTopic} onClose={() => setActiveHelpTopic(null)} />
     </div>
   );
 }

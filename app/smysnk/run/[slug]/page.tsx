@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import HelpIconButton from "@/app/components/HelpIconButton";
+import HelpModal from "@/app/components/HelpModal";
 import { SMYSNK_QUESTIONS } from "@/lib/smysnkQuestions";
 import SakinorvaResults from "@/app/components/SakinorvaResults";
 import RatingScaleHeader from "@/app/components/RatingScaleHeader";
 import MbtiMapCanvas from "@/app/components/MbtiMapCanvas";
+import type { HelpTopicId } from "@/lib/terminologyGlossary";
 
 type SmysnkRunPayload = {
   slug: string;
@@ -42,6 +45,7 @@ export default function SmysnkRunPage({ params }: { params: { slug: string } }) 
   const [data, setData] = useState<SmysnkRunPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeHelpTopic, setActiveHelpTopic] = useState<HelpTopicId | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -130,8 +134,19 @@ export default function SmysnkRunPage({ params }: { params: { slug: string } }) 
                   </div>
                   {hasScores ? (
                     <div style={{ marginTop: "24px" }}>
-                      <h3 style={{ marginBottom: "12px" }}>MBTI Axis Map</h3>
-                      <MbtiMapCanvas functionScores={data.scores} />
+                      <div className="answer-row smysnk2-context-card axis-map-result-card">
+                        <div className="sakinorva-section-heading result-card-heading">
+                          <div className="sakinorva-section-title">MBTI Axis Map</div>
+                          <HelpIconButton
+                            label="How MBTI Axis Map scoring works"
+                            onClick={() => setActiveHelpTopic("mbti_axis_map")}
+                          />
+                        </div>
+                        <p className="helper result-card-subtext">
+                          Click the map to pause rotation. Move the speed slider right to rotate faster.
+                        </p>
+                        <MbtiMapCanvas functionScores={data.scores} />
+                      </div>
                     </div>
                   ) : null}
                 </>
@@ -196,6 +211,7 @@ export default function SmysnkRunPage({ params }: { params: { slug: string } }) 
           ) : null}
         </div>
       </div>
+      <HelpModal topicId={activeHelpTopic} onClose={() => setActiveHelpTopic(null)} />
     </main>
   );
 }

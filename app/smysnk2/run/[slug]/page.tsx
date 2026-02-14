@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import GlossaryTerm from "@/app/components/GlossaryTerm";
+import GlossaryText from "@/app/components/GlossaryText";
+import HelpIconButton from "@/app/components/HelpIconButton";
+import HelpModal from "@/app/components/HelpModal";
 import {
   SMYSNK2_ARCHETYPE_LABELS,
   SMYSNK2_ARCHETYPE_ORDER,
@@ -13,6 +17,7 @@ import type { Smysnk2Analysis } from "@/lib/smysnk2Score";
 import { normalizeSmysnk2OptionKey } from "@/lib/smysnk2Score";
 import SakinorvaResults from "@/app/components/SakinorvaResults";
 import MbtiMapCanvas from "@/app/components/MbtiMapCanvas";
+import type { HelpTopicId } from "@/lib/terminologyGlossary";
 
 type Smysnk2RunPayload = {
   slug: string;
@@ -387,6 +392,7 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
   const [selectedAssertiveType, setSelectedAssertiveType] = useState<string | null>(null);
   const [selectedTurbulentTypes, setSelectedTurbulentTypes] = useState<Record<string, string>>({});
   const [selectedHeatmapType, setSelectedHeatmapType] = useState<string | null>(null);
+  const [activeHelpTopic, setActiveHelpTopic] = useState<HelpTopicId | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -467,6 +473,12 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
     () => Boolean(data?.analysis?.assertiveMode && data?.analysis?.turbulentMode && data?.analysis?.summary),
     [data]
   );
+  const isAssertiveLeading = useMemo(() => {
+    if (!data?.analysis?.summary) {
+      return true;
+    }
+    return data.analysis.summary.assertive >= data.analysis.summary.turbulent;
+  }, [data?.analysis?.summary]);
 
   const assertiveTypeMatching = useMemo(() => {
     const analysis = data?.analysis;
@@ -686,8 +698,19 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                   </div>
                   {hasScores ? (
                     <div style={{ marginTop: "24px" }}>
-                      <h3 style={{ marginBottom: "12px" }}>MBTI Axis Map</h3>
-                      <MbtiMapCanvas functionScores={data.scores} />
+                      <div className="answer-row smysnk2-context-card axis-map-result-card">
+                        <div className="sakinorva-section-heading result-card-heading">
+                          <div className="sakinorva-section-title">MBTI Axis Map</div>
+                          <HelpIconButton
+                            label="How MBTI Axis Map scoring works"
+                            onClick={() => setActiveHelpTopic("mbti_axis_map")}
+                          />
+                        </div>
+                        <p className="helper result-card-subtext">
+                          Click the map to pause rotation. Move the speed slider right to rotate faster.
+                        </p>
+                        <MbtiMapCanvas functionScores={data.scores} />
+                      </div>
                     </div>
                   ) : null}
                   {hasAnalysis ? (
@@ -703,18 +726,36 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                                   ? `Best fit ${data.analysis.summary.bestType}`
                                   : "Best fit unresolved"}
                               </div>
-                              <div className="badge">{data.analysis.summary.leaning}</div>
+                              <HelpIconButton
+                                label="How best-fit assertive and turbulent scoring works"
+                                onClick={() => setActiveHelpTopic("best_fit_card")}
+                              />
                             </div>
                             <p className="helper">
-                              Grant style: {data.analysis.summary.grantStyle ?? "-"} (
+                              Grant style:{" "}
+                              {data.analysis.summary.grantStyle ? (
+                                <GlossaryTerm term={data.analysis.summary.grantStyle}>
+                                  {data.analysis.summary.grantStyle}
+                                </GlossaryTerm>
+                              ) : (
+                                "-"
+                              )}{" "}
+                              (
                               {formatPercent(data.analysis.summary.grantStyleConfidence)})
                             </p>
                             <p className="helper">
-                              Assertive {formatPercent(data.analysis.summary.assertive)} | Turbulent{" "}
-                              {formatPercent(data.analysis.summary.turbulent)}
+                              <span className={`badge ${isAssertiveLeading ? "active" : "inactive"}`.trim()}>
+                                <GlossaryTerm term="Assertive">Assertive</GlossaryTerm>
+                                <span>{` ${formatPercent(data.analysis.summary.assertive)}`}</span>
+                              </span>{" "}
+                              <span className={`badge ${!isAssertiveLeading ? "active" : "inactive"}`.trim()}>
+                                <GlossaryTerm term="Turbulent">Turbulent</GlossaryTerm>
+                                <span>{` ${formatPercent(data.analysis.summary.turbulent)}`}</span>
+                              </span>
                             </p>
                             <p className="helper">
-                              {data.analysis.temperamentConfidence.rationale} Persona/shadow delta{" "}
+                              <GlossaryText text={data.analysis.temperamentConfidence.rationale} /> Persona/shadow
+                              delta{" "}
                               {formatPercent(data.analysis.temperamentConfidence.personaShadowDelta)} | Context
                               variance {formatPercent(data.analysis.temperamentConfidence.contextVariance)}
                             </p>
@@ -731,7 +772,11 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                                 setScoringTab("assertive");
                               }}
                             >
-                              <span>Assertive</span>
+                              <span>
+                                <GlossaryTerm term="Assertive" interactive={false}>
+                                  Assertive
+                                </GlossaryTerm>
+                              </span>
                               <span className="smysnk2-mode-tab-value">
                                 {formatPercent(data.analysis.summary.assertive)}
                               </span>
@@ -746,7 +791,11 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                                 setScoringTab("turbulent");
                               }}
                             >
-                              <span>Turbulent</span>
+                              <span>
+                                <GlossaryTerm term="Turbulent" interactive={false}>
+                                  Turbulent
+                                </GlossaryTerm>
+                              </span>
                               <span className="smysnk2-mode-tab-value">
                                 {formatPercent(data.analysis.summary.turbulent)}
                               </span>
@@ -754,7 +803,9 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                           </div>
 
                           {assertivePreferenceSummary ? (
-                            <p className="helper">{assertivePreferenceSummary}</p>
+                            <p className="helper">
+                              <GlossaryText text={assertivePreferenceSummary} />
+                            </p>
                           ) : null}
 
                           {scoringTab === "assertive" ? (
@@ -763,7 +814,9 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                                 <div className="answer-row smysnk2-context-card">
                                   <div className="answer-meta">
                                     <div>
-                                      <div className="answer-question">Assertive</div>
+                                      <div className="answer-question">
+                                        <GlossaryTerm term="Assertive">Assertive</GlossaryTerm>
+                                      </div>
                                     </div>
                                   </div>
                                   <p className="helper">
@@ -773,12 +826,18 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                                         assertiveTypeMatching?.best?.confidence ??
                                         0
                                     )}{" "}
-                                    | Grant style {assertiveTypeMatching?.grantStyles[0]?.style ?? "-"}{" "}
+                                    | Grant style{" "}
+                                    {assertiveTypeMatching?.grantStyles[0]?.style ? (
+                                      <GlossaryTerm term={assertiveTypeMatching.grantStyles[0].style}>
+                                        {assertiveTypeMatching.grantStyles[0].style}
+                                      </GlossaryTerm>
+                                    ) : (
+                                      "-"
+                                    )}{" "}
                                     {formatPercent(assertiveTypeMatching?.grantStyles[0]?.confidence ?? 0)}
                                   </p>
                                   <p className="helper">
-                                    Assertive scoring is consolidated into a single MBTI decision using all archetype
-                                    and shadow hits together.
+                                    <GlossaryText text="Assertive scoring is consolidated into a single MBTI decision using all archetype and shadow hits together." />
                                   </p>
 
                                   {assertiveTypeOptions.length ? (
@@ -813,9 +872,14 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                                         .map((row) => (
                                           <div className="smysnk2-archetype-row" key={`assertive-${row.archetype}`}>
                                             <div className="smysnk2-archetype-meta">
-                                              <span className="smysnk2-archetype-name">{row.label}</span>
+                                              <span className="smysnk2-archetype-name">
+                                                <GlossaryTerm term={row.label}>{row.label}</GlossaryTerm>
+                                              </span>
                                               <span className="smysnk2-archetype-details">
-                                                {row.expectedFunction} | {row.hitsForType}/{row.total} hits
+                                                <GlossaryTerm term={row.expectedFunction}>
+                                                  {row.expectedFunction}
+                                                </GlossaryTerm>{" "}
+                                                | {row.hitsForType}/{row.total} hits
                                               </span>
                                             </div>
                                             <div
@@ -843,7 +907,9 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                             <div style={{ display: "grid", gap: "12px" }}>
                               <div className="answer-row">
                                 <div className="answer-meta">
-                                  <div className="answer-question">Turbulent</div>
+                                  <div className="answer-question">
+                                    <GlossaryTerm term="Turbulent">Turbulent</GlossaryTerm>
+                                  </div>
                                   <div className="badge">
                                     {formatTypeWithConfidence(
                                       turbulentTopType?.type ?? null,
@@ -852,8 +918,7 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                                   </div>
                                 </div>
                                 <p className="helper">
-                                  Each context gets its own type fit and IEIE/EIEI split, so you can see exactly where
-                                  the stack stays stable or flips.
+                                  <GlossaryText text="Each context gets its own type fit and IEIE/EIEI split, so you can see exactly where the stack stays stable or flips." />
                                 </p>
                               </div>
 
@@ -917,7 +982,9 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                                             context.typeMatching.best?.confidence ??
                                             0
                                         )}{" "}
-                                        | Grant split IEIE {formatPercent(ieie)} / EIEI {formatPercent(eiei)} | Delta{" "}
+                                        | Grant split <GlossaryTerm term="IEIE">IEIE</GlossaryTerm>{" "}
+                                        {formatPercent(ieie)} / <GlossaryTerm term="EIEI">EIEI</GlossaryTerm>{" "}
+                                        {formatPercent(eiei)} | Delta{" "}
                                         {formatPercent(Math.abs(leadingStyleScore - trailingStyleScore))}
                                       </p>
 
@@ -961,9 +1028,14 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                                             return (
                                               <div className="smysnk2-archetype-row" key={`${context.context}-${row.archetype}`}>
                                                 <div className="smysnk2-archetype-meta">
-                                                  <span className="smysnk2-archetype-name">{row.label}</span>
+                                                  <span className="smysnk2-archetype-name">
+                                                    <GlossaryTerm term={row.label}>{row.label}</GlossaryTerm>
+                                                  </span>
                                                   <span className="smysnk2-archetype-details">
-                                                    {row.expectedFunction} | {row.hitsForType}/{row.total} hits
+                                                    <GlossaryTerm term={row.expectedFunction}>
+                                                      {row.expectedFunction}
+                                                    </GlossaryTerm>{" "}
+                                                    | {row.hitsForType}/{row.total} hits
                                                   </span>
                                                 </div>
                                                 <div
@@ -1010,7 +1082,9 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                           <tbody>
                             {orderedFunctionConfidence.map((row) => (
                               <tr key={row.functionKey}>
-                                <td>{row.functionKey}</td>
+                                <td>
+                                  <GlossaryTerm term={row.functionKey}>{row.functionKey}</GlossaryTerm>
+                                </td>
                                 <td>{formatPercent(row.confidence)}</td>
                                 <td>{formatPercent(row.percentage)}</td>
                                 <td>{row.count}</td>
@@ -1025,27 +1099,11 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                         <div style={{ display: "grid", gap: "12px" }}>
                           <h3 style={{ marginBottom: 0 }}>Context Function Heat Map</h3>
                           <p className="helper">
-                            Y-axis shows functions and X-axis shows contexts. Brighter yellow cells mean more
-                            archetype hits for that function/context pair.
+                            <GlossaryText text="Y-axis shows functions and X-axis shows contexts. Brighter yellow cells mean more archetype hits for that function/context pair." />
                           </p>
                           <div className="answer-row smysnk2-context-card smysnk2-heatmap-card">
                             {contextHeatmap && contextHeatmap.contexts.length ? (
                               <div className="smysnk2-heatmap">
-                                <div className="smysnk2-heatmap-type-picker">
-                                  <select
-                                    id="smysnk2-heatmap-type"
-                                    className="select smysnk2-heatmap-select"
-                                    value={selectedHeatmapType ?? contextHeatmap.selectedType}
-                                    onChange={(event) => setSelectedHeatmapType(event.target.value)}
-                                  >
-                                    <option value={HEATMAP_BY_FUNCTION_OPTION}>By function</option>
-                                    {MBTI_TYPE_OPTIONS.map((type) => (
-                                      <option key={`heatmap-type-${type}`} value={type}>
-                                        {type}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
                                 <div
                                   className="smysnk2-heatmap-axis-row"
                                   style={{
@@ -1067,7 +1125,28 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                                     )}, minmax(34px, 1fr))`
                                   }}
                                 >
-                                  <span className="smysnk2-heatmap-corner">Function</span>
+                                  <span className="smysnk2-heatmap-corner">
+                                    <span className="smysnk2-heatmap-corner-label">Function</span>
+                                    <span className="smysnk2-heatmap-corner-controls">
+                                      <select
+                                        id="smysnk2-heatmap-type"
+                                        className="select smysnk2-heatmap-select"
+                                        value={selectedHeatmapType ?? contextHeatmap.selectedType}
+                                        onChange={(event) => setSelectedHeatmapType(event.target.value)}
+                                      >
+                                        <option value={HEATMAP_BY_FUNCTION_OPTION}>By function</option>
+                                        {MBTI_TYPE_OPTIONS.map((type) => (
+                                          <option key={`heatmap-type-${type}`} value={type}>
+                                            {type}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <HelpIconButton
+                                        label="How context function heat map scoring works"
+                                        onClick={() => setActiveHelpTopic("heatmap")}
+                                      />
+                                    </span>
+                                  </span>
                                   {contextHeatmap.contexts.map((contextEntry) => (
                                     <span
                                       key={`heatmap-head-${contextEntry.key}`}
@@ -1090,9 +1169,15 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                                     }}
                                   >
                                     <span className="smysnk2-heatmap-function-label">
-                                      <span className="smysnk2-heatmap-function">{row.functionKey}</span>
+                                      <span className="smysnk2-heatmap-function">
+                                        <GlossaryTerm term={row.functionKey}>{row.functionKey}</GlossaryTerm>
+                                      </span>
                                       {contextHeatmap.showArchetypeLabel ? (
-                                        <span className="smysnk2-heatmap-archetype">{row.archetypeLabel}</span>
+                                        <span className="smysnk2-heatmap-archetype">
+                                          <GlossaryTerm term={row.archetypeLabel}>
+                                            {row.archetypeLabel}
+                                          </GlossaryTerm>
+                                        </span>
                                       ) : null}
                                     </span>
                                     {row.cells.map((cell) => {
@@ -1186,7 +1271,13 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
                         </div>
                       ))}
                     </div>
-                    {response?.rationale ? <div className="helper">{response.rationale}</div> : null}
+                    {response?.rationale ? (
+                      <div className="helper rationale-quote">
+                        <span>"</span>
+                        <GlossaryText text={response.rationale} />
+                        <span>"</span>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -1194,6 +1285,7 @@ export default function Smysnk2RunPage({ params }: { params: { slug: string } })
           ) : null}
         </div>
       </div>
+      <HelpModal topicId={activeHelpTopic} onClose={() => setActiveHelpTopic(null)} />
     </main>
   );
 }

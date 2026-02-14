@@ -38,6 +38,10 @@ type Point = { x: number; y: number };
 const STACK_WEIGHTS = [0.46, 0.26, 0.18, 0.1];
 const GRANT_STACK_AXIS_MAX = 0.7;
 const MYERS_STACK_AXIS_MAX = 0.5;
+const MIN_ROTATE_INTERVAL = 1000;
+const MAX_ROTATE_INTERVAL = 6000;
+const ROTATE_INTERVAL_STEP = 250;
+const INVERTED_INTERVAL_OFFSET = MIN_ROTATE_INTERVAL + MAX_ROTATE_INTERVAL;
 
 const AXIS_LAYER_SCALE = 0.5;
 
@@ -108,6 +112,13 @@ const scalePoint = (point: Point, scale: number) => ({
   x: point.x * scale,
   y: point.y * scale
 });
+
+const clampRotateInterval = (value: number) =>
+  Math.max(MIN_ROTATE_INTERVAL, Math.min(MAX_ROTATE_INTERVAL, value));
+
+const intervalToSliderValue = (interval: number) => INVERTED_INTERVAL_OFFSET - interval;
+const sliderValueToInterval = (value: number) =>
+  clampRotateInterval(INVERTED_INTERVAL_OFFSET - value);
 
 const oppositeFunctionKind = (func: string) => {
   if (func === "S") {
@@ -791,16 +802,22 @@ export default function MbtiMapCanvas({
           <span className="mbti-map-speed-label">Speed</span>
           <input
             type="range"
-            min={1000}
-            max={6000}
-            step={250}
-            value={rotateInterval}
-            onChange={(event) => setRotateInterval(Number(event.target.value))}
+            min={MIN_ROTATE_INTERVAL}
+            max={MAX_ROTATE_INTERVAL}
+            step={ROTATE_INTERVAL_STEP}
+            value={intervalToSliderValue(rotateInterval)}
+            onChange={(event) => setRotateInterval(sliderValueToInterval(Number(event.target.value)))}
             aria-label="Auto-rotate speed"
           />
         </label>
       </div>
-      <canvas ref={canvasRef} className="mbti-map-canvas" role="img" aria-label="MBTI axis map" />
+      <canvas
+        ref={canvasRef}
+        className="mbti-map-canvas"
+        role="img"
+        aria-label="MBTI axis map"
+        onClick={() => setAutoRotate(false)}
+      />
     </div>
   );
 }
