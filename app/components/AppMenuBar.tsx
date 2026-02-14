@@ -15,7 +15,8 @@ import { DEFAULT_SMYSNK2_MODE, SMYSNK2_MODE_LABELS, SMYSNK2_MODES, parseSmysnk2M
 export default function AppMenuBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [indicator, setIndicator] = useState<Indicator>("smysnk2");
+  const [shareOpen, setShareOpen] = useState(false);
+  const [indicator, setIndicator] = useState<Indicator>("smysnk3");
   const [smysnk2Mode, setSmysnk2Mode] = useState(DEFAULT_SMYSNK2_MODE);
   const [character, setCharacter] = useState("");
   const [context, setContext] = useState("");
@@ -26,6 +27,11 @@ export default function AppMenuBar() {
   const [redditLoading, setRedditLoading] = useState(false);
   const [manualName, setManualName] = useState("");
   const [manualNotes, setManualNotes] = useState("");
+  const [shareIndicator, setShareIndicator] = useState<Extract<Indicator, "smysnk2" | "smysnk3">>("smysnk3");
+  const [shareMode, setShareMode] = useState(DEFAULT_SMYSNK2_MODE);
+  const [shareName, setShareName] = useState("");
+  const [shareCopyState, setShareCopyState] = useState<"idle" | "copied" | "error">("idle");
+  const [siteOrigin, setSiteOrigin] = useState("");
   const menuRef = useRef<HTMLDivElement | null>(null);
   const pathname = usePathname();
   const router = useRouter();
@@ -72,6 +78,30 @@ export default function AppMenuBar() {
       document.removeEventListener("mousedown", handleClick);
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    setSiteOrigin(window.location.origin);
+  }, []);
+
+  const sharePath = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set("test", shareIndicator);
+    params.set("questions", shareMode.toString());
+    if (shareName.trim()) {
+      params.set("name", shareName.trim());
+    }
+    return `/share/start?${params.toString()}`;
+  }, [shareIndicator, shareMode, shareName]);
+
+  const shareUrl = useMemo(() => {
+    if (!siteOrigin) {
+      return sharePath;
+    }
+    return `${siteOrigin}${sharePath}`;
+  }, [sharePath, siteOrigin]);
 
   const emitRunCreatedEvent = ({
     payload,
@@ -397,6 +427,28 @@ export default function AppMenuBar() {
           </span>
           Run
         </button>
+        <button
+          type="button"
+          className="menu-share"
+          onClick={() => {
+            setShareCopyState("idle");
+            setShareOpen(true);
+          }}
+        >
+          <span className="menu-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+              <path
+                d="M15 5a3 3 0 1 0-2.83 4h-.34l-4.3 2.4a3 3 0 1 0 .95 1.7l4.56-2.54a3 3 0 1 0 2.96-5.56Z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
+          Share
+        </button>
         <a
           className="menu-github"
           href="https://github.com/smysnk/chatgpt-roleplay-sakinorva-adapter"
@@ -542,6 +594,99 @@ export default function AppMenuBar() {
                 {redditError ? <div className="error">{redditError}</div> : null}
               </form>
             </div>
+          </div>
+        </div>
+      ) : null}
+      {shareOpen ? (
+        <div className="wizard-backdrop" role="dialog" aria-modal="true">
+          <div className="wizard-card wizard-card-share">
+            <div className="wizard-header">
+              <div>
+                <h2>Create share link</h2>
+                <p className="helper">Generate a link that starts a new manual run with your selected settings.</p>
+              </div>
+              <button type="button" className="button secondary" onClick={() => setShareOpen(false)}>
+                Close
+              </button>
+            </div>
+            <div className="wizard-controls wizard-controls-share">
+              <label className="label" htmlFor="share-indicator">
+                Test
+              </label>
+              <select
+                id="share-indicator"
+                className="input"
+                value={shareIndicator}
+                onChange={(event) => setShareIndicator(event.target.value as Extract<Indicator, "smysnk2" | "smysnk3">)}
+              >
+                <option value="smysnk2">SMYSNK2</option>
+                <option value="smysnk3">SMYSNK3</option>
+              </select>
+
+              <label className="label" htmlFor="share-mode">
+                Number of questions
+              </label>
+              <select
+                id="share-mode"
+                className="input"
+                value={shareMode}
+                onChange={(event) => setShareMode(parseSmysnk2Mode(event.target.value))}
+              >
+                {SMYSNK2_MODES.map((mode) => (
+                  <option key={mode} value={mode}>
+                    {SMYSNK2_MODE_LABELS[mode]}
+                  </option>
+                ))}
+              </select>
+
+              <label className="label" htmlFor="share-name">
+                Name
+              </label>
+              <input
+                id="share-name"
+                className="input"
+                value={shareName}
+                onChange={(event) => setShareName(event.target.value)}
+                maxLength={80}
+                placeholder="Self"
+              />
+            </div>
+            <div className="share-link-row">
+              <input className="input share-link-input" value={shareUrl} readOnly aria-label="Generated share URL" />
+              <button
+                type="button"
+                className="button secondary share-copy-button"
+                aria-label="Copy share link"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(shareUrl);
+                    setShareCopyState("copied");
+                    setShareOpen(false);
+                  } catch {
+                    setShareCopyState("error");
+                  }
+                }}
+              >
+                <span className="menu-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                    <path
+                      d="M9 9.5a1.5 1.5 0 0 1 1.5-1.5h7A1.5 1.5 0 0 1 19 9.5v9A1.5 1.5 0 0 1 17.5 20h-7A1.5 1.5 0 0 1 9 18.5v-9Z"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    />
+                    <path
+                      d="M6 15.5h-.5A1.5 1.5 0 0 1 4 14V5.5A1.5 1.5 0 0 1 5.5 4h7A1.5 1.5 0 0 1 14 5.5V6"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    />
+                  </svg>
+                </span>
+              </button>
+            </div>
+            {shareCopyState === "copied" ? <p className="helper">Copied to clipboard.</p> : null}
+            {shareCopyState === "error" ? <div className="error">Copy failed. Copy the URL manually.</div> : null}
           </div>
         </div>
       ) : null}

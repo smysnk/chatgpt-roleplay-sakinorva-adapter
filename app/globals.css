@@ -117,6 +117,7 @@ body {
 
 .menu-home,
 .menu-run,
+.menu-share,
 .menu-github {
   border: 1px solid #4d648c;
   color: #eef4ff;
@@ -130,6 +131,7 @@ body {
 }
 
 .menu-home,
+.menu-share,
 .menu-github {
   background: linear-gradient(180deg, #25344f, #1a263d);
 }
@@ -141,6 +143,7 @@ body {
 }
 
 .menu-home:hover,
+.menu-share:hover,
 .menu-trigger:hover,
 .menu-github:hover {
   background: linear-gradient(180deg, #2c3d5d, #202d47);
@@ -151,6 +154,11 @@ body {
 }
 
 .menu-home:focus-visible {
+  outline: 2px solid #d6b25a;
+  outline-offset: 2px;
+}
+
+.menu-share:focus-visible {
   outline: 2px solid #d6b25a;
   outline-offset: 2px;
 }
@@ -224,12 +232,36 @@ body {
   color: #f5f7fb;
 }
 
+.wizard-card-share {
+  width: min(640px, 92vw);
+}
+
 .wizard-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+}
+
+.wizard-controls-share {
+  max-width: none;
+}
+
+.share-link-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.share-link-input {
+  min-width: 0;
+}
+
+.share-copy-button {
+  min-width: 48px;
+  padding: 10px 12px;
 }
 
 .wizard-controls {

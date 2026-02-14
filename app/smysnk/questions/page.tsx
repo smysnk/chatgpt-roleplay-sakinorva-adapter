@@ -31,6 +31,7 @@ function SmysnkQuestionsContent() {
   const shuffledQuestions = useMemo(() => shuffleQuestions(SMYSNK_QUESTIONS), []);
   const [participant, setParticipant] = useState(searchParams.get("label") ?? "");
   const [manualContext, setManualContext] = useState(searchParams.get("notes") ?? "");
+  const [started, setStarted] = useState(false);
   const [manualAnswers, setManualAnswers] = useState<Record<string, number>>({});
   const [manualSubmitting, setManualSubmitting] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
@@ -91,9 +92,24 @@ function SmysnkQuestionsContent() {
             Answer each statement on a 1–5 scale (1 = disagree, 5 = agree). All answers are saved and
             scored from 0–40.
           </p>
+          <p className="helper" style={{ marginTop: "8px" }}>
+            This run has {SMYSNK_QUESTIONS.length} questions. Choose what most closely reflects your first
+            natural response.
+          </p>
+          {!started ? (
+            <div style={{ marginTop: "16px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <button type="button" className="button" onClick={() => setStarted(true)}>
+                Start questions
+              </button>
+              <button type="button" className="button secondary" onClick={() => router.push("/smysnk")}>
+                Back to SMYSNK
+              </button>
+            </div>
+          ) : null}
         </div>
-        <div className="app-card">
-          <form onSubmit={handleManualSubmit} className="grid" style={{ marginTop: "24px" }}>
+        {started ? (
+          <div className="app-card">
+            <form onSubmit={handleManualSubmit} className="grid" style={{ marginTop: "24px" }}>
             <div className="form-grid">
               <div>
                 <label className="label" htmlFor="smysnk-participant">
@@ -151,8 +167,9 @@ function SmysnkQuestionsContent() {
               </button>
             </div>
             {manualError ? <div className="error">{manualError}</div> : null}
-          </form>
-        </div>
+            </form>
+          </div>
+        ) : null}
       </div>
     </main>
   );

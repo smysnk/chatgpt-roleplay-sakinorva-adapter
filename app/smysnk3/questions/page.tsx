@@ -77,6 +77,7 @@ function Smysnk3QuestionsContent() {
   const [finalizing, setFinalizing] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
   const [navigatedBack, setNavigatedBack] = useState(false);
+  const [started, setStarted] = useState(false);
 
   const createSessionPromiseRef = useRef<Promise<string | null> | null>(null);
   const draftPoolSeedRef = useRef<string>(
@@ -442,132 +443,228 @@ function Smysnk3QuestionsContent() {
         </div>
 
         <div className="app-card">
-          <div className="form-grid" style={{ marginBottom: "16px" }}>
-            <div>
-              <label className="label" htmlFor="smysnk3-participant">
-                Participant label
-              </label>
-              <input
-                id="smysnk3-participant"
-                className="input"
-                value={participant}
-                onChange={(event) => setParticipant(event.target.value)}
-                placeholder="Self"
-                maxLength={MAX_LENGTH}
-                disabled={loadingSession || finalizing}
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="smysnk3-context">
-                Notes (optional)
-              </label>
-              <textarea
-                id="smysnk3-context"
-                className="textarea"
-                value={manualContext}
-                onChange={(event) => setManualContext(event.target.value)}
-                placeholder="Anything you want to remember about this run."
-                disabled={loadingSession || finalizing}
-              />
-            </div>
-          </div>
-
-          <div style={{ marginBottom: "18px" }}>
-            <label className="label" htmlFor="smysnk3-mode">
-              Question mode
-            </label>
-            <select
-              id="smysnk3-mode"
-              className="input"
-              value={mode}
-              onChange={(event) => {
-                setMode(parseSmysnk3Mode(event.target.value));
-                if (!sessionSlug) {
-                  setAnswers({});
-                  setCurrentIndex(0);
-                  setNavigatedBack(false);
-                }
-              }}
-              disabled={Boolean(sessionSlug) || loadingSession || savingAnswer || finalizing}
-            >
-              {SMYSNK3_MODES.map((itemMode) => (
-                <option key={itemMode} value={itemMode}>
-                  {SMYSNK3_MODE_LABELS[itemMode]}
-                </option>
-              ))}
-            </select>
-            {sessionSlug ? (
-              <p className="helper" style={{ marginTop: "8px" }}>
-                Active session: {sessionSlug}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="progress-wrap" aria-live="polite">
-            <div className="progress-meta">
-              <span>
-                {answeredCount} answered
-              </span>
-              <span>
-                {remainingCount} left
-              </span>
-              <span>
-                {percentComplete}% complete
-              </span>
-            </div>
-            <div className="progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percentComplete}>
-              <div className="progress-fill" style={{ width: `${percentComplete}%` }} />
-            </div>
-          </div>
-
-          {loadingSession ? (
-            <p style={{ marginTop: "20px" }}>Loading session...</p>
-          ) : currentQuestion ? (
-            <div className="answer-row" style={{ marginTop: "20px" }}>
-              <div className="answer-meta" style={{ alignItems: "flex-start" }}>
-                <div className="answer-question">
-                  #{currentIndex + 1} of {scenarios.length} {currentQuestion.scenario}
+          {!started ? (
+            <div className="answer-row">
+              <div className="answer-meta" style={{ alignItems: "flex-start", justifyContent: "flex-start" }}>
+                <div>
+                  <div className="answer-question">Before you begin</div>
+                  <p className="helper" style={{ marginTop: "8px" }}>
+                    You will answer {totalCount} scenario questions in {SMYSNK3_MODE_LABELS[mode].toLowerCase()}.
+                    Choose the option that most closely matches your natural first response.
+                  </p>
+                  <p className="helper" style={{ marginTop: "8px" }}>
+                    {answeredCount > 0
+                      ? `You already answered ${answeredCount} of ${totalCount}.`
+                      : "Your answers save as you go, and you can return later before finalizing."}
+                  </p>
                 </div>
               </div>
 
-              <div className="scenario-option-grid" role="radiogroup" aria-label={`Answer for ${currentQuestion.id}`}>
-                {displayedOptions.map((option) => {
-                  const isSelected = answers[currentQuestion.id] === option.answerKey;
-                  return (
-                    <button
-                      type="button"
-                      key={`${currentQuestion.id}-${option.displayKey}-${option.answerKey}`}
-                      className={`scenario-option ${isSelected ? "active" : ""}`.trim()}
-                      onClick={() => handleSelectAnswer({ answer: option.answerKey, displayKey: option.displayKey })}
-                      aria-pressed={isSelected}
-                      disabled={savingAnswer || finalizing}
-                    >
-                      <span className="scenario-option-key">{option.displayKey}</span>
-                      <span>{option.text}</span>
-                    </button>
-                  );
-                })}
+              <div className="form-grid" style={{ marginBottom: "16px", marginTop: "8px" }}>
+                <div>
+                  <label className="label" htmlFor="smysnk3-participant">
+                    Participant label
+                  </label>
+                  <input
+                    id="smysnk3-participant"
+                    className="input"
+                    value={participant}
+                    onChange={(event) => setParticipant(event.target.value)}
+                    placeholder="Self"
+                    maxLength={MAX_LENGTH}
+                    disabled={loadingSession || finalizing}
+                  />
+                </div>
+                <div>
+                  <label className="label" htmlFor="smysnk3-context">
+                    Notes (optional)
+                  </label>
+                  <textarea
+                    id="smysnk3-context"
+                    className="textarea"
+                    value={manualContext}
+                    onChange={(event) => setManualContext(event.target.value)}
+                    placeholder="Anything you want to remember about this run."
+                    disabled={loadingSession || finalizing}
+                  />
+                </div>
               </div>
 
-              <div className="question-nav-row">
-                <button type="button" className="button secondary" onClick={handlePrev} disabled={!canGoPrev || savingAnswer || finalizing}>
-                  Previous
-                </button>
-                <button type="button" className="button secondary" onClick={handleNext} disabled={!canGoNext || savingAnswer || finalizing}>
-                  Next
-                </button>
+              <div style={{ marginBottom: "18px" }}>
+                <label className="label" htmlFor="smysnk3-mode">
+                  Question mode
+                </label>
+                <select
+                  id="smysnk3-mode"
+                  className="input"
+                  value={mode}
+                  onChange={(event) => {
+                    setMode(parseSmysnk3Mode(event.target.value));
+                    if (!sessionSlug) {
+                      setAnswers({});
+                      setCurrentIndex(0);
+                      setNavigatedBack(false);
+                    }
+                  }}
+                  disabled={Boolean(sessionSlug) || loadingSession || savingAnswer || finalizing}
+                >
+                  {SMYSNK3_MODES.map((itemMode) => (
+                    <option key={itemMode} value={itemMode}>
+                      {SMYSNK3_MODE_LABELS[itemMode]}
+                    </option>
+                  ))}
+                </select>
+                {sessionSlug ? (
+                  <p className="helper" style={{ marginTop: "8px" }}>
+                    Active session: {sessionSlug}
+                  </p>
+                ) : null}
+              </div>
+
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                 <button
                   type="button"
                   className="button"
-                  onClick={handleFinalize}
-                  disabled={answeredCount !== totalCount || savingAnswer || finalizing}
+                  onClick={() => setStarted(true)}
+                  disabled={loadingSession || finalizing}
                 >
-                  {finalizing ? "Finalizing..." : "Finalize"}
+                  {answeredCount > 0 ? "Resume questions" : "Start questions"}
+                </button>
+                <button type="button" className="button secondary" onClick={() => router.push("/smysnk3")}>
+                  Back to SMYSNK3
                 </button>
               </div>
             </div>
           ) : (
-            <p style={{ marginTop: "20px" }}>No scenarios available for this mode.</p>
+            <>
+              <div className="form-grid" style={{ marginBottom: "16px" }}>
+                <div>
+                  <label className="label" htmlFor="smysnk3-participant">
+                    Participant label
+                  </label>
+                  <input
+                    id="smysnk3-participant"
+                    className="input"
+                    value={participant}
+                    onChange={(event) => setParticipant(event.target.value)}
+                    placeholder="Self"
+                    maxLength={MAX_LENGTH}
+                    disabled={loadingSession || finalizing}
+                  />
+                </div>
+                <div>
+                  <label className="label" htmlFor="smysnk3-context">
+                    Notes (optional)
+                  </label>
+                  <textarea
+                    id="smysnk3-context"
+                    className="textarea"
+                    value={manualContext}
+                    onChange={(event) => setManualContext(event.target.value)}
+                    placeholder="Anything you want to remember about this run."
+                    disabled={loadingSession || finalizing}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: "18px" }}>
+                <label className="label" htmlFor="smysnk3-mode">
+                  Question mode
+                </label>
+                <select
+                  id="smysnk3-mode"
+                  className="input"
+                  value={mode}
+                  onChange={(event) => {
+                    setMode(parseSmysnk3Mode(event.target.value));
+                    if (!sessionSlug) {
+                      setAnswers({});
+                      setCurrentIndex(0);
+                      setNavigatedBack(false);
+                    }
+                  }}
+                  disabled={Boolean(sessionSlug) || loadingSession || savingAnswer || finalizing}
+                >
+                  {SMYSNK3_MODES.map((itemMode) => (
+                    <option key={itemMode} value={itemMode}>
+                      {SMYSNK3_MODE_LABELS[itemMode]}
+                    </option>
+                  ))}
+                </select>
+                {sessionSlug ? (
+                  <p className="helper" style={{ marginTop: "8px" }}>
+                    Active session: {sessionSlug}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="progress-wrap" aria-live="polite">
+                <div className="progress-meta">
+                  <span>
+                    {answeredCount} answered
+                  </span>
+                  <span>
+                    {remainingCount} left
+                  </span>
+                  <span>
+                    {percentComplete}% complete
+                  </span>
+                </div>
+                <div className="progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percentComplete}>
+                  <div className="progress-fill" style={{ width: `${percentComplete}%` }} />
+                </div>
+              </div>
+
+              {loadingSession ? (
+                <p style={{ marginTop: "20px" }}>Loading session...</p>
+              ) : currentQuestion ? (
+                <div className="answer-row" style={{ marginTop: "20px" }}>
+                  <div className="answer-meta" style={{ alignItems: "flex-start" }}>
+                    <div className="answer-question">
+                      #{currentIndex + 1} of {scenarios.length} {currentQuestion.scenario}
+                    </div>
+                  </div>
+
+                  <div className="scenario-option-grid" role="radiogroup" aria-label={`Answer for ${currentQuestion.id}`}>
+                    {displayedOptions.map((option) => {
+                      const isSelected = answers[currentQuestion.id] === option.answerKey;
+                      return (
+                        <button
+                          type="button"
+                          key={`${currentQuestion.id}-${option.displayKey}-${option.answerKey}`}
+                          className={`scenario-option ${isSelected ? "active" : ""}`.trim()}
+                          onClick={() => handleSelectAnswer({ answer: option.answerKey, displayKey: option.displayKey })}
+                          aria-pressed={isSelected}
+                          disabled={savingAnswer || finalizing}
+                        >
+                          <span className="scenario-option-key">{option.displayKey}</span>
+                          <span>{option.text}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="question-nav-row">
+                    <button type="button" className="button secondary" onClick={handlePrev} disabled={!canGoPrev || savingAnswer || finalizing}>
+                      Previous
+                    </button>
+                    <button type="button" className="button secondary" onClick={handleNext} disabled={!canGoNext || savingAnswer || finalizing}>
+                      Next
+                    </button>
+                    <button
+                      type="button"
+                      className="button"
+                      onClick={handleFinalize}
+                      disabled={answeredCount !== totalCount || savingAnswer || finalizing}
+                    >
+                      {finalizing ? "Finalizing..." : "Finalize"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p style={{ marginTop: "20px" }}>No scenarios available for this mode.</p>
+              )}
+            </>
           )}
 
           {savingAnswer ? <p className="helper">Saving answer...</p> : null}

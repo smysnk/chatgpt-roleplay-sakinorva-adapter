@@ -21,6 +21,7 @@ function SakinorvaQuestionsContent() {
   const searchParams = useSearchParams();
   const [manualName, setManualName] = useState(searchParams.get("label") ?? "");
   const [manualNotes, setManualNotes] = useState(searchParams.get("notes") ?? "");
+  const [started, setStarted] = useState(false);
   const [manualAnswers, setManualAnswers] = useState<number[]>(
     () => Array.from({ length: QUESTIONS.length }, () => 0)
   );
@@ -84,9 +85,24 @@ function SakinorvaQuestionsContent() {
             Answer each statement on a 1–5 scale (1 = No, 5 = Yes). Your results will be saved to a
             shareable link.
           </p>
+          <p className="helper" style={{ marginTop: "8px" }}>
+            This run has {QUESTIONS.length} questions. Choose the response that best matches your typical
+            first instinct.
+          </p>
+          {!started ? (
+            <div style={{ marginTop: "16px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <button type="button" className="button" onClick={() => setStarted(true)}>
+                Start questions
+              </button>
+              <Link className="button secondary" href="/sakinorva-adapter">
+                Back to Sakinorva
+              </Link>
+            </div>
+          ) : null}
         </div>
-        <div className="app-card">
-          <form onSubmit={handleManualSubmit} className="grid" style={{ marginTop: "24px" }}>
+        {started ? (
+          <div className="app-card">
+            <form onSubmit={handleManualSubmit} className="grid" style={{ marginTop: "24px" }}>
             <div className="form-grid">
               <div>
                 <label className="label" htmlFor="manual-name">
@@ -152,8 +168,9 @@ function SakinorvaQuestionsContent() {
               </Link>
             </div>
             {manualError ? <div className="error">{manualError}</div> : null}
-          </form>
-        </div>
+            </form>
+          </div>
+        ) : null}
       </div>
     </main>
   );
