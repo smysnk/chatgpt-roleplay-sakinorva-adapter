@@ -15,6 +15,7 @@ const FUNCTION_KEYS = ["Ni", "Ne", "Si", "Se", "Ti", "Te", "Fi", "Fe"] as const;
 
 type FunctionKey = (typeof FUNCTION_KEYS)[number];
 type GrantStyle = "IEIE" | "EIEI";
+export type Smysnk2TypeMatchScoringMode = "archetype_presence" | "weighted_archetype_hits";
 
 export type Smysnk2Response = {
   questionId: string;
@@ -136,6 +137,10 @@ export type Smysnk2ScoringResult = {
   analysis: Smysnk2Analysis;
 };
 
+export type Smysnk2ScoreOptions = {
+  typeMatchScoringMode?: Smysnk2TypeMatchScoringMode;
+};
+
 type EvaluatedResponse = {
   questionId: string;
   functionKey: FunctionKey;
@@ -219,12 +224,35 @@ const TYPE_STACKS: Record<string, [FunctionKey, FunctionKey, FunctionKey, Functi
 const getGrantStyle = (stack: [FunctionKey, FunctionKey, FunctionKey, FunctionKey]): GrantStyle =>
   stack[0].endsWith("i") ? "IEIE" : "EIEI";
 
+const scoreArchetypeSlot = ({
+  slotHits,
+  slotTotal,
+  mode
+}: {
+  slotHits: number;
+  slotTotal: number;
+  mode: Smysnk2TypeMatchScoringMode;
+}) => {
+  if (mode === "weighted_archetype_hits") {
+    return {
+      score: slotHits > 0 ? 20 + Math.max(0, slotHits - 1) * 10 : 0,
+      maxScore: slotTotal > 0 ? 20 + Math.max(0, slotTotal - 1) * 10 : 0
+    };
+  }
+  return {
+    score: slotHits > 0 ? 1 : 0,
+    maxScore: slotTotal > 0 ? 1 : 0
+  };
+};
+
 const computeTypeMatches = ({
   bucketCounts,
-  bucketTotals
+  bucketTotals,
+  scoringMode
 }: {
   bucketCounts: Record<Smysnk2Archetype, Record<FunctionKey, number>>;
   bucketTotals: Record<Smysnk2Archetype, number>;
+  scoringMode: Smysnk2TypeMatchScoringMode;
 }): Smysnk2TypeMatchingSummary => {
   const activeArchetypes = SMYSNK2_ARCHETYPE_ORDER.filter((archetype) => bucketTotals[archetype] > 0);
   const activeArchetypeCount = activeArchetypes.length;
@@ -254,6 +282,8 @@ const computeTypeMatches = ({
 
       let archetypeHitCount = 0;
       let slotHitVolume = 0;
+      let weightedScore = 0;
+      let weightedOpportunity = 0;
 
       activeArchetypes.forEach((archetype) => {
         const index = archetypeIndex.get(archetype) ?? -1;
@@ -262,16 +292,27 @@ const computeTypeMatches = ({
         }
         const expectedFunction = expected[index];
         const slotHits = bucketCounts[archetype][expectedFunction] ?? 0;
+        const slotTotal = bucketTotals[archetype] ?? 0;
+        const slotScore = scoreArchetypeSlot({
+          slotHits,
+          slotTotal,
+          mode: scoringMode
+        });
+
         if (slotHits > 0) {
           archetypeHitCount += 1;
           slotHitVolume += slotHits;
         }
+        weightedScore += slotScore.score;
+        weightedOpportunity += slotScore.maxScore;
       });
 
       const match: Smysnk2TypeMatch = {
         type,
         grantStyle: getGrantStyle(stack),
-        confidence: round2((archetypeHitCount / activeArchetypeCount) * 100),
+        confidence: round2(
+          weightedOpportunity > 0 ? (weightedScore / weightedOpportunity) * 100 : 0
+        ),
         stack,
         archetypeHitCount,
         archetypeOpportunityCount: activeArchetypeCount,
@@ -280,12 +321,14 @@ const computeTypeMatches = ({
 
       return {
         match,
+        weightedScore,
         archetypeHitCount,
         slotHitVolume
       };
     })
     .sort(
       (a, b) =>
+        b.weightedScore - a.weightedScore ||
         b.archetypeHitCount - a.archetypeHitCount ||
         b.slotHitVolume - a.slotHitVolume ||
         a.match.type.localeCompare(b.match.type)
@@ -298,7 +341,7 @@ const computeTypeMatches = ({
 
   const styleTotals = ranked.reduce(
     (acc, entry) => {
-      acc[entry.match.grantStyle] = Math.max(acc[entry.match.grantStyle], entry.archetypeHitCount);
+      acc[entry.match.grantStyle] = Math.max(acc[entry.match.grantStyle], entry.weightedScore);
       return acc;
     },
     { IEIE: 0, EIEI: 0 }
@@ -336,7 +379,13 @@ const getDominantGrantStyle = (typeMatching: Smysnk2TypeMatchingSummary) => {
   return { style: top.style as GrantStyle, confidence: top.confidence };
 };
 
-const buildStats = (evaluated: EvaluatedResponse[]) => {
+const buildStats = ({
+  evaluated,
+  scoringMode
+}: {
+  evaluated: EvaluatedResponse[];
+  scoringMode: Smysnk2TypeMatchScoringMode;
+}) => {
   const globalCounts = EMPTY_FUNCTION_RECORD();
   const bucketTotals = EMPTY_ARCHETYPE_TOTALS();
   const bucketCounts = EMPTY_ARCHETYPE_COUNTS();
@@ -417,15 +466,23 @@ const buildStats = (evaluated: EvaluatedResponse[]) => {
     archetypeBreakdown,
     functionConfidence,
     functionScores,
-    typeMatching: computeTypeMatches({ bucketCounts, bucketTotals })
+    typeMatching: computeTypeMatches({
+      bucketCounts,
+      bucketTotals,
+      scoringMode
+    })
   };
 };
 
 const buildPolarityAnalysis = (
   polarity: Smysnk2ContextPolarity,
-  evaluated: EvaluatedResponse[]
+  evaluated: EvaluatedResponse[],
+  scoringMode: Smysnk2TypeMatchScoringMode
 ): Smysnk2PolarityAnalysis => {
-  const stats = buildStats(evaluated.filter((item) => item.polarity === polarity));
+  const stats = buildStats({
+    evaluated: evaluated.filter((item) => item.polarity === polarity),
+    scoringMode
+  });
   const dominant = getDominantGrantStyle(stats.typeMatching);
   return {
     polarity,
@@ -438,9 +495,18 @@ const buildPolarityAnalysis = (
   };
 };
 
-const buildContextAnalyses = (evaluated: EvaluatedResponse[]): Smysnk2ContextTypeAnalysis[] =>
+const buildContextAnalyses = ({
+  evaluated,
+  scoringMode
+}: {
+  evaluated: EvaluatedResponse[];
+  scoringMode: Smysnk2TypeMatchScoringMode;
+}): Smysnk2ContextTypeAnalysis[] =>
   SMYSNK2_SITUATION_CONTEXT_ORDER.map((context) => {
-    const stats = buildStats(evaluated.filter((item) => item.context === context));
+    const stats = buildStats({
+      evaluated: evaluated.filter((item) => item.context === context),
+      scoringMode
+    });
     const dominant = getDominantGrantStyle(stats.typeMatching);
     return {
       context,
@@ -569,7 +635,11 @@ export const normalizeSmysnk2OptionKey = (value: unknown): Smysnk2OptionKey | nu
   return isSmysnk2OptionKey(upper) ? upper : null;
 };
 
-export const scoreSmysnk2Responses = (responses: Smysnk2Response[]): Smysnk2ScoringResult => {
+export const scoreSmysnk2Responses = (
+  responses: Smysnk2Response[],
+  options: Smysnk2ScoreOptions = {}
+): Smysnk2ScoringResult => {
+  const scoringMode = options.typeMatchScoringMode ?? "archetype_presence";
   const evaluated: EvaluatedResponse[] = responses.flatMap((response) => {
     const question = getSmysnk2ScenarioById(response.questionId);
     if (!question) {
@@ -590,10 +660,10 @@ export const scoreSmysnk2Responses = (responses: Smysnk2Response[]): Smysnk2Scor
     ];
   });
 
-  const overallStats = buildStats(evaluated);
-  const persona = buildPolarityAnalysis("persona", evaluated);
-  const shadow = buildPolarityAnalysis("shadow", evaluated);
-  const contexts = buildContextAnalyses(evaluated);
+  const overallStats = buildStats({ evaluated, scoringMode });
+  const persona = buildPolarityAnalysis("persona", evaluated, scoringMode);
+  const shadow = buildPolarityAnalysis("shadow", evaluated, scoringMode);
+  const contexts = buildContextAnalyses({ evaluated, scoringMode });
   const dominantOverallStyle = getDominantGrantStyle(overallStats.typeMatching);
   const temperamentConfidence = buildTemperamentConfidence({ persona, shadow, contexts });
 

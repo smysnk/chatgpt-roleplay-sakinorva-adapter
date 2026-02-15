@@ -1,5 +1,4 @@
 import {
-  calculateSmysnk2Scores,
   deriveSmysnk2Stack,
   isSmysnk2OptionKey,
   normalizeSmysnk2OptionKey,
@@ -42,6 +41,9 @@ export const isSmysnk3OptionKey = isSmysnk2OptionKey;
 export const normalizeSmysnk3OptionKey = normalizeSmysnk2OptionKey;
 
 export const scoreSmysnk3Responses = (responses: Smysnk3Response[]): Smysnk3ScoringResult =>
-  scoreSmysnk2Responses(responses);
+  scoreSmysnk2Responses(responses, {
+    typeMatchScoringMode: "weighted_archetype_hits"
+  });
 
-export const calculateSmysnk3Scores = (responses: Smysnk3Response[]) => calculateSmysnk2Scores(responses);
+export const calculateSmysnk3Scores = (responses: Smysnk3Response[]) =>
+  scoreSmysnk3Responses(responses).functionScores;
